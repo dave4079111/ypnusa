@@ -251,7 +251,7 @@ export function buildQualification(answers: BorrowerAnswers): QualificationSumma
     rationale.push(`Implied first-lien LTV ${impliedLtv}%.`);
   }
 
-  const leadQuality = leadQualityFromScore(scores.overallScore, urgency);
+  const leadQuality = leadQualityFromScore(weighted, urgency);
   const recommendedNextStep = recommendNext(answers.loanProgram, leadQuality, urgency);
 
   return {

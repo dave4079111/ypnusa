@@ -4,6 +4,7 @@ import { logCrmActivity, routeLoanOfficer } from "./crm";
 import { buildQualification, recommendPrograms } from "./qualification";
 import type { BorrowerAnswers, IntakeSessionRecord, LoanProgram } from "./types";
 import { notifyAssignedOfficer } from "./notifications";
+import { mirrorIntakeToExternalWebhook } from "./external-webhook";
 
 export interface BorrowerFinalizeSnapshot {
   alreadyCompleted: boolean;
@@ -95,6 +96,24 @@ export function finalizeIntakeArtifacts(
       leadQuality: qualification.leadQuality,
       borrowerLeadId: crm.borrowerLeadId,
     },
+  });
+
+  void mirrorIntakeToExternalWebhook({
+    event: "intake.completed",
+    receivedAt: new Date().toISOString(),
+    borrowerLeadId: crm.borrowerLeadId,
+    crmLeadId: crm.crmLeadId,
+    sessionId: session.id,
+    loanProgram: session.loanProgram,
+    funnelSource: session.funnelSource,
+    answers,
+    qualification,
+    assignedOfficer: {
+      id: officerProfile.id,
+      name: officerProfile.name,
+      email: officerProfile.email,
+    },
+    ingestStack: "loanapilot_next",
   });
 
   return {

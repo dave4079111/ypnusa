@@ -43,6 +43,12 @@ export default function Landing() {
             >
               View LOS analytics ledger
             </Link>
+            <Link
+              href="/embed/intake"
+              className="inline-flex items-center justify-center rounded-full border border-white/40 bg-white/10 px-6 py-3 text-white shadow-inner backdrop-blur"
+            >
+              Open YPN embed surface
+            </Link>
           </div>
 
           <p className="text-xs uppercase tracking-[0.32em] text-white/70">

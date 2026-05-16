@@ -217,7 +217,7 @@ export function intakeTick(payload: IntakeTickRequest): IntakeTickResponse {
   }
 
   workingAnswers = hydrateAnswers(session);
-  let nextPrompt = findNextStep(session.loanProgram, workingAnswers);
+  const nextPrompt = findNextStep(session.loanProgram, workingAnswers);
 
   if (!nextPrompt) {
     const finalized = finalizeIntakeArtifacts(session);

@@ -45,7 +45,7 @@ export function mergeStructuredAnswer(
     return mergeBoolean(answers, trimmed, step.fieldPath);
   }
 
-  if (trimmed === "" && step.kind !== "boolean") {
+  if (trimmed === "") {
     return { ok: false, error: `${label ?? "Answer"} looks empty` };
   }
 

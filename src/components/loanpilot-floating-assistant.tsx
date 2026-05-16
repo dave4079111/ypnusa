@@ -3,12 +3,10 @@
 import type { BorrowerAnswers, LoanProgram } from "@/lib/types";
 import type { AssistantStep, IntakeTickResponse } from "@/lib/intake-contracts";
 import { PROGRAM_LIST } from "@/lib/programs";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 type Bubble = { id: string; role: "assistant" | "user" | "system"; body: string };
 type IncomingPayload = { field: keyof BorrowerAnswers; rawValue: string };
-
-const STORAGE_KEY = "loanpilot_session_v2";
 
 function makeId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -27,11 +25,24 @@ function slotPretty(iso: string) {
   }).format(new Date(iso));
 }
 
-export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
-  const funnel = props.funnelSource ?? "loanpilot_ai_surface";
+type IntakeBrand = "loanpilot" | "ypn";
+type IntakeVariant = "fab" | "embed";
+
+export function MortgageIntakeChat(props: {
+  funnelSource?: string;
+  brand?: IntakeBrand;
+  variant?: IntakeVariant;
+}) {
+  const brand = props.brand ?? "loanpilot";
+  const variant = props.variant ?? "fab";
+  const funnel =
+    props.funnelSource ??
+    (brand === "ypn" ? "ypn_embed_canonical" : "loanpilot_ai_surface");
+
+  const STORAGE_KEY = brand === "ypn" ? "ypn_intake_sess_v1" : "loanpilot_session_v2";
 
   const [loanProgram, setLoanProgram] = useState<LoanProgram>("FHA");
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(variant !== "fab");
 
   const [sessionIdState, setSessionIdState] = useState<string | null>(() =>
     typeof window === "undefined" ? null : null,
@@ -40,6 +51,7 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
 
   const automationSentRef = useRef(false);
   const hasHydratedFsRef = useRef(false);
+  const embedBootedRef = useRef(false);
 
   const [msgs, setMsgs] = useState<Bubble[]>([]);
   const [pct, setPct] = useState(8);
@@ -53,6 +65,9 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
   const [busy, setBusy] = useState(false);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const surfaceOpen = variant === "embed" || open;
 
   /** Hydrate persisted session ids after mount without touching SSR */
   useEffect(() => {
@@ -62,12 +77,13 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) {
         sessionIdRef.current = stored;
-        setSessionIdState(stored);
+        // Hydrate after SSR so server/client markup stay aligned until mount
+        setSessionIdState(stored); // eslint-disable-line react-hooks/set-state-in-effect
       }
     } catch {
       /** noop */
     }
-  }, []);
+  }, [STORAGE_KEY]);
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -76,7 +92,7 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
     queueMicrotask(() => {
       el.scrollTop = el.scrollHeight;
     });
-  }, [msgs, open, phase, busy]);
+  }, [msgs, open, phase, busy, variant]);
 
   const pushAssistant = useCallback((t: string) => {
     const b = t.trim();
@@ -107,7 +123,7 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
     } catch {
       /** noop */
     }
-  }, []);
+  }, [STORAGE_KEY]);
 
   const purgeSession = useCallback(() => {
     sessionIdRef.current = null;
@@ -118,7 +134,7 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
     } catch {
       /** noop */
     }
-  }, []);
+  }, [STORAGE_KEY]);
 
   async function hydrateSlots(preview?: IntakeTickResponse["slotPreview"], officerId?: string | null) {
     if (preview?.length) {
@@ -196,7 +212,11 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
       await applySnapshot(snapshot);
       return snapshot;
     } catch {
-      pushSys("Network turbulence—LoanPilot LOS bridge unavailable.");
+      pushSys(
+        brand === "ypn"
+          ? "Connection glitch — retry when you’re back online."
+          : "Network turbulence—LoanPilot LOS bridge unavailable.",
+      );
       return null;
     } finally {
       setBusy(false);
@@ -205,9 +225,38 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
 
   async function bootConversation() {
     if (msgs.length > 0) return;
-
     await postTick();
   }
+
+  /** Embed: start intake once; guard against Strict Mode double-invoke. */
+  useEffect(() => {
+    if (variant !== "embed") return;
+    if (embedBootedRef.current) return;
+    embedBootedRef.current = true;
+    void (async () => {
+      await postTick();
+    })();
+    // Intentionally once per embed mount; postTick closes over latest state on first paint.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variant]);
+
+  /** Notify iframe parents when the widget height changes (e.g. resize embed container). */
+  useEffect(() => {
+    if (variant !== "embed") return;
+    const el = rootRef.current;
+    if (!el || typeof window === "undefined") return;
+    if (window.parent === window) return;
+
+    const notify = () => {
+      const h = Math.ceil(el.getBoundingClientRect().height);
+      window.parent.postMessage({ type: "ypn-intake-height", height: h }, "*");
+    };
+
+    notify();
+    const ro = new ResizeObserver(notify);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [variant, surfaceOpen, msgs.length, phase, open, booked, slots.length]);
 
   function handleOpen() {
     setOpen(true);
@@ -269,176 +318,407 @@ export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
 
   const inputKind = step?.kind === "number" ? "number" : "text";
 
+  const shellPanel =
+    variant === "fab"
+      ? "shadow-2xl md:h-[min(820px,calc(100vh-48px))] md:rounded-[28px] md:shadow-cyan-200/70 md:border-white md:bg-white"
+      : "min-h-[min(720px,94vh)] w-full rounded-none border shadow-xl md:h-[min(820px,calc(100vh-32px))] md:rounded-[28px]";
+
+  const ambientSurface =
+    brand === "ypn"
+      ? "border-[#09152a]/10 bg-[#fcfcfb] md:border md:bg-[#fdfcf7]"
+      : "border-white bg-[#f6fbff] md:bg-white md:border";
+
+  const markBubble =
+    brand === "ypn"
+      ? "bg-gradient-to-br from-[#c8a84b] to-[#a88935] text-[#09152a] shadow-md shadow-yellow-950/15"
+      : "bg-gradient-to-br from-cyan-500 via-sky-500 to-teal-600 text-white shadow-lg shadow-cyan-500/35";
+
+  const progressFillTone =
+    brand === "ypn"
+      ? "bg-gradient-to-r from-[#09152a] to-[#17335f]"
+      : "bg-gradient-to-r from-cyan-500 to-teal-500";
+
+  const labelTone =
+    brand === "ypn"
+      ? "text-[11px] font-semibold uppercase tracking-[0.16em] text-[#09152a]/60"
+      : "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
+
+  const sendGradient =
+    brand === "ypn"
+      ? "bg-gradient-to-r from-[#09152a] to-[#1c3a66] text-white shadow-xl shadow-black/35"
+      : "bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-lg shadow-cyan-500/40";
+
+  const chipHover = brand === "ypn" ? "hover:border-[#c8a84b]" : "hover:border-cyan-400";
+
+  const chipSlot = brand === "ypn" ? "border-[#c8a84b]/55 hover:border-[#c8a84b]" : "border-cyan-200 hover:border-cyan-400";
+
+  const ringFocus =
+    brand === "ypn"
+      ? "border-slate-200 outline-none ring-[#f3e9c9] focus:ring-2"
+      : "border-slate-200 outline-none ring-cyan-200 focus:ring";
+
+  const fabGradient =
+    brand === "ypn"
+      ? "bg-gradient-to-r from-[#09152a] to-[#1c3a66] shadow-black/40"
+      : "bg-gradient-to-r from-cyan-500 to-teal-600 shadow-cyan-500/40";
+
+  const brandMark = brand === "ypn" ? "YPN" : "LP";
+  const brandLine = brand === "ypn" ? "YPN AI" : "LoanPilot AI";
+  const titleLine = brand === "ypn" ? "Borrower intake" : "Mortgage intake assistant";
+  const progressNote =
+    phase === "crm_synced"
+      ? brand === "ypn"
+        ? "Profile synced — team follow-up engaged"
+        : "CRM + nurture automations engaged"
+      : brand === "ypn"
+        ? "Adaptive qualification"
+        : "Adaptive LOS questioning";
+
+  const closedFooter =
+    brand === "ypn"
+      ? "Profile captured. Your loan team can continue by SMS or email when those channels are connected."
+      : "LOS + CRM payloads mirrored. Wire Twilio/SendGrid webhooks atop the automation ledger for prod.";
+
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={handleOpen}
-        className="fixed bottom-6 right-4 z-40 flex items-center gap-3 rounded-full bg-gradient-to-r from-cyan-500 to-teal-600 px-6 py-3 text-sm font-semibold text-white shadow-2xl shadow-cyan-500/40 md:right-8"
-      >
-        <span className="text-lg" aria-hidden>
-          ⚡️
-        </span>
-        AI intake concierge
-      </button>
+    <div ref={rootRef} className="relative">
+      {variant === "fab" && !surfaceOpen ? (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className={`fixed bottom-6 right-4 z-40 flex items-center gap-3 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-2xl md:right-8 ${fabGradient}`}
+        >
+          <span className="text-lg" aria-hidden>
+            {brand === "ypn" ? "✦" : "⚡️"}
+          </span>
+          {brand === "ypn" ? "Start intake" : "AI intake concierge"}
+        </button>
+      ) : null}
 
-      {open ? (
-        <div className="fixed inset-0 z-50 md:inset-auto md:bottom-6 md:right-6 md:flex md:justify-end">
-          <button
-            type="button"
-            aria-label="Backdrop"
-            className="absolute inset-0 bg-black/45 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none"
-            onClick={() => setOpen(false)}
-          />
+      {surfaceOpen ? (
+        variant === "fab" ? (
+          <div className="fixed inset-0 z-50 md:inset-auto md:bottom-6 md:right-6 md:flex md:justify-end">
+            <button
+              type="button"
+              aria-label="Backdrop"
+              className="absolute inset-0 bg-black/45 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none"
+              onClick={() => setOpen(false)}
+            />
 
-          <section className="relative flex h-[100dvh] w-full max-w-lg flex-col overflow-hidden bg-[#f6fbff] shadow-2xl md:h-[min(820px,calc(100vh-48px))] md:rounded-[28px] md:border md:border-white md:bg-white md:shadow-cyan-200/70">
-            <header className="border-b border-slate-100 px-5 pb-4 pt-4">
-              <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 via-sky-500 to-teal-600 text-white shadow-lg shadow-cyan-500/35">
-                  LP
-                </div>
-
-                <div className="flex-1 space-y-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">LoanPilot AI</p>
-                  <h2 className="text-xl font-semibold text-slate-950">Mortgage intake assistant</h2>
-                  <p className="text-sm text-slate-600">{funnel}</p>
-                </div>
-
-                <div className="flex flex-col gap-2 text-[11px] text-slate-500">
-                  <button type="button" className="rounded-full px-3 py-1 hover:bg-slate-100" onClick={() => setOpen(false)}>
-                    Close
-                  </button>
-                  <button type="button" className="rounded-full px-3 py-1 hover:bg-slate-100" onClick={handleReset} disabled={busy}>
-                    Reset
-                  </button>
-                </div>
-              </div>
-
-              <div className="mt-4 space-y-1">
-                <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  <span>Progress</span>
-                  <span>
-                    {counts.done}/{counts.total} · {pct}%
-                  </span>
-                </div>
-                <div className="h-2 rounded-full bg-slate-100">
-                  <div
-                    className="h-2 rounded-full bg-gradient-to-r from-cyan-500 to-teal-500 transition-all"
-                    style={{ width: `${Math.max(6, Math.min(100, pct))}%` }}
-                  />
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  {phase === "crm_synced" ? "CRM + nurture automations engaged" : "Adaptive LOS questioning"}
-                </p>
-              </div>
-
-              <label className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Program lane
-                <select
-                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner disabled:opacity-55"
-                  value={loanProgram}
-                  disabled={Boolean(sessionIdState) || busy}
-                  onChange={(evt) => setLoanProgram(evt.target.value as LoanProgram)}
-                >
-                  {PROGRAM_LIST.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="mt-2 text-[11px] text-slate-500">Program locks once the LOS handshake begins.</p>
-            </header>
-
-            <div ref={scrollerRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
-              {msgs.map((bubble) => (
-                <article
-                  key={bubble.id}
-                  className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                    bubble.role === "assistant"
-                      ? "self-start bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80 rounded-bl-[6px]"
-                      : bubble.role === "user"
-                        ? "self-end bg-slate-900 text-white shadow-md rounded-br-[6px]"
-                        : "self-center text-center text-xs italic text-slate-500"
-                  }`}
-                >
-                  {bubble.body}
-                </article>
-              ))}
-            </div>
-
-            <footer className="space-y-3 border-t border-slate-100 px-5 py-4">
-              {phase === "crm_synced" ? (
-                <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Appointment rail</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(slots ?? []).map((slot) => (
-                      <button
-                        key={`${slot.loId}-${slot.start}`}
-                        type="button"
-                        disabled={busy || booked}
-                        onClick={() => void handleBook(slot.start, slot.loId)}
-                        className="rounded-full border border-cyan-200 bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-xs hover:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {slotPretty(slot.start)}
-                      </button>
-                    ))}
-                  </div>
-                  {booked ? <p className="text-xs text-emerald-600">Consultation placeholder confirmed.</p> : null}
-                </div>
-              ) : null}
-
-              {step?.chips && step.kind !== "number" ? (
-                <div className="flex flex-wrap gap-2">
-                  {step.chips.map((chip) => (
-                    <button
-                      key={chip.value}
-                      type="button"
-                      disabled={busy || phase === "crm_synced"}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 shadow-xs hover:border-cyan-400 disabled:opacity-40"
-                      onClick={() => step && submitAnswer(step, chip.value, chip.label)}
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {phase === "collecting" ? (
-                <div className="flex gap-2">
-                  <input
-                    disabled={busy || !step}
-                    value={draft}
-                    onChange={(evt) => setDraft(evt.target.value)}
-                    onKeyDown={(evt) => {
-                      if (!step) return;
-                      if (evt.key === "Enter" && !evt.shiftKey) {
-                        evt.preventDefault();
-                        submitAnswer(step, draft);
-                      }
-                    }}
-                    type={inputKind}
-                    className="flex-1 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-sm outline-none ring-cyan-200 focus:ring"
-                    placeholder={step?.placeholder ?? "Answer the LOS AI"}
-                  />
-                  <button
-                    type="button"
-                    disabled={busy || !step}
-                    onClick={() => step && submitAnswer(step, draft)}
-                    className="rounded-2xl bg-gradient-to-r from-cyan-500 to-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-cyan-500/40 disabled:opacity-35"
-                  >
-                    Send
-                  </button>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-500">
-                  LOS + CRM payloads mirrored. Wire Twilio/SendGrid webhooks atop the automation ledger for prod.
-                </p>
-              )}
-            </footer>
+            <section
+              className={`relative flex h-[100dvh] w-full max-w-lg flex-col overflow-hidden md:border ${shellPanel} ${ambientSurface}`}
+            >
+              <InnerChrome
+                brandMark={brandMark}
+                brandLine={brandLine}
+                titleLine={titleLine}
+                funnel={funnel}
+                variant={variant}
+                busy={busy}
+                counts={counts}
+                pct={pct}
+                phase={phase}
+                progressFillTone={progressFillTone}
+                labelTone={labelTone}
+                progressNote={progressNote}
+                loanProgram={loanProgram}
+                sessionIdState={sessionIdState}
+                onLoanProgram={(p) => setLoanProgram(p)}
+                onClose={() => setOpen(false)}
+                onReset={handleReset}
+                markBubble={markBubble}
+                scrollerRef={scrollerRef}
+                msgs={msgs}
+                slots={slots}
+                booked={booked}
+                handleBook={handleBook}
+                step={step}
+                phaseForChips={phase}
+                chipSlot={chipSlot}
+                chipHover={chipHover}
+                busyFlag={busy}
+                submitAnswer={submitAnswer}
+                inputKind={inputKind}
+                draft={draft}
+                setDraft={setDraft}
+                ringFocus={ringFocus}
+                sendGradient={sendGradient}
+                closedFooter={closedFooter}
+              />
+            </section>
+          </div>
+        ) : (
+          <section className={`relative mx-auto flex w-full max-w-lg flex-col overflow-hidden border md:border ${shellPanel} ${ambientSurface}`}>
+            <InnerChrome
+              brandMark={brandMark}
+              brandLine={brandLine}
+              titleLine={titleLine}
+              funnel={funnel}
+              variant={variant}
+              busy={busy}
+              counts={counts}
+              pct={pct}
+              phase={phase}
+              progressFillTone={progressFillTone}
+              labelTone={labelTone}
+              progressNote={progressNote}
+              loanProgram={loanProgram}
+              sessionIdState={sessionIdState}
+              onLoanProgram={(p) => setLoanProgram(p)}
+              onClose={() => setOpen(false)}
+              onReset={handleReset}
+              markBubble={markBubble}
+              scrollerRef={scrollerRef}
+              msgs={msgs}
+              slots={slots}
+              booked={booked}
+              handleBook={handleBook}
+              step={step}
+              phaseForChips={phase}
+              chipSlot={chipSlot}
+              chipHover={chipHover}
+              busyFlag={busy}
+              submitAnswer={submitAnswer}
+              inputKind={inputKind}
+              draft={draft}
+              setDraft={setDraft}
+              ringFocus={ringFocus}
+              sendGradient={sendGradient}
+              closedFooter={closedFooter}
+            />
           </section>
-        </div>
+        )
       ) : null}
     </div>
   );
+}
+
+function InnerChrome(props: {
+  brandMark: string;
+  brandLine: string;
+  titleLine: string;
+  funnel: string;
+  variant: IntakeVariant;
+  busy: boolean;
+  counts: { done: number; total: number };
+  pct: number;
+  phase: IntakeTickResponse["phase"];
+  progressFillTone: string;
+  labelTone: string;
+  progressNote: string;
+  loanProgram: LoanProgram;
+  sessionIdState: string | null;
+  onLoanProgram: (p: LoanProgram) => void;
+  onClose: () => void;
+  onReset: () => void;
+  markBubble: string;
+  scrollerRef: RefObject<HTMLDivElement | null>;
+  msgs: Bubble[];
+  slots: NonNullable<IntakeTickResponse["slotPreview"]>;
+  booked: boolean;
+  handleBook: (startIso: string, loId: string) => Promise<void>;
+  step: AssistantStep | null;
+  phaseForChips: IntakeTickResponse["phase"];
+  chipSlot: string;
+  chipHover: string;
+  busyFlag: boolean;
+  submitAnswer: (field: AssistantStep, raw: string, label?: string) => Promise<void>;
+  inputKind: string;
+  draft: string;
+  setDraft: (v: string) => void;
+  ringFocus: string;
+  sendGradient: string;
+  closedFooter: string;
+}) {
+  const {
+    brandMark,
+    brandLine,
+    titleLine,
+    funnel,
+    variant,
+    busy,
+    counts,
+    pct,
+    phase,
+    progressFillTone,
+    labelTone,
+    progressNote,
+    loanProgram,
+    sessionIdState,
+    onLoanProgram,
+    onClose,
+    onReset,
+    markBubble,
+    scrollerRef,
+    msgs,
+    slots,
+    booked,
+    handleBook,
+    step,
+    phaseForChips,
+    chipSlot,
+    chipHover,
+    busyFlag,
+    submitAnswer,
+    inputKind,
+    draft,
+    setDraft,
+    ringFocus,
+    sendGradient,
+    closedFooter,
+  } = props;
+
+  return (
+    <>
+      <header className="border-b border-slate-100 px-5 pb-4 pt-4">
+        <div className="flex items-start gap-4">
+          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl text-sm font-bold ${markBubble}`}>
+            {brandMark}
+          </div>
+
+          <div className="flex-1 space-y-1">
+            <p className={labelTone}>{brandLine}</p>
+            <h2 className="text-xl font-semibold text-slate-950">{titleLine}</h2>
+            <p className="text-sm text-slate-600">{funnel}</p>
+          </div>
+
+          <div className="flex flex-col gap-2 text-[11px] text-slate-500">
+            {variant === "fab" ? (
+              <button type="button" className="rounded-full px-3 py-1 hover:bg-slate-100" onClick={onClose}>
+                Close
+              </button>
+            ) : null}
+            <button type="button" className="rounded-full px-3 py-1 hover:bg-slate-100" onClick={onReset} disabled={busy}>
+              Reset
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-1">
+          <div className={`flex items-center justify-between ${labelTone}`}>
+            <span>Progress</span>
+            <span>
+              {counts.done}/{counts.total} · {pct}%
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-100">
+            <div
+              className={`h-2 rounded-full transition-all ${progressFillTone}`}
+              style={{ width: `${Math.max(6, Math.min(100, pct))}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-slate-500">{progressNote}</p>
+        </div>
+
+        <label className={`mt-4 block ${labelTone}`}>
+          Program lane
+          <select
+            className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner disabled:opacity-55"
+            value={loanProgram}
+            disabled={Boolean(sessionIdState) || busy}
+            onChange={(evt) => onLoanProgram(evt.target.value as LoanProgram)}
+          >
+            {PROGRAM_LIST.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="mt-2 text-[11px] text-slate-500">Program locks once the LOS handshake begins.</p>
+      </header>
+
+      <div ref={scrollerRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
+        {msgs.map((bubble) => (
+          <article
+            key={bubble.id}
+            className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+              bubble.role === "assistant"
+                ? "self-start bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80 rounded-bl-[6px]"
+                : bubble.role === "user"
+                  ? "self-end bg-slate-900 text-white shadow-md rounded-br-[6px]"
+                  : "self-center text-center text-xs italic text-slate-500"
+            }`}
+          >
+            {bubble.body}
+          </article>
+        ))}
+      </div>
+
+      <footer className="space-y-3 border-t border-slate-100 px-5 py-4">
+        {phase === "crm_synced" ? (
+          <div className="space-y-2">
+            <p className={labelTone}>Appointment rail</p>
+            <div className="flex flex-wrap gap-2">
+              {(slots ?? []).map((slot) => (
+                <button
+                  key={`${slot.loId}-${slot.start}`}
+                  type="button"
+                  disabled={busyFlag || booked}
+                  onClick={() => void handleBook(slot.start, slot.loId)}
+                  className={`rounded-full border bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-xs disabled:cursor-not-allowed disabled:opacity-40 ${chipSlot}`}
+                >
+                  {slotPretty(slot.start)}
+                </button>
+              ))}
+            </div>
+            {booked ? <p className="text-xs text-emerald-600">Consultation placeholder confirmed.</p> : null}
+          </div>
+        ) : null}
+
+        {step?.chips && step.kind !== "number" ? (
+          <div className="flex flex-wrap gap-2">
+            {step.chips.map((chip) => (
+              <button
+                key={chip.value}
+                type="button"
+                disabled={busyFlag || phaseForChips === "crm_synced"}
+                className={`rounded-full border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 shadow-xs disabled:opacity-40 ${chipHover}`}
+                onClick={() => step && submitAnswer(step, chip.value, chip.label)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {phase === "collecting" ? (
+          <div className="flex gap-2">
+            <input
+              disabled={busyFlag || !step}
+              value={draft}
+              onChange={(evt) => setDraft(evt.target.value)}
+              onKeyDown={(evt) => {
+                if (!step) return;
+                if (evt.key === "Enter" && !evt.shiftKey) {
+                  evt.preventDefault();
+                  submitAnswer(step, draft);
+                }
+              }}
+              type={inputKind}
+              className={`flex-1 rounded-2xl border bg-white/90 px-3 py-2 text-sm ${ringFocus}`}
+              placeholder={step?.placeholder ?? "Answer the LOS AI"}
+            />
+            <button
+              type="button"
+              disabled={busyFlag || !step}
+              onClick={() => step && submitAnswer(step, draft)}
+              className={`rounded-2xl px-4 py-2 text-sm font-semibold disabled:opacity-35 ${sendGradient}`}
+            >
+              Send
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">{closedFooter}</p>
+        )}
+      </footer>
+    </>
+  );
+}
+
+export function LoanPilotFloatingIntake(props: { funnelSource?: string }) {
+  return <MortgageIntakeChat brand="loanpilot" variant="fab" funnelSource={props.funnelSource} />;
+}
+
+export function YpnEmbedIntake(props: { funnelSource?: string }) {
+  return <MortgageIntakeChat brand="ypn" variant="embed" funnelSource={props.funnelSource} />;
 }

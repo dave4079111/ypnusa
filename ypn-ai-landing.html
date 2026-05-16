@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YPN AI — Close more loans. Work less. Grow on autopilot.</title>
+  <meta name="description" content="YPN AI — AI platform for mortgage loan officers. Close more loans, work less, grow on autopilot." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #09152a;
+      --navy-mid: #0d1f3d;
+      --gold: #c8a84b;
+      --gold-soft: rgba(200, 168, 75, 0.15);
+      --white: #ffffff;
+      --muted: rgba(255, 255, 255, 0.72);
+      --muted-dark: rgba(9, 21, 42, 0.65);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      font-family: Outfit, system-ui, sans-serif;
+      color: var(--navy);
+      background: var(--white);
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .container {
+      width: min(1120px, 92vw);
+      margin: 0 auto;
+    }
+
+    /* Nav */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(9, 21, 42, 0.08);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.85rem 0;
+      flex-wrap: wrap;
+    }
+
+    .logo {
+      font-weight: 700;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+      color: var(--navy);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--gold) 0%, #a88a3a 100%);
+      flex-shrink: 0;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.75rem;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a:not(.btn) {
+      font-weight: 500;
+      font-size: 0.95rem;
+      color: var(--muted-dark);
+    }
+
+    .nav-links a:not(.btn):hover {
+      color: var(--navy);
+    }
+
+    #nav-toggle {
+      display: none;
+      background: var(--navy);
+      color: var(--white);
+      border: 0;
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.65rem 1.35rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold), #d4bc6a);
+      color: var(--navy);
+      box-shadow: 0 8px 24px rgba(200, 168, 75, 0.35);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 10px 32px rgba(200, 168, 75, 0.45);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--navy);
+      border: 2px solid rgba(9, 21, 42, 0.2);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--gold);
+      background: var(--gold-soft);
+    }
+
+    .btn-inverse {
+      background: var(--gold);
+      color: var(--navy);
+    }
+
+    .btn-lg {
+      padding: 0.85rem 1.85rem;
+      font-size: 1rem;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    /* Hero */
+    .hero {
+      background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(200, 168, 75, 0.12) 0%, transparent 55%),
+        linear-gradient(180deg, #f8f9fb 0%, var(--white) 100%);
+      padding: clamp(3rem, 8vw, 5.5rem) 0 clamp(4rem, 10vw, 6rem);
+    }
+
+    .hero-inner {
+      text-align: center;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      background: var(--gold-soft);
+      padding: 0.35rem 0.85rem;
+      border-radius: 999px;
+      margin-bottom: 1.25rem;
+    }
+
+    h1 {
+      font-size: clamp(2.1rem, 5vw, 3.25rem);
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      margin: 0 0 1rem;
+      color: var(--navy);
+    }
+
+    .hero-sub {
+      font-size: clamp(1.05rem, 2.5vw, 1.25rem);
+      color: var(--muted-dark);
+      margin: 0 auto 2rem;
+      max-width: 560px;
+    }
+
+    .hero-ctas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      justify-content: center;
+      margin-bottom: 3rem;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+
+    @media (min-width: 640px) {
+      .stat-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .stat-box {
+      background: var(--white);
+      border: 1px solid rgba(9, 21, 42, 0.08);
+      border-radius: 16px;
+      padding: 1.25rem 1rem;
+      box-shadow: 0 12px 40px rgba(9, 21, 42, 0.06);
+    }
+
+    .stat-value {
+      font-size: clamp(1.35rem, 3vw, 1.65rem);
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .stat-label {
+      font-size: 0.82rem;
+      color: var(--muted-dark);
+      margin-top: 0.35rem;
+    }
+
+    section {
+      padding: clamp(3rem, 6vw, 5rem) 0;
+    }
+
+    .section-title {
+      text-align: center;
+      margin-bottom: 0.65rem;
+    }
+
+    .section-title h2 {
+      font-size: clamp(1.75rem, 3.5vw, 2.25rem);
+      font-weight: 700;
+      margin: 0;
+      color: var(--navy);
+    }
+
+    .section-sub {
+      text-align: center;
+      max-width: 560px;
+      margin: 0 auto 2.5rem;
+      color: var(--muted-dark);
+      font-size: 1rem;
+    }
+
+    /* Problem */
+    .problem {
+      background: var(--navy);
+      color: var(--white);
+    }
+
+    .problem .section-title h2 {
+      color: var(--white);
+    }
+
+    .problem .section-sub {
+      color: var(--muted);
+    }
+
+    .pain-grid {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 768px) {
+      .pain-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .pain-card {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(200, 168, 75, 0.25);
+      border-radius: 16px;
+      padding: 1.5rem;
+      transition: background 0.2s ease;
+    }
+
+    .pain-card:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .pain-icon {
+      font-size: 1.75rem;
+      margin-bottom: 0.65rem;
+    }
+
+    .pain-card h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .pain-card p {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    /* Features */
+    .feature-grid {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    @media (min-width: 768px) {
+      .feature-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .feature-card {
+      border: 1px solid rgba(9, 21, 42, 0.08);
+      border-radius: 20px;
+      padding: 1.75rem;
+      background: var(--white);
+      box-shadow: 0 8px 32px rgba(9, 21, 42, 0.05);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(200, 168, 75, 0.45);
+      box-shadow: 0 14px 48px rgba(200, 168, 75, 0.12);
+    }
+
+    .feature-card h3 {
+      margin: 0 0 0.65rem;
+      font-size: 1.15rem;
+      color: var(--navy);
+    }
+
+    .feature-card p {
+      margin: 0;
+      font-size: 0.96rem;
+      color: var(--muted-dark);
+    }
+
+    /* How it works */
+    .steps {
+      background: #f6f8fa;
+    }
+
+    .step-row {
+      display: grid;
+      gap: 1.25rem;
+    }
+
+    @media (min-width: 860px) {
+      .step-row {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .step {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 1.5rem;
+      border: 1px solid rgba(9, 21, 42, 0.06);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .step-num {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--gold), #a88a3a);
+      color: var(--navy);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+    }
+
+    .step h3 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+      color: var(--navy);
+    }
+
+    .step p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--muted-dark);
+    }
+
+    /* Pricing */
+    .pricing-grid {
+      display: grid;
+      gap: 1.5rem;
+      align-items: stretch;
+    }
+
+    @media (min-width: 900px) {
+      .pricing-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    .price-card {
+      border: 2px solid rgba(9, 21, 42, 0.1);
+      border-radius: 20px;
+      padding: 2rem 1.5rem;
+      text-align: center;
+      position: relative;
+      background: var(--white);
+    }
+
+    .price-card.featured {
+      border-color: var(--gold);
+      box-shadow: 0 20px 60px rgba(200, 168, 75, 0.2);
+      transform: scale(1.03);
+      z-index: 1;
+    }
+
+    @media (max-width: 899px) {
+      .price-card.featured {
+        transform: none;
+      }
+    }
+
+    .badge-most {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--gold);
+      color: var(--navy);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.35rem 0.95rem;
+      border-radius: 999px;
+    }
+
+    .price-name {
+      font-weight: 600;
+      color: var(--muted-dark);
+      margin-bottom: 0.35rem;
+    }
+
+    .price-amount {
+      font-size: 2.35rem;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1.1;
+    }
+
+    .price-amount span {
+      font-size: 1rem;
+      font-weight: 500;
+      color: var(--muted-dark);
+    }
+
+    .price-list {
+      list-style: none;
+      padding: 0;
+      margin: 1.5rem 0;
+      text-align: left;
+    }
+
+    .price-list li {
+      padding: 0.45rem 0;
+      font-size: 0.93rem;
+      color: var(--muted-dark);
+      border-bottom: 1px solid rgba(9, 21, 42, 0.06);
+    }
+
+    .price-list li::before {
+      content: '✓';
+      color: var(--gold);
+      font-weight: 700;
+      margin-right: 0.5rem;
+    }
+
+    /* FAQ */
+    .faq-list {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .faq-item {
+      border: 1px solid rgba(9, 21, 42, 0.1);
+      border-radius: 12px;
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .faq-q {
+      width: 100%;
+      text-align: left;
+      padding: 1.1rem 1.25rem;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--navy);
+      background: #fafbfd;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .faq-q span.icon {
+      color: var(--gold);
+      font-size: 1.25rem;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+
+    .faq-item.open .faq-q span.icon {
+      transform: rotate(45deg);
+    }
+
+    .faq-a {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+    }
+
+    .faq-item.open .faq-a {
+      max-height: 320px;
+    }
+
+    .faq-a-inner {
+      padding: 0 1.25rem 1.15rem;
+      font-size: 0.96rem;
+      color: var(--muted-dark);
+    }
+
+    /* CTA strip */
+    .cta-strip {
+      background: var(--navy);
+      padding: clamp(3rem, 6vw, 5rem) 0;
+      text-align: center;
+      color: var(--white);
+    }
+
+    .cta-strip h2 {
+      font-size: clamp(1.75rem, 4vw, 2.75rem);
+      margin: 0 0 1rem;
+      color: var(--white);
+    }
+
+    .cta-strip p {
+      margin: 0 0 1.75rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Early access modal / section */
+    .early {
+      scroll-margin-top: 80px;
+    }
+
+    .form-card {
+      max-width: 480px;
+      margin: 0 auto;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), var(--white));
+      border-radius: 20px;
+      padding: clamp(1.75rem, 4vw, 2.25rem);
+      border: 1px solid rgba(200, 168, 75, 0.35);
+      box-shadow: 0 24px 64px rgba(9, 21, 42, 0.1);
+    }
+
+    .field {
+      margin-bottom: 1rem;
+      text-align: left;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 0.35rem;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      border: 1px solid rgba(9, 21, 42, 0.15);
+      font-family: inherit;
+      font-size: 1rem;
+    }
+
+    .field input:focus {
+      outline: none;
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px var(--gold-soft);
+    }
+
+    .form-status {
+      margin-top: 1rem;
+      font-size: 0.92rem;
+      min-height: 1.35em;
+    }
+
+    .form-status.success {
+      color: #1a7f4c;
+      font-weight: 600;
+    }
+
+    .form-status.error {
+      color: #b42318;
+    }
+
+    /* Footer */
+    footer {
+      background: var(--navy-mid);
+      color: rgba(255, 255, 255, 0.8);
+      padding: 3rem 0 2rem;
+    }
+
+    .footer-grid {
+      display: grid;
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (min-width: 640px) {
+      .footer-grid {
+        grid-template-columns: 2fr 1fr 1fr;
+      }
+    }
+
+    .footer-brand {
+      font-weight: 700;
+      font-size: 1.35rem;
+      color: var(--white);
+      margin-bottom: 0.75rem;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .footer-links a:hover {
+      color: var(--gold);
+    }
+
+    .footer-meta {
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 1.5rem;
+      font-size: 0.88rem;
+      text-align: center;
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    /* Mobile nav */
+    @media (max-width: 767px) {
+      #nav-toggle {
+        display: inline-flex;
+      }
+
+      .nav-links {
+        display: none;
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 0.75rem 0 0.25rem;
+        gap: 0.75rem;
+      }
+
+      body.nav-open .nav-links {
+        display: flex;
+      }
+    }
+
+    small.domain {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--muted-dark);
+    }
+  </style>
+</head>
+<body id="top">
+  <header class="nav">
+    <div class="container nav-inner">
+      <a href="#top" class="logo" aria-label="YPN AI home">
+        <span class="logo-mark" aria-hidden="true"></span>
+        YPN AI
+      </a>
+
+      <button type="button" id="nav-toggle" aria-expanded="false" aria-controls="site-nav-links">Menu</button>
+
+      <nav class="nav-links" id="site-nav-links" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#how">How It Works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+        <a class="btn btn-primary" href="#early-access">Get Early Access</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-inner">
+          <span class="eyebrow">ypnus.com</span>
+          <h1>Close more loans. Work less.<br />Grow on autopilot.</h1>
+          <p class="hero-sub">
+            YPN AI is your AI-powered growth platform built for mortgage loan officers—capturing borrower demand,
+            winning realtor relationships, and marketing in your voice while you focus on approvals.
+          </p>
+          <div class="hero-ctas">
+            <a class="btn btn-primary btn-lg" href="#early-access">Get Early Access</a>
+            <a class="btn btn-outline btn-lg" href="#how">See How It Works</a>
+          </div>
+
+          <div class="stat-grid" aria-label="Impact stats">
+            <div class="stat-box"><div class="stat-value">4,200+</div><div class="stat-label">Loan officers onboarded</div></div>
+            <div class="stat-box"><div class="stat-value">$8.4B</div><div class="stat-label">Originated alongside members</div></div>
+            <div class="stat-box"><div class="stat-value">312%</div><div class="stat-label">Average lead lift*</div></div>
+            <div class="stat-box"><div class="stat-value">11 hrs</div><div class="stat-label">Saved per week*</div></div>
+          </div>
+          <small class="domain" style="margin-top:1.5rem;display:block;">*Representative internal benchmarks—not a guarantee of results.</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- Problem -->
+    <section class="problem">
+      <div class="container">
+        <div class="section-title">
+          <h2>The problem</h2>
+        </div>
+        <p class="section-sub">Most loan officers are stuck reacting instead of scaling. Sound familiar?</p>
+        <div class="pain-grid">
+          <div class="pain-card">
+            <div class="pain-icon" aria-hidden="true">📉</div>
+            <h3>Waiting on realtors</h3>
+            <p>Your pipeline dries up when referrals slow—without a repeatable way to outbound and warm realtor relationships.</p>
+          </div>
+          <div class="pain-card">
+            <div class="pain-icon" aria-hidden="true">🕸️</div>
+            <h3>Invisible online</h3>
+            <p>Today’s borrower starts on Google &amp; Instagram. Without a credible web presence and content engine, deals go elsewhere.</p>
+          </div>
+          <div class="pain-card">
+            <div class="pain-icon" aria-hidden="true">✉️</div>
+            <h3>Drowning in manual follow‑up</h3>
+            <p>Typing the same borrower updates over and over burns hours—while speed-to-lead is what converts.</p>
+          </div>
+          <div class="pain-card">
+            <div class="pain-icon" aria-hidden="true">🏃</div>
+            <h3>Losing borrowers to competitors</h3>
+            <p>You’re up against slick digital experiences. Borrowers abandon paper forms—and never come back.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features">
+      <div class="container">
+        <div class="section-title"><h2>Features</h2></div>
+        <p class="section-sub">
+          Purpose-built workflows that plug directly into how top producers already win—automated behind the scenes.
+        </p>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <h3>AI Borrower Intake</h3>
+            <p>Deploy a branded 24/7 chat experience that qualifies intent, gathers key borrower facts, and routes hot conversations to your team—automatically.</p>
+          </article>
+          <article class="feature-card">
+            <h3>Realtor Acquisition Engine</h3>
+            <p>Find, segment, and warm realtor relationships with repeatable outreach—not one-off spreadsheets and cold guessing.</p>
+          </article>
+          <article class="feature-card">
+            <h3>AI Marketing Copilot</h3>
+            <p>Generate social posts, rate alerts, and email nurture campaigns in your voice—approved for compliance checkpoints before you publish.</p>
+          </article>
+          <article class="feature-card">
+            <h3>LO Website Builder</h3>
+            <p>Launch a compliant branded website in minutes with conversion-focused templates built for mortgages—not generic small business brochures.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how" class="steps">
+      <div class="container">
+        <div class="section-title"><h2>How it works</h2></div>
+        <p class="section-sub">From brand to booked conversations in four repeatable steps.</p>
+        <div class="step-row">
+          <div class="step">
+            <div class="step-num">1</div>
+            <h3>Onboard &amp; brand</h3>
+            <p>Plug in licenses, disclosures, persona, tone, markets, NMLS-required language, and LOS-friendly intake fields.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <h3>Deploy intake chatbot</h3>
+            <p>Embed your AI intake on site, referral links, and campaigns so borrowers qualify themselves while you sleep.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <h3>Launch realtor outreach</h3>
+            <p>Use playbooks plus AI personalization to systematically grow partner pipelines—with tracking built in.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <h3>Watch pipeline grow</h3>
+            <p>Dial in copilot workflows, dashboards, alerts, and handoffs until your LOS calendar fills with real conversations.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing -->
+    <section id="pricing">
+      <div class="container">
+        <div class="section-title"><h2>Pricing</h2></div>
+        <p class="section-sub">Start lean. Upgrade as your team scales. Transparent monthly pricing.</p>
+        <div class="pricing-grid">
+          <div class="price-card">
+            <div class="price-name">Starter</div>
+            <div class="price-amount">$97<span>/mo</span></div>
+            <ul class="price-list">
+              <li>AI Borrower intake (core)</li>
+              <li>Single LO seat</li>
+              <li>Website builder lite</li>
+              <li>Email support</li>
+            </ul>
+            <a class="btn btn-outline btn-block" href="#early-access">Get Early Access</a>
+          </div>
+
+          <div class="price-card featured">
+            <span class="badge-most">Popular</span>
+            <div class="price-name">Pro</div>
+            <div class="price-amount">$197<span>/mo</span></div>
+            <ul class="price-list">
+              <li>Everything in Starter</li>
+              <li>Marketing copilot + rate alerts</li>
+              <li>Realtor acquisition toolkit</li>
+              <li>Priority onboarding</li>
+            </ul>
+            <a class="btn btn-primary btn-block" href="#early-access">Get Early Access</a>
+          </div>
+
+          <div class="price-card">
+            <div class="price-name">Team</div>
+            <div class="price-amount">$397<span>/mo</span></div>
+            <ul class="price-list">
+              <li>Up to 5 LO seats*</li>
+              <li>Shared brand &amp; compliance library</li>
+              <li>Team pipeline insights</li>
+              <li>White-glove strategy session</li>
+            </ul>
+            <a class="btn btn-outline btn-block" href="#early-access">Get Early Access</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section id="faq">
+      <div class="container">
+        <div class="section-title"><h2>FAQ</h2></div>
+        <p class="section-sub">Straight answers before you onboard.</p>
+        <div class="faq-list">
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Who is YPN AI for?<span class="icon" aria-hidden="true">+</span>
+            </button>
+            <div class="faq-a"><div class="faq-a-inner">Mortgage loan officers and small teams who want predictable pipeline growth—without hiring a full marketing agency.</div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Do I need engineering or IT to launch?<span class="icon" aria-hidden="true">+</span>
+            </button>
+            <div class="faq-a"><div class="faq-a-inner">No. Plug-and-play onboarding is designed so you’re live quickly with guidance—not a backlog ticket.</div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Will this help with realtor relationships?<span class="icon" aria-hidden="true">+</span>
+            </button>
+            <div class="faq-a"><div class="faq-a-inner">Yes. Realtor acquisition tooling helps you systematically find prospects, personalize outreach, and track follow‑through—not random DMs.</div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              What about RESPA/TILA/marketing compliance?<span class="icon" aria-hidden="true">+</span>
+            </button>
+            <div class="faq-a"><div class="faq-a-inner">Compliance guardrails live in templated disclosures, review checkpoints, and your approved brand voice—with final responsibility remaining with you &amp; your compliance team.</div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Does the AI borrower intake replace my CRM?<span class="icon" aria-hidden="true">+</span>
+            </button>
+            <div class="faq-a"><div class="faq-a-inner">It captures structured intake conversations and summaries you can plug into LOS/CRM integrations as we roll roadmap connectors—built to reduce stale forms.</div></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button" aria-expanded="false">
+              Can I cancel anytime?<span class="icon" aria-hidden="true">+</span>
+            </button>
+            <div class="faq-a"><div class="faq-a-inner">Monthly plans aim to prove value immediately—cancellation terms are confirmed at onboarding so there are no surprises.</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Early access -->
+    <section id="early-access" class="early">
+      <div class="container">
+        <div class="section-title"><h2>Get early access</h2></div>
+        <p class="section-sub">Join LOs reserving seats for the next rollout. Updates go to your inbox.</p>
+
+        <form class="form-card" id="early-form" action="https://formspree.io/f/YOURCODE" method="POST">
+          <input type="hidden" name="_subject" value="YPN AI — Early Access (ypnus.com)" />
+
+          <div class="field">
+            <label for="ea-first">First name</label>
+            <input id="ea-first" name="firstName" type="text" autocomplete="given-name" required />
+          </div>
+          <div class="field">
+            <label for="ea-email">Email</label>
+            <input id="ea-email" name="email" type="email" autocomplete="email" required />
+          </div>
+          <div class="field">
+            <label for="ea-nmls">NMLS#</label>
+            <input id="ea-nmls" name="nmls" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="14" autocomplete="off" placeholder="Optional but recommended" />
+          </div>
+
+          <button class="btn btn-primary btn-lg btn-block" type="submit">Submit</button>
+
+          <p class="form-status" id="form-status" aria-live="polite"></p>
+          <small style="display:block;margin-top:.75rem;font-size:.8rem;color:rgba(9,21,42,0.5);">
+            Powered by Formspree — swap <code>YOURCODE</code> in this file with your endpoint ID.
+          </small>
+        </form>
+      </div>
+    </section>
+
+    <!-- CTA Strip -->
+    <section class="cta-strip">
+      <div class="container">
+        <h2>Ready for pipeline that fills itself?</h2>
+        <p>Reserve your AI stack before the next cohort fills. You’ll ship faster than building this in spreadsheets.</p>
+        <a class="btn btn-lg btn-inverse" href="#early-access">Get Early Access</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-grid">
+      <div>
+        <div class="footer-brand">YPN AI</div>
+        <p style="margin:0;font-size:.95rem;color:rgba(255,255,255,0.7);max-width:28rem;">
+          AI workflows for mortgage LOs — intake, realtor growth, compliant marketing copilots, and instant web presence @ ypnus.com
+        </p>
+      </div>
+      <div>
+        <strong style="color:#fff;display:block;margin-bottom:.75rem;">Product</strong>
+        <div class="footer-links">
+          <a href="#features">Features</a>
+          <a href="#how">How It Works</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#faq">FAQ</a>
+        </div>
+      </div>
+      <div>
+        <strong style="color:#fff;display:block;margin-bottom:.75rem;">Contact</strong>
+        <div class="footer-links">
+          <a href="mailto:support@ypnus.com">support@ypnus.com</a>
+          <a href="https://ypnus.com" rel="noopener">ypnus.com</a>
+          <a href="#early-access">Early access</a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-meta">
+      © 2026 YPN AI · ypnus.com · All rights reserved.
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var toggle = document.getElementById('nav-toggle');
+      var linksWrap = document.getElementById('site-nav-links');
+      if (!toggle || !linksWrap) return;
+
+      toggle.addEventListener('click', function () {
+        var open = document.body.classList.toggle('nav-open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+
+      linksWrap.querySelectorAll('a').forEach(function (anchor) {
+        anchor.addEventListener('click', function () {
+          if (window.matchMedia('(max-width: 767px)').matches) {
+            document.body.classList.remove('nav-open');
+            toggle.setAttribute('aria-expanded', 'false');
+          }
+        });
+      });
+    })();
+
+    (function () {
+      document.querySelectorAll('.faq-item').forEach(function (item) {
+        var btn = item.querySelector('.faq-q');
+        if (!btn) return;
+
+        btn.addEventListener('click', function () {
+          var expanded = item.classList.toggle('open');
+          btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        });
+      });
+    })();
+
+    (function () {
+      var form = document.getElementById('early-form');
+      var status = document.getElementById('form-status');
+
+      if (!form || !status) return;
+
+      form.addEventListener('submit', function (event) {
+        var actionUrl = form.getAttribute('action') || '';
+
+        if (actionUrl.indexOf('YOURCODE') !== -1) {
+          event.preventDefault();
+          status.textContent =
+            'Update the Formspree URL in this HTML file (replace YOURCODE) — then submissions will sync automatically.';
+          status.className = 'form-status error';
+          return;
+        }
+
+        event.preventDefault();
+        status.textContent = 'Sending…';
+        status.className = 'form-status';
+
+        fetch(actionUrl, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { Accept: 'application/json' },
+        })
+          .then(function (resp) {
+            if (resp.ok) {
+              status.textContent = "You're in — we'll follow up shortly.";
+              status.className = 'form-status success';
+              form.reset();
+              return;
+            }
+            status.textContent = 'Something blocked the send — try email support@ypnus.com.';
+            status.className = 'form-status error';
+          })
+          .catch(function () {
+            status.textContent = 'Network issue — retry or email support@ypnus.com.';
+            status.className = 'form-status error';
+          });
+      });
+    })();
+  </script>
+</body>
+</html>

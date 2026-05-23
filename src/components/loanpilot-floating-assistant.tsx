@@ -28,6 +28,10 @@ function slotPretty(iso: string) {
 type IntakeBrand = "loanpilot" | "ypn";
 type IntakeVariant = "fab" | "embed";
 
+function isStaleSession(snapshot: IntakeTickResponse) {
+  return !snapshot.ok && snapshot.error?.includes("Session stale");
+}
+
 export function MortgageIntakeChat(props: {
   funnelSource?: string;
   brand?: IntakeBrand;
@@ -194,7 +198,7 @@ export function MortgageIntakeChat(props: {
     }
   }
 
-  async function postTick(payload?: IncomingPayload) {
+  async function postTick(payload?: IncomingPayload, recoverStale = true) {
     setBusy(true);
     try {
       const res = await fetch("/api/intake/tick", {
@@ -209,6 +213,11 @@ export function MortgageIntakeChat(props: {
       });
 
       const snapshot = (await res.json()) as IntakeTickResponse;
+      if (recoverStale && isStaleSession(snapshot)) {
+        purgeSession();
+        setMsgs([]);
+        return await postTick(undefined, false);
+      }
       await applySnapshot(snapshot);
       return snapshot;
     } catch {
@@ -321,7 +330,7 @@ export function MortgageIntakeChat(props: {
   const shellPanel =
     variant === "fab"
       ? "shadow-2xl md:h-[min(820px,calc(100vh-48px))] md:rounded-[28px] md:shadow-cyan-200/70 md:border-white md:bg-white"
-      : "min-h-[min(720px,94vh)] w-full rounded-none border shadow-xl md:h-[min(820px,calc(100vh-32px))] md:rounded-[28px]";
+      : "min-h-[560px] w-full rounded-none border shadow-xl md:h-[min(760px,calc(100dvh-112px))] md:rounded-[28px]";
 
   const ambientSurface =
     brand === "ypn"

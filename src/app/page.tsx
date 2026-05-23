@@ -5,7 +5,7 @@ import { LoanPilotFloatingIntake } from "@/components/loanpilot-floating-assista
 import { absoluteUrl, siteName } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: "Mortgage borrower intake that converts qualified leads",
+  title: "LoanPilot AI mortgage borrower intake that converts qualified leads",
   description:
     "Launch a conversion-focused AI mortgage intake rail with program-fit scoring, LOS-ready CRM sync, loan officer routing, borrower nurture, and calendar booking.",
   alternates: {

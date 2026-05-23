@@ -8,8 +8,12 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "YPN · Borrower intake (embed)",
-  description: "Full LoanPilot intake pipeline in an iframe-friendly surface.",
+  title: "Borrower intake embed",
+  description:
+    "Iframe-friendly LoanPilot AI mortgage intake surface for qualified borrower capture, LOS sync, nurture, and booking.",
+  alternates: {
+    canonical: "/embed/intake",
+  },
 };
 
 export default function EmbedIntakeLayout({ children }: { children: ReactNode }) {

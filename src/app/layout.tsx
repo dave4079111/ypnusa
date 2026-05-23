@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { absoluteUrl, siteName, siteUrl } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,9 +14,66 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LoanPilot AI • Borrower Intake Automation",
+  metadataBase: new URL(siteUrl),
+  applicationName: siteName,
+  title: {
+    default: "LoanPilot AI | Mortgage borrower intake that converts",
+    template: `%s | ${siteName}`,
+  },
   description:
-    "LoanPilot AI delivers mortgage-grade borrower intake, qualification, CRM mirroring, LOS assignment, nurture automations, and calendar booking through a conversational assistant.",
+    "LoanPilot AI turns mortgage traffic into qualified borrower conversations with program-fit scoring, LOS-ready CRM sync, loan officer routing, nurture automation, and booking.",
+  keywords: [
+    "mortgage borrower intake",
+    "mortgage lead conversion",
+    "LOS automation",
+    "loan officer routing",
+    "AI mortgage assistant",
+    "borrower qualification",
+  ],
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "LoanPilot AI mortgage borrower intake automation",
+    description:
+      "Capture, qualify, sync, route, nurture, and book mortgage borrowers from one conversion-focused AI intake experience.",
+    url: absoluteUrl("/"),
+    siteName,
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: "LoanPilot AI borrower intake conversion dashboard",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      noimageindex: false,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LoanPilot AI | Mortgage borrower intake that converts",
+    description:
+      "Program-fit scoring, LOS-ready sync, loan officer routing, nurture automation, and booking in one AI intake rail.",
+    images: [
+      {
+        url: "/opengraph-image",
+        alt: "LoanPilot AI borrower intake conversion dashboard",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

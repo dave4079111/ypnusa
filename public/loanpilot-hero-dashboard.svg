@@ -1,0 +1,56 @@
+<svg width="760" height="560" viewBox="0 0 760 560" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">LoanPilot AI borrower conversion dashboard</title>
+  <desc id="desc">A mortgage intake dashboard showing a high-fit borrower, LOS sync status, calendar booking, and satisfaction signals.</desc>
+  <rect width="760" height="560" rx="44" fill="url(#bg)"/>
+  <g filter="url(#shadow)">
+    <rect x="58" y="52" width="644" height="456" rx="32" fill="white"/>
+    <rect x="58.5" y="52.5" width="643" height="455" rx="31.5" stroke="#CFFAFE"/>
+  </g>
+  <rect x="92" y="88" width="214" height="30" rx="15" fill="#E0F2FE"/>
+  <rect x="326" y="91" width="94" height="24" rx="12" fill="#ECFEFF"/>
+  <rect x="438" y="91" width="94" height="24" rx="12" fill="#F0FDFA"/>
+  <rect x="550" y="91" width="94" height="24" rx="12" fill="#F8FAFC"/>
+  <circle cx="108" cy="103" r="7" fill="#06B6D4"/>
+  <rect x="122" y="98" width="154" height="10" rx="5" fill="#0F172A"/>
+  <rect x="92" y="148" width="344" height="158" rx="28" fill="#062C3D"/>
+  <path d="M126 255C164 206 206 217 244 237C288 260 326 194 400 177" stroke="#67E8F9" stroke-width="9" stroke-linecap="round"/>
+  <path d="M126 269C166 245 202 251 243 262C291 275 320 238 400 226" stroke="#2DD4BF" stroke-width="9" stroke-linecap="round"/>
+  <circle cx="398" cy="177" r="13" fill="white" stroke="#67E8F9" stroke-width="6"/>
+  <rect x="122" y="178" width="152" height="16" rx="8" fill="white" opacity=".94"/>
+  <rect x="122" y="204" width="96" height="12" rx="6" fill="#A5F3FC"/>
+  <rect x="468" y="148" width="192" height="158" rx="28" fill="#ECFEFF"/>
+  <circle cx="564" cy="214" r="54" fill="#CCFBF1"/>
+  <path d="M537 214L555 232L592 194" stroke="#0F766E" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="512" y="278" width="104" height="12" rx="6" fill="#0F766E"/>
+  <rect x="92" y="334" width="178" height="122" rx="26" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <rect x="122" y="362" width="68" height="14" rx="7" fill="#64748B"/>
+  <rect x="122" y="392" width="118" height="12" rx="6" fill="#0F172A"/>
+  <rect x="122" y="419" width="86" height="12" rx="6" fill="#14B8A6"/>
+  <rect x="292" y="334" width="178" height="122" rx="26" fill="#F0FDFA" stroke="#CCFBF1"/>
+  <rect x="322" y="362" width="96" height="14" rx="7" fill="#0F766E"/>
+  <rect x="322" y="392" width="108" height="12" rx="6" fill="#0F172A"/>
+  <rect x="322" y="419" width="76" height="12" rx="6" fill="#06B6D4"/>
+  <rect x="492" y="334" width="168" height="122" rx="26" fill="#FFF7ED" stroke="#FED7AA"/>
+  <rect x="522" y="362" width="66" height="14" rx="7" fill="#C2410C"/>
+  <rect x="522" y="392" width="98" height="12" rx="6" fill="#0F172A"/>
+  <rect x="522" y="419" width="72" height="12" rx="6" fill="#F97316"/>
+  <circle cx="640" cy="366" r="28" fill="#FFEDD5"/>
+  <path d="M626 366H654M640 352V380" stroke="#EA580C" stroke-width="6" stroke-linecap="round"/>
+  <defs>
+    <filter id="shadow" x="28" y="30" width="704" height="516" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="8"/>
+      <feGaussianBlur stdDeviation="15"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.020 0 0 0 0 0.102 0 0 0 0 0.165 0 0 0 0.22 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+    <linearGradient id="bg" x1="38" y1="26" x2="700" y2="535" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67E8F9"/>
+      <stop offset=".5" stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#0F766E"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { summarizeAnalyticsPulse } from "@/lib/analytics-core";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Mortgage intake analytics ledger",
+  description:
+    "Track LoanPilot AI borrower intake completions, booking wins, LOS composite scores, qualification mix, and program demand pulses.",
+  alternates: {
+    canonical: "/analytics",
+  },
+};
 
 export default function LoanPilotAnalytics() {
   const pulse = summarizeAnalyticsPulse();
@@ -15,9 +25,14 @@ export default function LoanPilotAnalytics() {
           Completion rates infer event ledger ratios; qualification mix summarizes persisted LOS artifacts.
           Follow-up pulses appear once the automation cron route processes outstanding queue rows.
         </p>
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 hover:text-teal-600">
-          ← Back to concierge surface
-        </Link>
+        <nav aria-label="Analytics page links" className="flex flex-wrap gap-3 text-sm font-semibold">
+          <Link href="/" className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-4 py-2 text-cyan-700 hover:text-teal-600">
+            Back to conversion home
+          </Link>
+          <Link href="/embed/intake" className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-4 py-2 text-teal-700 hover:text-cyan-700">
+            Launch borrower intake
+          </Link>
+        </nav>
       </header>
 
       <section className="grid gap-4 md:grid-cols-4">
@@ -100,6 +115,18 @@ export default function LoanPilotAnalytics() {
           </div>
         </article>
       </section>
+
+      <footer className="flex flex-wrap justify-center gap-3 border-t border-slate-200 pt-6 text-sm font-semibold">
+        <Link href="/" className="text-cyan-700 hover:text-teal-600">
+          Conversion home
+        </Link>
+        <span className="text-slate-300" aria-hidden>
+          /
+        </span>
+        <Link href="/embed/intake" className="text-cyan-700 hover:text-teal-600">
+          Embed intake
+        </Link>
+      </footer>
     </div>
   );
 }

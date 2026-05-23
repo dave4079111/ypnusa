@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YPN AI · Borrower Intake</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Supabase v2 CDN -->
+  <!-- Browser UMD build (defines global `supabase` with createClient) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- EmailJS -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <style>
+    :root {
+      --navy: #09152a;
+      --gold: #c8a84b;
+      --gold-soft: rgba(200, 168, 75, 0.2);
+      --white: #ffffff;
+      --muted: rgba(9, 21, 42, 0.62);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: Outfit, system-ui, sans-serif;
+      background: linear-gradient(165deg, #f0f2f6 0%, #fff 45%);
+      color: var(--navy);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Floating launcher */
+    .ypn-fab {
+      position: fixed;
+      bottom: 1.25rem;
+      right: 1.25rem;
+      z-index: 9998;
+      border: none;
+      border-radius: 999px;
+      padding: 0.95rem 1.35rem;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      color: var(--navy);
+      background: linear-gradient(135deg, var(--gold), #e4c978);
+      box-shadow: 0 14px 40px rgba(200, 168, 75, 0.45), 0 4px 12px rgba(9, 21, 42, 0.15);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .ypn-fab:hover { transform: translateY(-2px); box-shadow: 0 18px 48px rgba(200, 168, 75, 0.5); }
+    .ypn-fab:active { transform: translateY(0); }
+    .ypn-fab[hidden] { display: none !important; }
+
+    .ypn-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(9, 21, 42, 0.55);
+      backdrop-filter: blur(6px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+    .ypn-backdrop.on { opacity: 1; pointer-events: auto; }
+
+    .ypn-modal-shell {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      padding: clamp(0.5rem, 3vw, 1.25rem);
+      pointer-events: none;
+    }
+    .ypn-modal {
+      pointer-events: auto;
+      width: min(440px, 100%);
+      max-height: min(92vh, 820px);
+      margin: auto;
+      border-radius: 22px;
+      background: var(--white);
+      box-shadow: 0 28px 80px rgba(9, 21, 42, 0.22), 0 12px 32px rgba(200, 168, 75, 0.12);
+      border: 1px solid rgba(200, 168, 75, 0.28);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: translateY(18px) scale(0.98);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.35s ease;
+    }
+    .ypn-modal.on {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    .ypn-head {
+      padding: 1rem 1.15rem 0.75rem;
+      border-bottom: 1px solid rgba(9, 21, 42, 0.07);
+      background: linear-gradient(180deg, #fffdfa, #ffffff);
+    }
+    .ypn-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 0.85rem;
+    }
+    .ypn-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--gold), #a88935);
+      box-shadow: 0 4px 12px rgba(200, 168, 75, 0.35);
+    }
+    .ypn-brand-text { flex: 1; }
+    .ypn-brand-text h1 {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--navy);
+    }
+    .ypn-brand-text p {
+      margin: 0.1rem 0 0;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
+
+    .ypn-progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .ypn-progress-track {
+      height: 7px;
+      border-radius: 99px;
+      background: rgba(9, 21, 42, 0.08);
+      overflow: hidden;
+    }
+    .ypn-progress-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--gold), #a88935);
+      box-shadow: 0 0 16px rgba(200, 168, 75, 0.6);
+      transition: width 0.55s cubic-bezier(0.2, 0.85, 0.25, 1);
+    }
+
+    .ypn-close {
+      border: none;
+      background: rgba(9, 21, 42, 0.06);
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+      color: var(--navy);
+      transition: background 0.15s ease;
+      flex-shrink: 0;
+    }
+    .ypn-close:hover { background: rgba(9, 21, 42, 0.12); }
+
+    .ypn-body {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ypn-pane-stack {
+      position: relative;
+      height: 100%;
+      overflow-y: auto;
+      padding: 1.05rem 1.15rem 1.25rem;
+    }
+
+    .ypn-pane {
+      display: none;
+      animation: ypn-in 0.48s cubic-bezier(0.2, 0.92, 0.25, 1) both;
+    }
+    .ypn-pane.active { display: block; }
+
+    .ypn-pane.out {
+      animation: ypn-out 0.36s cubic-bezier(0.4, 0, 0.7, 0.35) forwards;
+    }
+
+    @keyframes ypn-in {
+      from { opacity: 0; transform: translateX(18px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes ypn-out {
+      from { opacity: 1; transform: translateX(0); }
+      to { opacity: 0; transform: translateX(-14px); }
+    }
+
+    .ypn-q {
+      font-size: 1.12rem;
+      font-weight: 600;
+      line-height: 1.35;
+      margin: 0 0 1rem;
+      color: var(--navy);
+    }
+    .ypn-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+    .ypn-btn-choice {
+      flex: 1 1 calc(50% - 0.55rem);
+      min-width: 140px;
+      border: 2px solid rgba(9, 21, 42, 0.12);
+      border-radius: 14px;
+      padding: 0.78rem 0.85rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--navy);
+      background: rgba(249, 250, 252, 0.95);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .ypn-btn-choice:hover:not(:disabled) {
+      border-color: var(--gold);
+      background: var(--gold-soft);
+      box-shadow: 0 10px 24px rgba(9, 21, 42, 0.06);
+    }
+    .ypn-btn-choice:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .ypn-btn-choice.full {
+      flex-basis: 100%;
+    }
+
+    .ypn-field-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .ypn-field-wrap label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .ypn-input {
+      width: 100%;
+      padding: 0.85rem 0.95rem;
+      border-radius: 14px;
+      border: 2px solid rgba(9, 21, 42, 0.12);
+      font-family: inherit;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .ypn-input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(200, 168, 75, 0.25);
+    }
+
+    .ypn-primary-row {
+      display: flex;
+      gap: 0.55rem;
+      margin-top: 0.85rem;
+    }
+    .ypn-submit {
+      flex: 1;
+      border: none;
+      border-radius: 999px;
+      padding: 0.9rem;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--navy), #17335f);
+      box-shadow: 0 12px 36px rgba(9, 21, 42, 0.28);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+    .ypn-submit:hover:not(:disabled) { transform: translateY(-1px); }
+    .ypn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .ypn-back-mini {
+      border: 2px solid rgba(9, 21, 42, 0.12);
+      border-radius: 999px;
+      padding: 0.78rem 1rem;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.82rem;
+      background: transparent;
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    .ypn-hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.55rem;
+      min-height: 1.2em;
+    }
+    .ypn-flag {
+      margin-top: 0.65rem;
+      padding: 0.55rem 0.72rem;
+      border-radius: 10px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      background: rgba(200, 168, 75, 0.15);
+      color: var(--navy);
+      border: 1px solid rgba(200, 168, 75, 0.35);
+    }
+
+    .ypn-done-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.45rem 0.72rem;
+      border-radius: 999px;
+      margin-bottom: 0.85rem;
+    }
+    .ypn-done-badge.hot { background: rgba(220, 60, 60, 0.12); color: #c42b2b; }
+    .ypn-done-badge.warm { background: rgba(255, 160, 0, 0.15); color: #b97200; }
+    .ypn-done-badge.cool { background: rgba(70, 130, 210, 0.12); color: #2a5ebb; }
+
+    .ypn-summary-grid {
+      display: grid;
+      gap: 0.55rem;
+      font-size: 0.86rem;
+    }
+    .ypn-sum-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.45rem 0;
+      border-bottom: 1px solid rgba(9, 21, 42, 0.07);
+    }
+    .ypn-sum-row span:first-child { color: var(--muted); font-weight: 500; }
+    .ypn-sum-row span:last-child { font-weight: 700; text-align: right; }
+
+    .ypn-cal-book {
+      margin-top: 1rem;
+      display: block;
+      text-align: center;
+      padding: 0.85rem;
+      border-radius: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      background: linear-gradient(135deg, var(--gold), #e8d18a);
+      color: var(--navy);
+      box-shadow: 0 12px 32px rgba(200, 168, 75, 0.35);
+    }
+
+    .ypn-foot-note {
+      text-align: center;
+      padding: 0.65rem 1rem;
+      font-size: 0.66rem;
+      color: rgba(9, 21, 42, 0.45);
+      border-top: 1px solid rgba(9, 21, 42, 0.06);
+    }
+
+    /* Hide FAB when modal open handled in JS via attribute */
+    @media (max-width: 480px) {
+      .ypn-btn-choice {
+        flex: 1 1 100%;
+      }
+      .ypn-fab span.label-long { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Embed: hide floating button when opened from parent iframe-only flows -->
+  <button type="button" class="ypn-fab" id="ypnFab" aria-expanded="false" aria-haspopup="dialog">
+    ✦ <span class="label-long">Get Pre-Qualified</span>
+  </button>
+
+  <div class="ypn-backdrop" id="ypnBackdrop"></div>
+
+  <div class="ypn-modal-shell">
+    <div class="ypn-modal" id="ypnModal" role="dialog" aria-modal="true" aria-labelledby="ypnDlTitle">
+      <header class="ypn-head">
+        <div class="ypn-brand">
+          <div class="ypn-mark" aria-hidden="true"></div>
+          <div class="ypn-brand-text">
+            <h1 id="ypnDlTitle">YPN AI</h1>
+            <p>AI platform for loan officers</p>
+          </div>
+          <button type="button" class="ypn-close" id="ypnClose" aria-label="Close">&times;</button>
+        </div>
+        <div class="ypn-progress-meta">
+          <span id="ypnProgLabel">Step 1 of 13</span>
+          <span id="ypnProgPct">0%</span>
+        </div>
+        <div class="ypn-progress-track">
+          <div class="ypn-progress-fill" id="ypnProgFill"></div>
+        </div>
+      </header>
+      <div class="ypn-body">
+        <div class="ypn-pane-stack" id="ypnStage"></div>
+      </div>
+      <footer class="ypn-foot-note">Powered by YPN AI · Responses sent securely — add your Supabase keys to save leads.</footer>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * — CONFIG (replace YOUR_* placeholders)
+     *   SUPABASE_URL, SUPABASE_ANON_KEY → run supabase-leads-schema.sql first
+     *   EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID → internal alert template EMAILJS_TEMPLATE_ID
+     *   EMAILJS_TEMPLATE_ID_BORROWER → optional borrower confirmation (omit YOUR_ prefix when ready)
+     * — EmailJS templates: expose variables matching teamParams keys (subject_line, message_html, …).
+     */
+    (function () {
+      /** ============ CONFIG — replace placeholders ============ **/
+      var CONFIG = {
+        SUPABASE_URL: "YOUR_SUPABASE_URL",
+        SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY",
+        EMAILJS_PUBLIC_KEY: "YOUR_EMAILJS_PUBLIC_KEY",
+        EMAILJS_SERVICE_ID: "YOUR_EMAILJS_SERVICE_ID",
+        EMAILJS_TEMPLATE_ID: "YOUR_EMAILJS_TEMPLATE_ID",
+        EMAILJS_TEMPLATE_ID_BORROWER: "YOUR_EMAILJS_BORROWER_TEMPLATE_ID",
+        TEAM_ALERT_EMAIL: "support@ypnus.com",
+        CALENDLY_URL: "https://calendly.com/your-lo-team/intro-call",
+      };
+
+      var state = {
+        loanType: null,
+        secondary: null,
+        loanProgram: null,
+        isVeteran: null,
+        credit: null,
+        income: null,
+        priceRange: null,
+        timeline: null,
+        firstTime: null,
+        hasRealtor: null,
+        name: "",
+        phone: "",
+        email: "",
+      };
+
+      var stepOrder = [];
+
+      /** DOM */
+      var fab = document.getElementById("ypnFab");
+      var backdrop = document.getElementById("ypnBackdrop");
+      var modal = document.getElementById("ypnModal");
+      var closeBtn = document.getElementById("ypnClose");
+      var stage = document.getElementById("ypnStage");
+      var progLabel = document.getElementById("ypnProgLabel");
+      var progPct = document.getElementById("ypnProgPct");
+      var progFill = document.getElementById("ypnProgFill");
+
+      var currentStepIndex = 0;
+      var supabaseClient = null;
+      var intakeFinalized = false;
+      var emailJsReady = false;
+
+      function placeholdersOk() {
+        return (
+          CONFIG.SUPABASE_URL.indexOf("YOUR_") !== 0 &&
+          CONFIG.SUPABASE_ANON_KEY.indexOf("YOUR_") !== 0
+        );
+      }
+
+      function emailJsConfigured() {
+        return (
+          CONFIG.EMAILJS_PUBLIC_KEY.indexOf("YOUR_") !== 0 &&
+          CONFIG.EMAILJS_SERVICE_ID.indexOf("YOUR_") !== 0 &&
+          CONFIG.EMAILJS_TEMPLATE_ID.indexOf("YOUR_") !== 0
+        );
+      }
+
+      function buildStepOrder() {
+        var order = [1, 2, 3, 4, 5, 6, 7, 8];
+        if (state.loanType === "Buy a Home") order.push(9);
+        order.push(10, 11, 12, 13);
+        return order;
+      }
+
+      /** Scoring **/
+      function computeScore(s) {
+        var score = 0;
+        var cm = {
+          "760+": 25,
+          "720-759": 20,
+          "680-719": 15,
+          "640-679": 10,
+          "Below 640": 5,
+          "Not sure": 12,
+        };
+        score += cm[s.credit] || 0;
+        var tm = {
+          ASAP: 20,
+          "30-60 days": 15,
+          "3-6 months": 10,
+          "Just researching": 5,
+        };
+        score += tm[s.timeline] || 0;
+        var im = {
+          "$150k+": 20,
+          "$100k-$150k": 15,
+          "$50k-$100k": 10,
+          "Under $50k": 5,
+        };
+        score += im[s.income] || 0;
+        if (s.isVeteran === "Yes" && (s.loanProgram === "VA" || s.loanProgram === "Not sure")) {
+          score += 15;
+        }
+        if (s.loanProgram === "FHA" && s.firstTime === "Yes") score += 10;
+        if (s.loanType === "Buy a Home" && s.secondary === "Already in contract") score += 10;
+        return Math.min(100, Math.round(score));
+      }
+
+      function leadQuality(score) {
+        if (score >= 70) return { slug: "HOT lead", emoji: "\u{1F525}", klass: "hot" };
+        if (score >= 40) return { slug: "WARM lead", emoji: "\u26A1\uFE0F", klass: "warm" };
+        return { slug: "COOL lead", emoji: "\u2744\uFE0F", klass: "cool" };
+      }
+
+      /** Recommended next / program **/
+      function recommendedProgramFor(s, scoreObj) {
+        if (s.isVeteran === "Yes" && (s.loanProgram === "VA" || s.loanProgram === "Not sure")) return "VA";
+        if (s.loanProgram && s.loanProgram !== "Not sure") return s.loanProgram;
+        if (s.loanType === "Investment Property") return "DSCR or investor Conventional — confirm with underwriting";
+        if (s.loanType === "Tap Home Equity") return "HELOC or cash-out refinance (program TBD)";
+        if (s.firstTime === "Yes" && s.loanType === "Buy a Home") return "FHA (strong candidate for lower down)";
+        var price = s.priceRange;
+        if (
+          price === "$800k+" ||
+          price === "$600k-$800k"
+        )
+          return "Conventional — consider Jumbo if above county limits";
+        return "Conventional";
+      }
+
+      function recommendedNextAction(s, score) {
+        if (score >= 70)
+          return "Priority callback within 60 minutes · fast-track underwriting packet.";
+        if (score >= 40) return "LO outreach today · send product comparison + milestones.";
+        return "Nurture sequence · education content and quarterly check-ins.";
+      }
+
+      /** Step definitions UI **/
+      function step2Prompt() {
+        switch (state.loanType) {
+          case "Buy a Home":
+            return "Where are you in the process?";
+          case "Refinance":
+            return "What's your goal?";
+          case "Investment Property":
+            return "What type of property?";
+          case "Tap Home Equity":
+            return "How much equity do you estimate?";
+          default:
+            return "Tell us more";
+        }
+      }
+
+      function step2Choices() {
+        switch (state.loanType) {
+          case "Buy a Home":
+            return ["Already in contract", "Making offer soon", "Still shopping"];
+          case "Refinance":
+            return ["Lower rate", "Cash out", "Shorten term"];
+          case "Investment Property":
+            return ["Single family", "Multi-family", "Short-term rental"];
+          case "Tap Home Equity":
+            return ["Under $50k", "$50k-$150k", "$150k+"];
+          default:
+            return [];
+        }
+      }
+
+      function renderChoices(key, question, labels, opts) {
+        opts = opts || {};
+        var wrap = document.createElement("div");
+        wrap.className = "ypn-pane active";
+        var q = document.createElement("p");
+        q.className = "ypn-q";
+        q.textContent = question;
+        wrap.appendChild(q);
+        var row = document.createElement("div");
+        row.className = "ypn-buttons";
+        labels.forEach(function (label, i) {
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "ypn-btn-choice" + (opts.fullWide && labels.length <= 3 && label.length > 18 ? " full" : "");
+          btn.textContent = label;
+          btn.addEventListener("click", function () {
+            if (opts.onPick) opts.onPick(label);
+          });
+          row.appendChild(btn);
+        });
+        wrap.appendChild(row);
+        if (opts.hintHtml) {
+          var h = document.createElement("p");
+          h.className = "ypn-hint";
+          h.innerHTML = opts.hintHtml;
+          wrap.appendChild(h);
+        }
+        return wrap;
+      }
+
+      function renderTextStep(field, question, inputType, nextLabel) {
+        var wrap = document.createElement("div");
+        wrap.className = "ypn-pane active";
+        wrap.innerHTML =
+          '<p class="ypn-q">' +
+          escapeHtml(question) +
+          '</p>' +
+          '<div class="ypn-field-wrap">' +
+          '<label for="ypnField">' +
+          (field === "name"
+            ? "Full name"
+            : field === "phone"
+            ? "Phone"
+            : "Email") +
+          '</label>' +
+          '<input class="ypn-input" id="ypnField" type="' +
+          escapeHtml(inputType) +
+          '" autocomplete="' +
+          (field === "name" ? "name" : field === "phone" ? "tel" : "email") +
+          '" placeholder="' +
+          (field === "name"
+            ? "Jordan Lee"
+            : field === "phone"
+            ? "(555) 123-9876"
+            : "you@example.com") +
+          '" /></div>' +
+          '<p class="ypn-hint" id="ypnErr"></p>' +
+          '<div class="ypn-primary-row">' +
+          (currentStepIndex > 0
+            ? '<button type="button" class="ypn-back-mini" id="ypnBackFld">Back</button>'
+            : "") +
+          '<button type="button" class="ypn-submit" id="ypnNextFld">' +
+          escapeHtml(nextLabel) +
+          "</button>" +
+          "</div>";
+        return wrap;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function renderCurrentPane() {
+        stage.innerHTML = "";
+        var id = stepOrder[currentStepIndex];
+        var total = stepOrder.length;
+        var pct = Math.round(((currentStepIndex + 1) / total) * 100);
+
+        progLabel.textContent = "Step " + (currentStepIndex + 1) + " of " + total;
+        progPct.textContent = pct + "%";
+        progFill.style.width = pct + "%";
+
+        if (id === 1) {
+          stage.appendChild(
+            renderChoices("s1", "What brings you here today?", [
+              "Buy a Home",
+              "Refinance",
+              "Investment Property",
+              "Tap Home Equity",
+            ], {
+              fullWide: false,
+              onPick: function (v) {
+                state.loanType = v;
+                stepOrder = buildStepOrder();
+                goNextFresh();
+              },
+            })
+          );
+          attachBackEarly();
+          return;
+        }
+
+        if (id === 2 && !state.loanType) {
+          stepOrder = buildStepOrder();
+          currentStepIndex = 0;
+          renderCurrentPane();
+          return;
+        }
+
+        if (id === 2) {
+          var ch = step2Choices();
+          stage.appendChild(
+            renderChoices("s2", step2Prompt(), ch, {
+              onPick: function (v) {
+                state.secondary = v;
+                advance();
+              },
+            })
+          );
+          attachBackFld();
+          return;
+        }
+
+        if (id === 3) {
+          stage.appendChild(
+            renderChoices("s3", "What loan program interests you?", [
+              "FHA",
+              "VA",
+              "Conventional",
+              "DSCR",
+              "Jumbo",
+              "Not sure",
+            ], {
+              onPick: function (v) {
+                state.loanProgram = v;
+                advance();
+              },
+            })
+          );
+          attachBackFld();
+          return;
+        }
+
+        if (id === 4) {
+          stage.appendChild(
+            renderChoices(
+              "s4",
+              "Are you a US Military Veteran or active duty?",
+              ["Yes — VA option available", "No"],
+              {
+                onPick: function (v) {
+                  state.isVeteran =
+                    v.indexOf("Yes") === 0 ? "Yes" : "No";
+                  advance();
+                },
+              }
+            )
+          );
+          attachBackFld();
+          return;
+        }
+
+        if (id === 5) {
+          stage.appendChild(
+            renderChoices(
+              "s5",
+              "Estimated credit score?",
+              ["760+", "720-759", "680-719", "640-679", "Below 640", "Not sure"],
+              {
+                fullWide: true,
+                onPick: function (v) {
+                  state.credit = v;
+                  advance();
+                },
+              }
+            )
+          );
+          attachBackFld();
+          return;
+        }
+
+        if (id === 6) {
+          stage.appendChild(
+            renderChoices(
+              "s6",
+              "Estimated annual household income?",
+              ["Under $50k", "$50k-$100k", "$100k-$150k", "$150k+"],
+              {
+                onPick: function (v) {
+                  state.income = v;
+                  advance();
+                },
+              }
+            )
+          );
+          attachBackFld();
+          return;
+        }
+
+        if (id === 7) {
+          stage.appendChild(
+            renderChoices(
+              "s7",
+              "Estimated purchase price or loan amount?",
+              ["Under $200k", "$200k-$400k", "$400k-$600k", "$600k-$800k", "$800k+"],
+              {
+                onPick: function (v) {
+                  state.priceRange = v;
+                  advance();
+                },
+              }
+            )
+          );
+          attachBackFld();
+          return;
+        }
+
+        if (id === 8) {
+          stage.appendChild(
+            renderChoices(
+              "s8",
+              "How soon are you looking to move forward?",
+              ["ASAP", "30-60 days", "3-6 months", "Just researching"],
+              {
+                onPick: function (v) {
+                  state.timeline = v;
+                  advance();
+                },
+              }
+            )
+          );
+          attachBackFld();
+          return;
+        }
+
+        if (id === 9) {
+          stage.appendChild(
+            renderChoices("s9", "First time buying a home?", ["Yes", "No"], {
+              onPick: function (v) {
+                state.firstTime = v;
+                advance();
+              },
+            })
+          );
+          attachBackFld();
+          return;
+        }
+
+        if (id === 10) {
+          var pane = renderChoices(
+            "s10",
+            "Are you working with a realtor?",
+            ["Yes", "No"],
+            {
+              onPick: function (v) {
+                state.hasRealtor = v;
+                advance();
+              },
+            }
+          );
+          pane.appendChild(
+            (function () {
+              var f = document.createElement("div");
+              f.className = "ypn-flag";
+              f.style.marginTop = "0.85rem";
+              f.textContent =
+                "If borrower selects \"No,\" we flag this as an internal realtor referral opportunity.";
+              return f;
+            })()
+          );
+          stage.appendChild(pane);
+          attachBackFld();
+          return;
+        }
+
+        function attachField(stepId, fld, question, typ, lbl) {
+          var wrap = renderTextStep(fld, question, typ, lbl);
+          stage.appendChild(wrap);
+          var inp = document.getElementById("ypnField");
+          var err = document.getElementById("ypnErr");
+          var next = document.getElementById("ypnNextFld");
+          var bk = document.getElementById("ypnBackFld");
+          if (bk) bk.addEventListener("click", goBackInternal);
+          next.addEventListener("click", function () {
+            var v = inp.value.trim();
+            err.textContent = "";
+            if (!v) {
+              err.textContent = "Please fill this out to continue.";
+              return;
+            }
+            if (typ === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+              err.textContent = "Enter a valid email.";
+              return;
+            }
+            if (typ === "tel" && v.replace(/\D/g, "").length < 10) {
+              err.textContent = "Enter a workable phone number (10+ digits).";
+              return;
+            }
+            state[fld] = v;
+            if (stepId === 13) {
+              finalize();
+              return;
+            }
+            advance();
+          });
+        }
+
+        if (id === 11) {
+          attachField(11, "name", "What's your name?", "text", "Continue");
+          return;
+        }
+        if (id === 12) {
+          attachField(12, "phone", "Best phone number?", "tel", "Continue");
+          return;
+        }
+        if (id === 13) {
+          attachField(13, "email", "Email address?", "email", "Finish");
+          return;
+        }
+
+        console.warn("YPN intake: unknown step id", id);
+      }
+
+      function resetIntake() {
+        intakeFinalized = false;
+        state.loanType = null;
+        state.secondary = null;
+        state.loanProgram = null;
+        state.isVeteran = null;
+        state.credit = null;
+        state.income = null;
+        state.priceRange = null;
+        state.timeline = null;
+        state.firstTime = null;
+        state.hasRealtor = null;
+        state.name = "";
+        state.phone = "";
+        state.email = "";
+        currentStepIndex = 0;
+        stepOrder = buildStepOrder();
+      }
+      function goNextFresh() {
+        stepOrder = buildStepOrder();
+        currentStepIndex = Math.min(currentStepIndex + 1, stepOrder.length - 1);
+        stepOrder = buildStepOrder();
+        renderCurrentPane();
+      }
+
+      function advance() {
+        stepOrder = buildStepOrder();
+        currentStepIndex += 1;
+        if (currentStepIndex >= stepOrder.length) {
+          finalize();
+          return;
+        }
+        renderCurrentPane();
+      }
+
+      /** Recalculate hidden step */
+      function goBackInternal() {
+        if (currentStepIndex <= 0) return;
+        currentStepIndex--;
+        stepOrder = buildStepOrder();
+        renderCurrentPane();
+      }
+
+      function attachBackFld() {
+        /* insert back button overlay for chip steps — mini row */
+        /* For chip-only steps we prepend a sticky back link */
+        var bar = document.createElement("div");
+        bar.style.display = "flex";
+        bar.style.justifyContent = "flex-start";
+        bar.style.marginBottom = "0.65rem";
+        var bk = document.createElement("button");
+        bk.type = "button";
+        bk.className = "ypn-back-mini";
+        bk.textContent = "← Back";
+        bk.addEventListener("click", goBackInternal);
+        bar.appendChild(bk);
+        stage.firstChild.insertBefore(bar, stage.firstChild.firstChild);
+      }
+
+      function attachBackEarly() {
+        /* step 1: optional no back */
+      }
+
+      /** Finalize **/
+      async function finalize() {
+        if (intakeFinalized) return;
+        intakeFinalized = true;
+        var scoreNum = computeScore(state);
+        var q = leadQuality(scoreNum);
+        var recProg = recommendedProgramFor(state, q);
+        var nextAct = recommendedNextAction(state, scoreNum);
+        var realtorFlag =
+          state.hasRealtor === "No";
+
+        progLabel.textContent = "Completed";
+        progPct.textContent = "100%";
+        progFill.style.width = "100%";
+
+        stage.innerHTML = "";
+
+        var done = document.createElement("div");
+        done.className = "ypn-pane active";
+        var badge = document.createElement("div");
+        badge.className =
+          "ypn-done-badge " + q.klass;
+        badge.textContent = q.emoji + " " + q.slug + " · Score " + scoreNum + "/100";
+        done.appendChild(badge);
+
+        var head = document.createElement("p");
+        head.className = "ypn-q";
+        head.style.marginBottom = "0.75rem";
+        head.textContent =
+          "Thanks, " +
+          escapeHtml(state.name || "friend") +
+          "! Here's your personalized intake summary.";
+        done.appendChild(head);
+
+        var sg = document.createElement("div");
+        sg.className = "ypn-summary-grid";
+
+        function row(a, b) {
+          var r = document.createElement("div");
+          r.className = "ypn-sum-row";
+          r.innerHTML =
+            "<span>" +
+            escapeHtml(a) +
+            "</span><span>" +
+            escapeHtml(b) +
+            "</span>";
+          sg.appendChild(r);
+        }
+
+        row(
+          "Recommended program",
+          recProg
+        );
+        row(
+          "Primary goal",
+          state.loanType
+        );
+        row(
+          "Detail",
+          state.secondary || "—"
+        );
+        row(
+          "Loan program interest",
+          state.loanProgram
+        );
+        row(
+          "Veteran / VA eligible mindset",
+          state.isVeteran
+        );
+        row(
+          "Credit band",
+          state.credit
+        );
+        row(
+          "Income",
+          state.income
+        );
+        row(
+          "Price / loan size",
+          state.priceRange
+        );
+        row(
+          "Timeline",
+          state.timeline
+        );
+        row(
+          "First-time buyer",
+          state.firstTime || "N/A"
+        );
+        row(
+          "Working with Realtor",
+          state.hasRealtor
+        );
+
+        row("Lead quality", q.slug.replace("lead", "").trim());
+
+        row("Recommended next action", nextAct);
+
+        done.appendChild(sg);
+
+        var note = document.createElement("p");
+        note.className = "ypn-hint";
+        note.style.marginTop = "1rem";
+        note.style.fontSize = "0.88rem";
+        note.innerHTML =
+          "<strong>A YPN AI loan specialist will contact you within the hour.</strong><br /><span style=\"color:#09152aab\">Book anytime below — your LO will reconcile your file.</span>";
+        done.appendChild(note);
+
+        var cal = document.createElement("a");
+        cal.href = CONFIG.CALENDLY_URL;
+        cal.target = "_blank";
+        cal.rel = "noopener noreferrer";
+        cal.className = "ypn-cal-book";
+        cal.textContent = "📅 Schedule a call (Calendly)";
+        done.appendChild(cal);
+
+        stage.appendChild(done);
+
+        persistAndNotify(scoreNum, q, recProg, nextAct, realtorFlag);
+      }
+
+      async function persistAndNotify(scoreNum, q, recProg, nextAct, realtorFlag) {
+        var rowPayload = {
+          name: state.name,
+          phone: state.phone,
+          email: state.email,
+          loan_type: state.loanType,
+          loan_program: state.loanProgram,
+          credit_score: state.credit,
+          income: state.income,
+          purchase_price: state.priceRange,
+          timeline: state.timeline,
+          first_time_buyer: state.loanType === "Buy a Home" ? state.firstTime : null,
+          has_realtor: state.hasRealtor,
+          is_veteran: state.isVeteran === "Yes",
+          notes: JSON.stringify({
+            secondary_detail: state.secondary,
+            realtor_referral_opportunity: realtorFlag,
+          }),
+          lead_score: scoreNum,
+          lead_quality:
+            scoreNum >= 70 ? "Hot" : scoreNum >= 40 ? "Warm" : "Cool",
+          source_url: typeof location !== "undefined" ? location.href : "",
+          recommended_program: recProg,
+          status: "new",
+        };
+
+        if (
+          placeholdersOk() &&
+          window.supabase &&
+          typeof window.supabase.createClient === "function"
+        ) {
+          try {
+            if (!supabaseClient) {
+              supabaseClient = window.supabase.createClient(
+                CONFIG.SUPABASE_URL,
+                CONFIG.SUPABASE_ANON_KEY
+              );
+            }
+            var ins = await supabaseClient.from("leads").insert(rowPayload).select().single();
+            if (ins.error) console.warn("Supabase insert:", ins.error.message);
+          } catch (e) {
+            console.warn("Supabase error", e);
+          }
+        }
+
+        /** EmailJS */
+        if (
+          typeof emailjs !== "undefined" &&
+          emailJsConfigured()
+        ) {
+          try {
+            if (!emailJsReady) {
+              emailjs.init({ publicKey: CONFIG.EMAILJS_PUBLIC_KEY });
+              emailJsReady = true;
+            }
+
+            var teamParams = {
+              to_email: CONFIG.TEAM_ALERT_EMAIL,
+              subject_line:
+                "🔥 New YPN AI Lead — " +
+                state.name +
+                " — " +
+                (scoreNum >= 70 ? "HOT" : scoreNum >= 40 ? "WARM" : "COOL"),
+              borrower_name: state.name,
+              borrower_phone: state.phone,
+              borrower_email: state.email,
+              loan_type: state.loanType,
+              loan_program: state.loanProgram,
+              credit_band: state.credit,
+              income_band: state.income,
+              price_band: state.priceRange,
+              timeline: state.timeline,
+              lead_score: String(scoreNum),
+              lead_quality: rowPayload.lead_quality,
+              veteran: state.isVeteran,
+              recommended_program: recProg,
+              next_action: nextAct,
+              detail_secondary: state.secondary || "",
+              timestamp: new Date().toISOString(),
+              realtor_referral: realtorFlag ? "YES — Realtor referral opp" : "No",
+              message_html:
+                "<h2>New lead</h2><p><b>Name:</b> " +
+                escapeHtml(state.name) +
+                "</p>" +
+                "<p><b>Phone:</b> " +
+                escapeHtml(state.phone) +
+                "</p>" +
+                "<p><b>Email:</b> " +
+                escapeHtml(state.email) +
+                "</p>" +
+                "<p><b>Loan type:</b> " +
+                escapeHtml(state.loanType) +
+                "</p>" +
+                "<p><b>Program:</b> " +
+                escapeHtml(state.loanProgram) +
+                "</p>" +
+                "<p><b>Credit:</b> " +
+                escapeHtml(state.credit) +
+                "</p>" +
+                "<p><b>Timeline:</b> " +
+                escapeHtml(state.timeline) +
+                "</p>" +
+                "<p><b>Income:</b> " +
+                escapeHtml(state.income) +
+                "</p>" +
+                "<p><b>Purchase / loan:</b> " +
+                escapeHtml(state.priceRange) +
+                "</p>" +
+                "<p><b>Score:</b> " +
+                scoreNum +
+                " — " +
+                rowPayload.lead_quality +
+                "</p>" +
+                "<p><b>Next:</b> " +
+                escapeHtml(nextAct) +
+                "</p>",
+            };
+
+            emailjs.send(
+              CONFIG.EMAILJS_SERVICE_ID,
+              CONFIG.EMAILJS_TEMPLATE_ID,
+              teamParams
+            ).catch(function (err) {
+              console.warn("EmailJS team:", err);
+            });
+
+            var borrowerOk =
+              CONFIG.EMAILJS_TEMPLATE_ID_BORROWER.indexOf("YOUR_") !== 0;
+            if (borrowerOk) {
+              var confHtml =
+                "<p>Hi " +
+                escapeHtml(state.name) +
+                ",</p>" +
+                "<p>Thank you for completing your YPN AI intake. A specialized loan officer will contact you within the hour.</p>" +
+                "<p>If you prefer to lock time now, book here:<br/><a href=\"" +
+                escapeHtml(CONFIG.CALENDLY_URL) +
+                '" target="_blank" rel="noopener">Schedule on Calendly</a></p>' +
+                "<p>Best,<br/><strong>YPN AI</strong> · Mortgage partnership platform</p>";
+              emailjs
+                .send(CONFIG.EMAILJS_SERVICE_ID, CONFIG.EMAILJS_TEMPLATE_ID_BORROWER, {
+                  to_email: state.email,
+                  to_name: state.name,
+                  borrower_name: state.name,
+                  subject_line: "You're connected with YPN AI — next steps",
+                  message_html: confHtml,
+                  cal_link: CONFIG.CALENDLY_URL,
+                  reply_to: CONFIG.TEAM_ALERT_EMAIL,
+                })
+                .catch(function (err) {
+                  console.warn("EmailJS borrower:", err);
+                });
+            }
+          } catch (e) {
+            console.warn("EmailJS init/send error", e);
+          }
+        }
+      }
+
+      /** Modal open / close */
+      function openModal() {
+        resetIntake();
+
+        backdrop.classList.add("on");
+        modal.classList.add("on");
+        fab.setAttribute("aria-expanded", "true");
+        fab.style.visibility = "hidden";
+        fab.style.pointerEvents = "none";
+
+        renderCurrentPane();
+      }
+
+      function closeModal() {
+        backdrop.classList.remove("on");
+        modal.classList.remove("on");
+        fab.setAttribute("aria-expanded", "false");
+        fab.style.visibility = "";
+        fab.style.pointerEvents = "";
+      }
+
+      fab.addEventListener("click", openModal);
+      backdrop.addEventListener("click", closeModal);
+      closeBtn.addEventListener("click", closeModal);
+
+      /** Optional: embed mode ?embed=1 hides FAB parent uses iframe **/
+      try {
+        if (
+          new URLSearchParams(location.search).get("embed") === "1"
+        ) {
+          fab.hidden = true;
+          openModal();
+        }
+      } catch (_) {}
+
+      /* Expose reopen for iframe parent parent.postMessage APIs if needed */
+      window.YpnIntake = { open: openModal, close: closeModal };
+
+    })();
+  </script>
+
+  <!--
+    EMBED on any site:
+
+    <iframe
+      src="ypn-ai-borrower-intake.html?embed=1"
+      title="YPN AI intake"
+      style="position:fixed;bottom:0;right:0;border:none;width:100%;max-width:460px;height:92vh;z-index:99999;background:transparent;"
+    ></iframe>
+
+    Or host the file at your CDN and swap the URL.
+  -->
+</body>
+</html>

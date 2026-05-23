@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YPN AI · Lead Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    :root {
+      --navy: #09152a;
+      --gold: #c8a84b;
+      --white: #ffffff;
+      --muted: rgba(9, 21, 42, 0.55);
+      --bar-bg: rgba(9, 21, 42, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Outfit, system-ui, sans-serif;
+      background: linear-gradient(160deg, #eef0f4, #fff 50%);
+      color: var(--navy);
+      min-height: 100vh;
+      padding: clamp(1rem, 3vw, 2rem);
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      margin: 0 0 0.25rem;
+      letter-spacing: -0.02em;
+    }
+    .sub {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+    .grid {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-bottom: 1.75rem;
+    }
+    .card {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 1.1rem 1.2rem;
+      border: 1px solid rgba(200, 168, 75, 0.25);
+      box-shadow: 0 12px 40px rgba(9, 21, 42, 0.08);
+    }
+    .card h3 {
+      margin: 0 0 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .card .val {
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .card .hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.35rem; }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0 0 0.75rem;
+    }
+
+    .bars { display: flex; flex-direction: column; gap: 0.65rem; }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 88px 1fr 40px;
+      align-items: center;
+      gap: 0.55rem;
+      font-size: 0.85rem;
+    }
+    .bar-track {
+      height: 10px;
+      border-radius: 99px;
+      background: var(--bar-bg);
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--gold), #a88935);
+      transition: width 0.6s ease;
+    }
+    .bar-fill.cool { background: linear-gradient(90deg, #5a7fc4, #3d5a8f); }
+    .bar-fill.warm { background: linear-gradient(90deg, #e8a317, #c88200); }
+    .bar-fill.hot { background: linear-gradient(90deg, #e24a4a, #b53030); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      background: var(--white);
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid rgba(9, 21, 42, 0.08);
+    }
+    th, td {
+      padding: 0.65rem 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(9, 21, 42, 0.06);
+    }
+    th {
+      background: rgba(9, 21, 42, 0.04);
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    tr:last-child td { border-bottom: none; }
+
+    .lock-screen {
+      max-width: 420px;
+      margin: 10vh auto;
+      background: var(--white);
+      padding: 1.75rem;
+      border-radius: 18px;
+      border: 1px solid rgba(200, 168, 75, 0.35);
+      box-shadow: 0 20px 60px rgba(9, 21, 42, 0.12);
+    }
+    .lock-screen input {
+      width: 100%;
+      margin-top: 0.75rem;
+      padding: 0.75rem 0.85rem;
+      border-radius: 12px;
+      border: 2px solid rgba(9, 21, 42, 0.12);
+      font-family: inherit;
+      font-size: 1rem;
+    }
+    .lock-screen button {
+      margin-top: 0.85rem;
+      width: 100%;
+      padding: 0.85rem;
+      border: none;
+      border-radius: 999px;
+      font-family: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--navy), #1c3a66);
+    }
+    .err { color: #c42b2b; font-size: 0.85rem; margin-top: 0.5rem; }
+
+    .hidden { display: none !important; }
+    .refresh {
+      float: right;
+      margin-top: -2.2rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      border: 2px solid rgba(9, 21, 42, 0.12);
+      background: var(--white);
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    @media (max-width: 640px) {
+      .refresh { float: none; margin: 0 0 1rem; display: block; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="lock" class="lock-screen">
+    <h1 style="margin-top:0">YPN AI Dashboard</h1>
+    <p class="sub" style="margin-bottom:0.75rem">Password required</p>
+    <input type="password" id="pwIn" placeholder="Enter password" autocomplete="current-password" />
+    <button type="button" id="pwGo">Unlock</button>
+    <p id="pwErr" class="err"></p>
+  </div>
+
+  <div id="app" class="wrap hidden">
+    <button type="button" class="refresh" id="reload">↻ Refresh data</button>
+    <h1>YPN AI · Lead analytics</h1>
+    <p class="sub">Read-only · Supabase</p>
+
+    <div class="grid" id="kpi"></div>
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr">
+      <div class="card">
+        <h3>Lead quality</h3>
+        <div class="bars" id="qualityBars"></div>
+      </div>
+      <div class="card">
+        <h3>Loan program demand</h3>
+        <div class="bars" id="programBars"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem">
+      <h3 class="section-title">Recent leads</h3>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Loan type</th>
+              <th>Program</th>
+              <th>Score</th>
+              <th>Quality</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+    <p class="sub" style="margin:0">Match Supabase URL / anon key below to your project (same as intake file).</p>
+  </div>
+
+  <script>
+    (function () {
+      var CONFIG = {
+        DASHBOARD_PASSWORD: "ypn-dashboard-2026",
+        SUPABASE_URL: "YOUR_SUPABASE_URL",
+        SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY",
+      };
+
+      var SESSION_KEY = "ypn_dash_ok";
+
+      var lock = document.getElementById("lock");
+      var app = document.getElementById("app");
+      var pwIn = document.getElementById("pwIn");
+      var pwGo = document.getElementById("pwGo");
+      var pwErr = document.getElementById("pwErr");
+
+      function supaReady() {
+        return (
+          CONFIG.SUPABASE_URL.indexOf("YOUR_") !== 0 &&
+          CONFIG.SUPABASE_ANON_KEY.indexOf("YOUR_") !== 0
+        );
+      }
+
+      function tryUnlock() {
+        pwErr.textContent = "";
+        if (pwIn.value === CONFIG.DASHBOARD_PASSWORD) {
+          sessionStorage.setItem(SESSION_KEY, "1");
+          showApp();
+        } else {
+          pwErr.textContent = "Incorrect password.";
+        }
+      }
+
+      function showApp() {
+        lock.classList.add("hidden");
+        app.classList.remove("hidden");
+        loadData();
+      }
+
+      if (sessionStorage.getItem(SESSION_KEY) === "1") {
+        lock.classList.add("hidden");
+        app.classList.remove("hidden");
+        loadData();
+      }
+
+      pwGo.addEventListener("click", tryUnlock);
+      pwIn.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") tryUnlock();
+      });
+
+      document.getElementById("reload").addEventListener("click", loadData);
+
+      function startOfWeek(d) {
+        var x = new Date(d);
+        var day = x.getDay();
+        var diff = (day + 6) % 7;
+        x.setDate(x.getDate() - diff);
+        x.setHours(0, 0, 0, 0);
+        return x;
+      }
+
+      function startOfMonth(d) {
+        return new Date(d.getFullYear(), d.getMonth(), 1);
+      }
+
+      async function loadData() {
+        if (!supaReady()) {
+          document.getElementById("kpi").innerHTML =
+            '<div class="card" style="grid-column:1/-1"><p>Set <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code> in <code>dashboard.html</code> script CONFIG.</p></div>';
+          return;
+        }
+
+        var supa = window.supabase;
+        var client = supa.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+        var res = await client
+          .from("leads")
+          .select(
+            "name, loan_type, loan_program, lead_score, lead_quality, created_at"
+          )
+          .order("created_at", { ascending: false })
+          .limit(500);
+
+        if (res.error) {
+          document.getElementById("kpi").innerHTML =
+            '<div class="card" style="grid-column:1/-1;color:#c42b2b">Error: ' +
+            escapeHtml(res.error.message) +
+            "</div>";
+          return;
+        }
+
+        var leads = res.data || [];
+        var now = new Date();
+        var w0 = startOfWeek(now);
+        var m0 = startOfMonth(now);
+
+        var week = leads.filter(function (L) {
+          return new Date(L.created_at) >= w0;
+        });
+        var month = leads.filter(function (L) {
+          return new Date(L.created_at) >= m0;
+        });
+
+        var avg =
+          leads.length === 0
+            ? 0
+            : Math.round(
+                leads.reduce(function (s, L) {
+                  return s + Number(L.lead_score || 0);
+                }, 0) / leads.length
+              );
+
+        document.getElementById("kpi").innerHTML =
+          kpiCard("This week", week.length) +
+          kpiCard("This month", month.length) +
+          kpiCard("Avg lead score", avg, "Last 500 rows loaded") +
+          kpiCard("Total (sample)", leads.length, "Up to 500 most recent");
+
+        var qCount = { Hot: 0, Warm: 0, Cool: 0 };
+        var pCount = {};
+        leads.forEach(function (L) {
+          var q = (L.lead_quality || "").toLowerCase();
+          if (q.indexOf("hot") !== -1) qCount.Hot++;
+          else if (q.indexOf("warm") !== -1) qCount.Warm++;
+          else if (q.indexOf("cool") !== -1) qCount.Cool++;
+          var pr = L.loan_program || "Unknown";
+          pCount[pr] = (pCount[pr] || 0) + 1;
+        });
+
+        var qMax = Math.max(qCount.Hot + qCount.Warm + qCount.Cool, 1);
+        document.getElementById("qualityBars").innerHTML = [
+          { k: "Hot", n: qCount.Hot, c: "hot" },
+          { k: "Warm", n: qCount.Warm, c: "warm" },
+          { k: "Cool", n: qCount.Cool, c: "cool" },
+        ]
+          .map(function (x) {
+            var pct = Math.round((x.n / qMax) * 100);
+            return (
+              '<div class="bar-row"><span>' +
+              x.k +
+              '</span><div class="bar-track"><div class="bar-fill ' +
+              x.c +
+              '" style="width:' +
+              pct +
+              '%"></div></div><span>' +
+              x.n +
+              "</span></div>"
+            );
+          })
+          .join("");
+
+        var progKeys = Object.keys(pCount).sort(function (a, b) {
+          return pCount[b] - pCount[a];
+        });
+        var pMax = Math.max.apply(
+          null,
+          progKeys.map(function (k) {
+            return pCount[k];
+          }).concat([1])
+        );
+        document.getElementById("programBars").innerHTML = progKeys
+          .slice(0, 8)
+          .map(function (k) {
+            var n = pCount[k];
+            var pct = Math.round((n / pMax) * 100);
+            return (
+              '<div class="bar-row"><span style="font-size:0.78rem;word-break:break-word">' +
+              escapeHtml(k) +
+              '</span><div class="bar-track"><div class="bar-fill" style="width:' +
+              pct +
+              '%"></div></div><span>' +
+              n +
+              "</span></div>"
+            );
+          })
+          .join("");
+
+        document.getElementById("rows").innerHTML = leads
+          .slice(0, 25)
+          .map(function (L) {
+            return (
+              "<tr><td>" +
+              escapeHtml(L.name || "—") +
+              "</td><td>" +
+              escapeHtml(L.loan_type || "—") +
+              "</td><td>" +
+              escapeHtml(L.loan_program || "—") +
+              "</td><td>" +
+              Number(L.lead_score || 0) +
+              "</td><td>" +
+              escapeHtml(L.lead_quality || "—") +
+              "</td><td>" +
+              formatDate(L.created_at) +
+              "</td></tr>"
+            );
+          })
+          .join("");
+      }
+
+      function kpiCard(title, val, hint) {
+        return (
+          '<div class="card"><h3>' +
+          escapeHtml(title) +
+          '</h3><div class="val">' +
+          escapeHtml(String(val)) +
+          "</div>" +
+          (hint ? '<div class="hint">' + escapeHtml(hint) + "</div>" : "") +
+          "</div>"
+        );
+      }
+
+      function formatDate(iso) {
+        if (!iso) return "—";
+        var d = new Date(iso);
+        return d.toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+    })();
+  </script>
+</body>
+</html>

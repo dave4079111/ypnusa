@@ -1,0 +1,143 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YPN AI — Borrower Intake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>:root{--n:#09152a;--g:#c8a84b;--gf:rgba(200,168,75,.17);--m:rgba(9,21,42,.62)}*{box-sizing:border-box}body,html{height:100%;margin:0}body{font-family:Outfit,system-ui,sans-serif;background:radial-gradient(circle at 18% -8%,rgba(200,168,75,.13),transparent 46%),linear-gradient(180deg,#f4f6f9,#fff 88%);color:var(--n);-webkit-font-smoothing:antialiased}.w{min-height:100%;padding:clamp(.7rem,3vw,1.55rem);display:flex;justify-content:center;align-items:stretch}.c{width:min(480px,100%);flex:1;margin:auto;border-radius:24px;background:rgba(255,255,255,.97);border:1px solid rgba(9,21,42,.08);box-shadow:0 24px 80px rgba(9,21,42,.09),0 8px 32px rgba(200,168,75,.13);overflow:hidden;display:flex;flex-direction:column;min-height:min(640px,92vh)}.h{padding:.95rem 1.2rem;border-bottom:1px solid rgba(9,21,42,.07);display:flex;align-items:center;gap:.75rem;background:linear-gradient(180deg,#fff,#fafbfc)}.b{display:flex;align-items:center;gap:.42rem;font-weight:700;font-size:1.05rem}.bm{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--g),#a88935)}.pw{flex:1;padding:0 .65rem}.pt{height:9px;background:rgba(9,21,42,.07);border-radius:99px;overflow:hidden}.pf{height:100%;width:0;background:linear-gradient(90deg,var(--n),#152a54);box-shadow:0 0 10px rgba(200,168,75,.5);transition:width .42s ease}.pc{font-size:.72rem;color:var(--m);margin-top:.28rem;text-align:right}.bd{flex:1;display:flex;padding:1rem 1.2rem clamp(1.1rem,3vw,1.45rem);overflow:auto}.stk{flex:1;min-height:0;display:flex;flex-direction:column}.pn{display:none;flex-direction:column;padding-bottom:.75rem;flex:1}.pn.on{display:flex;animation:pane-in .44s cubic-bezier(.2,.92,.37,1) both}@keyframes pane-in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}.qm{font-weight:600;font-size:clamp(1.05rem,3.5vw,1.32rem);line-height:1.35;margin:0 0 1rem}.grid{display:flex;flex-wrap:wrap;gap:.55rem}.ch{flex:1 1 calc(50% -.55rem);min-width:138px;font-family:inherit;font-weight:600;font-size:.92rem;padding:.74rem;border-radius:14px;border:2px solid rgba(9,21,42,.13);background:#fff;color:var(--n);cursor:pointer;transition:border-color .2s,background .2s}.ch:hover:not(:disabled){border-color:var(--g);background:var(--gf)}.fs{display:flex;flex-direction:column;gap:.92rem;margin-top:.2rem}.fs label{font-size:.72rem;font-weight:700;letter-spacing:.05em;color:rgba(9,21,42,.74);display:flex;flex-direction:column;gap:.42rem;text-transform:uppercase}input{width:100%;padding:.82rem;border-radius:14px;border:1px solid rgba(9,21,42,.16);font-family:inherit;font-size:1rem;background:rgba(249,250,252,.95)}input:focus{outline:none;border-color:var(--g);box-shadow:0 0 0 3px var(--gf);background:#fff}.go{border:none;padding:.86rem;font-weight:700;border-radius:999px;font-family:inherit;font-size:.95rem;cursor:pointer;background:linear-gradient(135deg,var(--g),#dec87c);color:var(--n);box-shadow:0 13px 40px rgba(200,168,75,.34)}.go:disabled{opacity:.53;cursor:wait}.mt{color:var(--m);font-size:.9rem;line-height:1.55;margin:.85rem 0 0}.sum{display:none;background:rgba(9,21,42,.046);padding:1rem 1rem;border-radius:16px;margin-top:.9rem;font-size:.82rem;line-height:1.55;font-family:ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap}.done .sum{display:block}.ft{font-size:.68rem;color:var(--m);margin-top:.8rem;line-height:1.4;text-align:center;border-top:1px solid rgba(9,21,42,.055);padding:.75rem}</style></head><body><div class="w"><div class="c"><header class="h"><div class="b"><span class="bm" aria-hidden></span>YPN AI intake</div><div class="pw"><div class="pt" aria-hidden><div id="pf" class="pf"></div></div><p id="pc" class="pc">Question 1 of 10</p></div></header><main class="bd"><div id="stk" class="stk" aria-live="polite">
+
+<div id="p0" class="pn on" data-i="0"><p class="qm">Hi! I'm the YPN AI loan assistant. Are you looking to buy a home or refinance?</p><div class="grid"><button class="ch" type="button" data-f="intent" data-v="Buy a home">Buy a Home</button><button class="ch" type="button" data-f="intent" data-v="Refinance">Refinance</button></div></div>
+<div id="p1" class="pn" data-i="1"><p class="qm">Great! Where are you in the process?</p><div class="grid"><button class="ch" type="button" data-f="processStage" data-v="Already in contract">Already in contract</button><button class="ch" type="button" data-f="processStage" data-v="Making an offer soon">Making an offer soon</button><button class="ch" type="button" style="flex-basis:100%" data-f="processStage" data-v="Still shopping">Still shopping</button></div></div>
+<div id="p2" class="pn" data-i="2"><p class="qm">What type of loan are you interested in?</p><div class="grid"><button class="ch" type="button" data-f="loanType" data-v="FHA">FHA</button><button class="ch" type="button" data-f="loanType" data-v="VA">VA</button><button class="ch" type="button" data-f="loanType" data-v="Conventional">Conventional</button><button class="ch" type="button" data-f="loanType" data-v="Not sure">Not sure</button></div></div>
+<div id="p3" class="pn" data-i="3"><p class="qm">What's your estimated credit score range?</p><div class="grid"><button class="ch" type="button" data-f="creditBand" data-v="760+">760+</button><button class="ch" type="button" data-f="creditBand" data-v="720–759">720-759</button><button class="ch" type="button" data-f="creditBand" data-v="680–719">680-719</button><button class="ch" type="button" data-f="creditBand" data-v="640–679">640-679</button><button class="ch" type="button" style="flex-basis:100%" data-f="creditBand" data-v="Below 640">Below 640</button></div></div>
+<div id="p4" class="pn" data-i="4"><p class="qm" id="pq">Estimated purchase price?</p><div class="grid"><button class="ch" type="button" data-f="priceRange" data-v="Under $200k">Under $200k</button><button class="ch" type="button" data-f="priceRange" data-v="$200k-$400k">$200k-$400k</button><button class="ch" type="button" data-f="priceRange" data-v="$400k-$600k">$400k-$600k</button><button class="ch" type="button" data-f="priceRange" data-v="$600k-$800k">$600k-$800k</button><button class="ch" type="button" style="flex-basis:100%" data-f="priceRange" data-v="$800k+">$800k+</button></div></div>
+<div id="p5" class="pn" data-i="5"><p class="qm">Is this your first time buying a home?</p><div class="grid"><button class="ch" type="button" data-f="firstTimeBuyer" data-v="Yes">Yes</button><button class="ch" type="button" data-f="firstTimeBuyer" data-v="No">No</button></div></div>
+<div id="p6" class="pn" data-i="6"><p class="qm">Are you currently working with a realtor?</p><div class="grid"><button class="ch" type="button" data-f="hasRealtor" data-v="Yes">Yes</button><button class="ch" type="button" data-f="hasRealtor" data-v="No">No</button></div></div>
+<div id="p7" class="pn" data-i="7"><p class="qm">Almost done! What's your name?</p><div class="fs"><label>Full name<input id="n" type="text" autocomplete="name" maxlength="160" placeholder="Jordan Lee"></label><button class="go" type="button" id="bn">Continue</button><p id="mn" class="mt" style="min-height:1em"></p></div></div>
+<div id="p8" class="pn" data-i="8"><p class="qm">What's your phone number?</p><div class="fs"><label>Phone<input id="ph" type="tel" autocomplete="tel" inputmode="tel" maxlength="32" placeholder="(555) 123-9876"></label><button class="go" type="button" id="bp">Continue</button><p id="mp" class="mt" style="min-height:1em"></p></div></div>
+<div id="p9" class="pn" data-i="9"><p class="qm">And your email address?</p><div class="fs"><label>Email<input id="em" type="email" autocomplete="email" maxlength="240" placeholder="you@domain.com"></label><button class="go" type="button" id="be">Finish</button><p id="me" class="mt" style="min-height:1em"></p></div></div>
+<div id="p10" class="pn done" data-i="10"><p class="qm">Thank you!</p><p class="mt">A loan officer will contact you within the hour. Here's a summary of your answers.</p><div id="sum" class="sum"></div><p class="mt" style="font-size:.85rem">Send a copy via email (opens your mail app):</p><button class="go" type="button" id="mail" style="width:100%;margin-top:.6rem">Email summary to support@ypnus.com</button><p class="mt" style="font-size:.8rem">We also POST JSON to your webhook when configured.</p></div>
+
+</div></main><footer class="ft">ypnus.com · YPN AI · embed as iframe or open standalone</footer></div></div>
+<script>
+(function(){
+var WEBHOOK='https://YOUR-WEBHOOK-URL/intake';
+var panels=[].slice.call(document.querySelectorAll('.pn'));
+var TOTAL=10;
+var i=0;
+var data={};
+var sent=false;
+var pf=document.getElementById('pf');
+var pc=document.getElementById('pc');
+var pq=document.getElementById('pq');
+
+function bar(){
+var d=Math.min(i+1,TOTAL);
+if(pf)pf.style.width=(d/TOTAL*100)+'%';
+if(pc)pc.textContent='Question '+d+' of '+TOTAL;
+if(i>=TOTAL&&pf)pf.style.width='100%';
+if(i>=TOTAL&&pc)pc.textContent='Complete';
+}
+
+function show(n){
+panels.forEach(function(p,idx){p.classList.toggle('on',idx===n);});
+i=n;
+if(pq){
+pq.textContent=(data.intent==='Refinance')?'Estimated home value / loan balance range?':'Estimated purchase price?';
+}
+bar();
+postH();
+}
+
+function postH(){
+if(window.parent===window)return;
+try{
+var h=document.documentElement.scrollHeight;
+window.parent.postMessage({type:'ypn-intake-height',height:h},'*');
+}catch(e){}
+}
+
+function next(){show(Math.min(i+1,panels.length-1));}
+
+document.getElementById('stk').addEventListener('click',function(e){
+var t=e.target;
+if(!t.classList||!t.classList.contains('ch'))return;
+var f=t.getAttribute('data-f');
+var v=t.getAttribute('data-v');
+if(!f)return;
+data[f]=v;
+t.closest('.grid').querySelectorAll('.ch').forEach(function(b){b.disabled=true;});
+setTimeout(next,120);
+});
+
+function valName(){
+var el=document.getElementById('n');
+var v=(el&&el.value||'').trim();
+if(!v){document.getElementById('mn').textContent='Please enter your name.';return;}
+data.fullName=v;document.getElementById('mn').textContent='';next();
+}
+function valPhone(){
+var el=document.getElementById('ph');
+var v=(el&&el.value||'').trim();
+if(v.replace(/\D/g,'').length<10){document.getElementById('mp').textContent='Enter a valid phone number.';return;}
+data.phone=v;document.getElementById('mp').textContent='';next();
+}
+function valEmail(){
+var el=document.getElementById('em');
+var v=(el&&el.value||'').trim();
+if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){document.getElementById('me').textContent='Enter a valid email.';return;}
+data.email=v;document.getElementById('me').textContent='';finish();
+}
+
+document.getElementById('bn').addEventListener('click',valName);
+document.getElementById('n').addEventListener('keydown',function(e){if(e.key==='Enter')valName();});
+document.getElementById('bp').addEventListener('click',valPhone);
+document.getElementById('be').addEventListener('click',valEmail);
+document.getElementById('ph').addEventListener('keydown',function(e){if(e.key==='Enter')valPhone();});
+document.getElementById('em').addEventListener('keydown',function(e){if(e.key==='Enter')valEmail();});
+
+function summaryTxt(){
+var L=['YPN AI — Borrower intake summary',''];
+[
+['Intent',data.intent],
+['Timeline',data.processStage],
+['Loan type',data.loanType],
+['Credit band',data.creditBand],
+['Price / value band',data.priceRange],
+['First-time buyer',data.firstTimeBuyer],
+['Working with realtor',data.hasRealtor],
+['Name',data.fullName],
+['Phone',data.phone],
+['Email',data.email]
+].forEach(function(row){if(row[1])L.push(row[0]+': '+row[1]);});
+return L.join('\n');
+}
+
+function mail(){
+var sub=encodeURIComponent('YPN AI intake — '+ (data.fullName||'borrower'));
+var body=encodeURIComponent(summaryTxt());
+window.location.href='mailto:support@ypnus.com?subject='+sub+'&body='+body;
+}
+document.getElementById('mail').addEventListener('click',mail);
+
+function finish(){
+show(10);
+var s=document.getElementById('sum');
+if(s)s.textContent=summaryTxt();
+if(sent)return;
+sent=true;
+
+var payload={
+source:'ypn-ai-borrower-intake-widget',
+completedAt:new Date().toISOString(),
+answers:data
+};
+if(/YOUR-WEBHOOK-URL/.test(WEBHOOK)){postH();return;}
+fetch(WEBHOOK,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).catch(function(){});
+postH();
+}
+
+new ResizeObserver(postH).observe(document.body);
+
+bar();postH();
+})();
+</script></body></html>

@@ -524,3 +524,309 @@
   .ypnus-form--inline .ypnus-input-row { flex-direction: column; }
   .ypnus-btn { width: 100%; }
 }
+
+/* ── Agentic Chat ──────────────────────────────────────────────────────────── */
+
+.ypnus-agent {
+  background: var(--mlo-bg);
+  border-radius: var(--mlo-radius-lg);
+  border: 1px solid var(--mlo-border);
+  box-shadow: var(--mlo-shadow);
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  max-width: 780px;
+  margin: 0 auto 2rem;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+.ypnus-agent__header {
+  align-items: center;
+  background: var(--mlo-navy);
+  color: #fff;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+}
+
+.ypnus-agent__avatar {
+  align-items: center;
+  background: var(--mlo-gold);
+  border-radius: 50%;
+  color: var(--mlo-navy);
+  display: flex;
+  flex-shrink: 0;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.ypnus-agent__name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.ypnus-agent__sub {
+  color: rgba(255,255,255,0.55);
+  font-size: 0.75rem;
+  margin-top: 1px;
+}
+
+.ypnus-agent__status {
+  align-items: center;
+  display: flex;
+  gap: 0.375rem;
+  margin-left: auto;
+}
+
+.ypnus-agent__dot {
+  background: #3BE878;
+  border-radius: 50%;
+  display: block;
+  flex-shrink: 0;
+  height: 8px;
+  transition: background 0.3s;
+  width: 8px;
+}
+
+.ypnus-agent__dot.is-thinking {
+  animation: ypnus-pulse 1s ease-in-out infinite;
+  background: var(--mlo-gold-light);
+}
+
+@keyframes ypnus-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+.ypnus-agent__status-text {
+  color: rgba(255,255,255,0.6);
+  font-size: 0.75rem;
+}
+
+/* Messages */
+.ypnus-agent__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 300px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding: 1.25rem;
+  scroll-behavior: smooth;
+  background: var(--mlo-surface);
+}
+
+.ypnus-agent__message {
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+}
+
+.ypnus-agent__message--user {
+  align-items: flex-end;
+  align-self: flex-end;
+}
+
+.ypnus-agent__message--agent,
+.ypnus-agent__message--error {
+  align-items: flex-start;
+  align-self: flex-start;
+}
+
+.ypnus-agent__bubble {
+  background: var(--mlo-bg);
+  border: 1px solid var(--mlo-border);
+  border-radius: 12px 12px 12px 2px;
+  color: var(--mlo-text);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  padding: 0.75rem 1rem;
+  word-break: break-word;
+}
+
+.ypnus-agent__message--user .ypnus-agent__bubble {
+  background: var(--mlo-navy);
+  border-color: var(--mlo-navy);
+  border-radius: 12px 12px 2px 12px;
+  color: #fff;
+}
+
+.ypnus-agent__bubble--error {
+  background: #FDE8E8;
+  border-color: #F0ABAB;
+  color: #8B0000;
+}
+
+.ypnus-agent__bubble code {
+  background: rgba(0,0,0,0.07);
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.825em;
+  padding: 0.1em 0.35em;
+}
+
+.ypnus-agent__message--agent .ypnus-agent__bubble code {
+  background: rgba(13,31,53,0.06);
+}
+
+/* Copy button under agent messages */
+.ypnus-agent__copy {
+  background: transparent;
+  border: none;
+  color: var(--mlo-text-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-top: 0.2rem;
+  padding: 0.15rem 0;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+
+.ypnus-agent__copy:hover { color: var(--mlo-gold); }
+
+/* Typing indicator */
+.ypnus-agent__message--typing .ypnus-agent__bubble {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 0.9rem 1rem;
+}
+
+.ypnus-agent__message--typing .ypnus-agent__bubble span {
+  background: var(--mlo-steel);
+  border-radius: 50%;
+  display: block;
+  height: 7px;
+  width: 7px;
+  animation: ypnus-typing 1.2s ease-in-out infinite;
+}
+
+.ypnus-agent__message--typing .ypnus-agent__bubble span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.ypnus-agent__message--typing .ypnus-agent__bubble span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes ypnus-typing {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.4; }
+  30%            { transform: translateY(-5px); opacity: 1;   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ypnus-agent__message--typing .ypnus-agent__bubble span { animation: none; }
+  .ypnus-agent__dot.is-thinking { animation: none; }
+}
+
+/* Suggestion chips */
+.ypnus-agent__suggestions {
+  background: var(--mlo-surface);
+  border-top: 1px solid var(--mlo-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.ypnus-agent__chip {
+  background: var(--mlo-bg);
+  border: 1px solid var(--mlo-border);
+  border-radius: 20px;
+  color: var(--mlo-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.85rem;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.ypnus-agent__chip:hover {
+  border-color: var(--mlo-gold);
+  color: var(--mlo-gold);
+  background: var(--mlo-surface);
+}
+
+/* Input row */
+.ypnus-agent__input-row {
+  align-items: flex-end;
+  background: var(--mlo-surface);
+  border-top: 1px solid var(--mlo-border);
+  display: flex;
+  gap: 0.625rem;
+  padding: 0.875rem 1.25rem;
+}
+
+.ypnus-agent__input {
+  background: var(--mlo-bg);
+  border: 1px solid var(--mlo-border);
+  border-radius: var(--mlo-radius);
+  color: var(--mlo-text);
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 0.625rem 0.875rem;
+  resize: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ypnus-agent__input:focus {
+  border-color: var(--mlo-gold);
+  box-shadow: 0 0 0 3px rgba(184,137,10,0.15);
+  outline: none;
+}
+
+.ypnus-agent__send {
+  align-items: center;
+  background: var(--mlo-navy);
+  border: none;
+  border-radius: var(--mlo-radius);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 40px;
+  justify-content: center;
+  position: relative;
+  transition: opacity 0.15s;
+  width: 40px;
+}
+
+.ypnus-agent__send:hover { opacity: 0.85; }
+.ypnus-agent__send:active { transform: scale(0.96); }
+.ypnus-agent__send.is-loading .ypnus-btn__text { opacity: 0; }
+.ypnus-agent__send.is-loading { pointer-events: none; }
+.ypnus-agent__send .ypnus-btn__loader {
+  width: 16px;
+  height: 16px;
+}
+
+/* Footer */
+.ypnus-agent__footer {
+  background: var(--mlo-bg);
+  border-top: 1px solid var(--mlo-border);
+  color: var(--mlo-text-soft);
+  font-size: 0.6875rem;
+  padding: 0.5rem 1.25rem;
+  text-align: center;
+}
+
+/* ── Agent responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .ypnus-agent__messages { max-height: 380px; }
+  .ypnus-agent__message  { max-width: 94%; }
+  .ypnus-agent__suggestions { gap: 0.4rem; padding: 0.625rem 1rem; }
+  .ypnus-agent__input-row { padding: 0.625rem 1rem; }
+}

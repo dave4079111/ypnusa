@@ -206,3 +206,155 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 });
+
+// ── Agentic Chat ──────────────────────────────────────────────────────────────
+
+var ypnusAgentHistory = [];
+
+function ypnusAgentSend(e) {
+    if (e) e.preventDefault();
+
+    var inputEl = document.getElementById('ypnus-agent-input');
+    var msg = inputEl ? inputEl.value.trim() : '';
+    if (!msg) return;
+
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+
+    ypnusAgentHideSuggestions();
+    ypnusAgentAppend('user', msg);
+    ypnusAgentHistory.push({ role: 'user', content: msg });
+    ypnusAgentSetBusy(true);
+
+    var formData = new FormData();
+    formData.append('action',  'ypnus_agent_chat');
+    formData.append('nonce',   ypnusMLO.nonce);
+    formData.append('history', JSON.stringify(ypnusAgentHistory));
+
+    fetch(ypnusMLO.ajaxUrl, { method: 'POST', body: formData })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (!data.success) {
+                ypnusAgentAppend('error', data.data.message || 'Something went wrong. Please try again.');
+                return;
+            }
+            var reply = data.data.reply || '';
+            ypnusAgentHistory.push({ role: 'assistant', content: reply });
+            ypnusAgentAppend('agent', reply);
+        })
+        .catch(function () {
+            ypnusAgentAppend('error', 'Connection error. Please check your internet and try again.');
+        })
+        .finally(function () {
+            ypnusAgentSetBusy(false);
+        });
+}
+
+function ypnusAgentSuggest(text) {
+    var inputEl = document.getElementById('ypnus-agent-input');
+    if (inputEl) {
+        inputEl.value = text;
+        inputEl.focus();
+    }
+    ypnusAgentSend(null);
+}
+
+function ypnusAgentAppend(role, text) {
+    var log = document.getElementById('ypnus-agent-messages');
+    if (!log) return;
+
+    var div = document.createElement('div');
+    div.className = 'ypnus-agent__message ypnus-agent__message--' + role;
+
+    var bubble = document.createElement('div');
+    bubble.className = 'ypnus-agent__bubble';
+
+    if (role === 'agent') {
+        // Render markdown-lite: bold, code, newlines
+        bubble.innerHTML = ypnusAgentRender(text);
+
+        // Add copy button for agent messages
+        var copy = document.createElement('button');
+        copy.className = 'ypnus-agent__copy';
+        copy.textContent = 'Copy';
+        copy.setAttribute('aria-label', 'Copy response');
+        copy.onclick = function () {
+            navigator.clipboard.writeText(text).then(function () {
+                copy.textContent = 'Copied!';
+                setTimeout(function () { copy.textContent = 'Copy'; }, 2000);
+            });
+        };
+        div.appendChild(bubble);
+        div.appendChild(copy);
+    } else if (role === 'error') {
+        bubble.className += ' ypnus-agent__bubble--error';
+        bubble.textContent = text;
+        div.appendChild(bubble);
+    } else {
+        bubble.textContent = text;
+        div.appendChild(bubble);
+    }
+
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+}
+
+function ypnusAgentRender(text) {
+    // Minimal safe markdown-lite renderer
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br>');
+}
+
+function ypnusAgentSetBusy(busy) {
+    var btn       = document.getElementById('ypnus-agent-send');
+    var statusDot = document.querySelector('.ypnus-agent__dot');
+    var statusTxt = document.querySelector('.ypnus-agent__status-text');
+
+    if (btn) {
+        btn.classList.toggle('is-loading', busy);
+        btn.disabled = busy;
+    }
+    if (statusDot) statusDot.classList.toggle('is-thinking', busy);
+    if (statusTxt) statusTxt.textContent = busy ? 'Thinking…' : 'Ready';
+
+    // Show typing indicator bubble while busy
+    var log  = document.getElementById('ypnus-agent-messages');
+    var prev = document.getElementById('ypnus-typing-indicator');
+    if (busy && log && !prev) {
+        var typing = document.createElement('div');
+        typing.id = 'ypnus-typing-indicator';
+        typing.className = 'ypnus-agent__message ypnus-agent__message--agent ypnus-agent__message--typing';
+        typing.innerHTML = '<div class="ypnus-agent__bubble"><span></span><span></span><span></span></div>';
+        log.appendChild(typing);
+        log.scrollTop = log.scrollHeight;
+    } else if (!busy && prev) {
+        prev.remove();
+    }
+}
+
+function ypnusAgentHideSuggestions() {
+    var s = document.getElementById('ypnus-agent-suggestions');
+    if (s) s.style.display = 'none';
+}
+
+// Auto-grow textarea
+document.addEventListener('DOMContentLoaded', function () {
+    var agentInput = document.getElementById('ypnus-agent-input');
+    if (agentInput) {
+        agentInput.addEventListener('input', function () {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+        });
+        agentInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                ypnusAgentSend(null);
+            }
+        });
+    }
+});

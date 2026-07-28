@@ -144,37 +144,7 @@ function ypnus_mlo_default_silos() {
 }
 
 // ─── Assets ──────────────────────────────────────────────────────────────────
-
-add_action( 'wp_enqueue_scripts', function () {
-    // Only enqueue when a shortcode is present on the page
-    global $post;
-    if ( ! is_a( $post, 'WP_Post' ) ) return;
-    $has_shortcode = has_shortcode( $post->post_content, 'ypnus_content_generator' )
-                  || has_shortcode( $post->post_content, 'ypnus_keyword_scout' )
-                  || has_shortcode( $post->post_content, 'ypnus_silo_nav' );
-    if ( ! $has_shortcode ) return;
-
-    wp_enqueue_style(
-        'ypnus-mlo-style',
-        YPNUS_MLO_URL . 'assets/style.css',
-        [],
-        YPNUS_MLO_VERSION
-    );
-
-    wp_enqueue_script(
-        'ypnus-mlo-script',
-        YPNUS_MLO_URL . 'assets/script.js',
-        [],
-        YPNUS_MLO_VERSION,
-        true
-    );
-
-    wp_localize_script( 'ypnus-mlo-script', 'ypnusMLO', [
-        'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
-        'nonce'      => wp_create_nonce( 'ypnus_mlo_nonce' ),
-        'disclosure' => get_option( 'ypnus_mlo_disclosure', ypnus_mlo_default_disclosure() ),
-    ] );
-} );
+// Handled by ypnus_mlo_enqueue_assets() below (registered after shortcode definitions).
 
 // ─── AJAX: Content Generator ─────────────────────────────────────────────────
 
@@ -520,3 +490,516 @@ add_action( 'generate_before_content', function () {
     echo do_shortcode( '[ypnus_silo_nav]' );
 } );
 */
+
+// ─── Asset enqueue: also load for ypnus_agent shortcode ──────────────────────
+
+add_filter( 'ypnus_mlo_has_shortcode', function ( $has, $post ) {
+    return $has || has_shortcode( $post->post_content, 'ypnus_agent' );
+}, 10, 2 );
+
+// Override the existing enqueue check to use this filter
+remove_action( 'wp_enqueue_scripts', 'ypnus_mlo_enqueue_assets' );
+add_action( 'wp_enqueue_scripts', 'ypnus_mlo_enqueue_assets' );
+
+function ypnus_mlo_enqueue_assets() {
+    global $post;
+    if ( ! is_a( $post, 'WP_Post' ) ) return;
+
+    $has = has_shortcode( $post->post_content, 'ypnus_content_generator' )
+        || has_shortcode( $post->post_content, 'ypnus_keyword_scout' )
+        || has_shortcode( $post->post_content, 'ypnus_silo_nav' )
+        || has_shortcode( $post->post_content, 'ypnus_agent' );
+
+    if ( ! $has ) return;
+
+    wp_enqueue_style(
+        'ypnus-mlo-style',
+        YPNUS_MLO_URL . 'assets/style.css',
+        [],
+        YPNUS_MLO_VERSION
+    );
+
+    wp_enqueue_script(
+        'ypnus-mlo-script',
+        YPNUS_MLO_URL . 'assets/script.js',
+        [],
+        YPNUS_MLO_VERSION,
+        true
+    );
+
+    wp_localize_script( 'ypnus-mlo-script', 'ypnusMLO', [
+        'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+        'nonce'      => wp_create_nonce( 'ypnus_mlo_nonce' ),
+        'disclosure' => get_option( 'ypnus_mlo_disclosure', ypnus_mlo_default_disclosure() ),
+    ] );
+}
+
+// ─── AJAX: Agentic Chat ───────────────────────────────────────────────────────
+
+add_action( 'wp_ajax_nopriv_ypnus_agent_chat', 'ypnus_handle_agent_chat' );
+add_action( 'wp_ajax_ypnus_agent_chat',        'ypnus_handle_agent_chat' );
+
+function ypnus_handle_agent_chat() {
+    check_ajax_referer( 'ypnus_mlo_nonce', 'nonce' );
+
+    $api_key = get_option( 'ypnus_mlo_openai_key', '' );
+    if ( empty( $api_key ) ) {
+        wp_send_json_error( [ 'message' => 'OpenAI API key is not configured. Visit MLO Toolkit → Settings.' ] );
+    }
+
+    $raw_history = isset( $_POST['history'] ) ? wp_unslash( $_POST['history'] ) : '[]';
+    $history     = json_decode( $raw_history, true );
+    if ( ! is_array( $history ) ) $history = [];
+
+    // Sanitize each message
+    $history = array_map( function ( $msg ) {
+        return [
+            'role'    => sanitize_text_field( $msg['role'] ?? 'user' ),
+            'content' => sanitize_textarea_field( $msg['content'] ?? '' ),
+        ];
+    }, $history );
+
+    $nmls       = get_option( 'ypnus_mlo_nmls', '' );
+    $company    = get_option( 'ypnus_mlo_company', '' );
+    $disclosure = get_option( 'ypnus_mlo_disclosure', ypnus_mlo_default_disclosure() );
+    $silos_raw  = get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() );
+    $silos      = json_decode( $silos_raw, true );
+    $silo_list  = is_array( $silos )
+        ? implode( ', ', array_map( fn( $s ) => $s['label'], $silos ) )
+        : 'MLO Marketing, Mortgage Compliance, AI Marketing Tools';
+
+    $system = <<<SYSTEM
+You are the YPNUS MLO Agent — an expert AI assistant for Mortgage Loan Officers.
+MLO: {$company} | NMLS #{$nmls}
+Compliance disclosure (append to all generated content): {$disclosure}
+Content silos: {$silo_list}
+
+You have access to four tools. Use them autonomously and in sequence when helpful — never ask the user to go to another page or tool. Always reason about which tool(s) to call before responding. After any tool result, synthesize an actionable reply.
+
+Rules:
+- Never promise specific interest rates or guaranteed loan approvals.
+- Never use superlatives ("best", "cheapest", "guaranteed") without substantiation.
+- Always include the compliance disclosure in any final content you output to the user.
+- Be concise, MLO-specific, and conversion-focused.
+SYSTEM;
+
+    $tools = [
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'generate_social_posts',
+                'description' => 'Generate three FINRA/CFPB-compliant social media posts (LinkedIn, Instagram, TikTok) from a topic or article text. Use this when the user wants content, posts, copy, or social media material.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'source_text' => [
+                            'type'        => 'string',
+                            'description' => 'The article, topic, talking point, or prompt to base the posts on.',
+                        ],
+                        'loan_type' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: the mortgage product focus (e.g. VA, FHA, DSCR, Jumbo, First-Time Buyer).',
+                        ],
+                    ],
+                    'required' => [ 'source_text' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'scout_keywords',
+                'description' => 'Return 10 high-intent long-tail SEO keywords for a mortgage topic. Use this when the user asks about keywords, SEO, what to rank for, or content ideas.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'topic' => [
+                            'type'        => 'string',
+                            'description' => 'The mortgage topic or niche to research (e.g. "DSCR loans for investors", "VA loan eligibility").',
+                        ],
+                    ],
+                    'required' => [ 'topic' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'check_compliance',
+                'description' => 'Audit a piece of mortgage marketing text for CFPB/FINRA compliance issues. Returns a pass/fail score plus specific flags. Use this before the user publishes any content.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'content' => [
+                            'type'        => 'string',
+                            'description' => 'The marketing copy, post, or ad text to audit.',
+                        ],
+                    ],
+                    'required' => [ 'content' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'suggest_silo',
+                'description' => 'Recommend the best content silo and page placement for a topic, plus internal linking suggestions. Use when the user asks where to publish, how to organize content, or how to structure their site.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'topic' => [
+                            'type'        => 'string',
+                            'description' => 'The topic or page idea to place within the silo structure.',
+                        ],
+                    ],
+                    'required' => [ 'topic' ],
+                ],
+            ],
+        ],
+    ];
+
+    $messages = array_merge(
+        [ [ 'role' => 'system', 'content' => $system ] ],
+        $history
+    );
+
+    // Agentic loop — max 5 iterations to prevent runaway calls
+    $max_iterations = 5;
+    $tool_results   = [];
+
+    for ( $i = 0; $i < $max_iterations; $i++ ) {
+
+        // Inject tool results from previous iteration
+        if ( ! empty( $tool_results ) ) {
+            foreach ( $tool_results as $tr ) {
+                $messages[] = $tr;
+            }
+            $tool_results = [];
+        }
+
+        $body = [
+            'model'       => 'gpt-4o-mini',
+            'messages'    => $messages,
+            'tools'       => $tools,
+            'tool_choice' => 'auto',
+            'temperature' => 0.6,
+        ];
+
+        $response = wp_remote_post(
+            'https://api.openai.com/v1/chat/completions',
+            [
+                'timeout' => 90,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $api_key,
+                    'Content-Type'  => 'application/json',
+                ],
+                'body' => json_encode( $body ),
+            ]
+        );
+
+        if ( is_wp_error( $response ) ) {
+            wp_send_json_error( [ 'message' => 'API connection failed: ' . $response->get_error_message() ] );
+        }
+
+        $data    = json_decode( wp_remote_retrieve_body( $response ), true );
+        $choice  = $data['choices'][0] ?? null;
+        $message = $choice['message'] ?? null;
+
+        if ( ! $message ) {
+            wp_send_json_error( [ 'message' => 'Unexpected API response. Please try again.' ] );
+        }
+
+        // No tool calls — final answer
+        if ( empty( $message['tool_calls'] ) ) {
+            wp_send_json_success( [
+                'reply' => $message['content'] ?? '',
+            ] );
+            return;
+        }
+
+        // Append assistant message with tool_calls to maintain context
+        $messages[] = $message;
+
+        // Execute each tool call
+        foreach ( $message['tool_calls'] as $tc ) {
+            $fn_name = $tc['function']['name'] ?? '';
+            $fn_args = json_decode( $tc['function']['arguments'] ?? '{}', true );
+            $tc_id   = $tc['id'] ?? '';
+
+            $result = ypnus_run_agent_tool( $fn_name, $fn_args, $api_key, $disclosure );
+
+            $tool_results[] = [
+                'role'         => 'tool',
+                'tool_call_id' => $tc_id,
+                'content'      => json_encode( $result ),
+            ];
+        }
+    }
+
+    wp_send_json_error( [ 'message' => 'The agent took too many steps. Please rephrase your request.' ] );
+}
+
+function ypnus_run_agent_tool( $name, $args, $api_key, $disclosure ) {
+    switch ( $name ) {
+
+        case 'generate_social_posts': {
+            $source    = $args['source_text'] ?? '';
+            $loan_type = $args['loan_type'] ?? '';
+            $focus     = $loan_type ? " Focus on {$loan_type} mortgages." : '';
+
+            $prompt = <<<PROMPT
+Generate three compliant social media posts for a Mortgage Loan Officer.{$focus}
+Return ONLY valid JSON with keys: linkedin, instagram, tiktok.
+
+linkedin: 150-300 words. Professional, educational. 2-3 hashtags. No emojis in body.
+instagram: 80-150 words. Warm, conversational. 5-8 hashtags. 1-2 emojis.
+tiktok: 30-45 second script with [VISUAL CUE] stage directions. Hook in first 3 seconds. One clear CTA.
+
+Do NOT include any compliance disclosure in the output.
+
+SOURCE:
+{$source}
+PROMPT;
+
+            $r = wp_remote_post(
+                'https://api.openai.com/v1/chat/completions',
+                [
+                    'timeout' => 60,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'body' => json_encode( [
+                        'model'           => 'gpt-4o-mini',
+                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
+                        'temperature'     => 0.7,
+                        'response_format' => [ 'type' => 'json_object' ],
+                    ] ),
+                ]
+            );
+
+            if ( is_wp_error( $r ) ) {
+                return [ 'error' => 'Content generation failed.' ];
+            }
+
+            $posts = json_decode(
+                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
+                true
+            );
+
+            // Append disclosure to each post
+            foreach ( [ 'linkedin', 'instagram', 'tiktok' ] as $platform ) {
+                if ( isset( $posts[ $platform ] ) ) {
+                    $posts[ $platform ] .= "\n\n" . $disclosure;
+                }
+            }
+
+            return $posts ?: [ 'error' => 'Unexpected content format.' ];
+        }
+
+        case 'scout_keywords': {
+            $topic     = $args['topic'] ?? '';
+            $cache_key = 'ypnus_kw_' . md5( strtolower( $topic ) );
+            $cached    = get_transient( $cache_key );
+            if ( $cached !== false ) return [ 'keywords' => $cached ];
+
+            $prompt = <<<PROMPT
+SEO specialist for mortgage professionals. Generate 10 high-intent long-tail keywords for: "{$topic}".
+Return ONLY valid JSON: {"keywords": [ {keyword, intent, difficulty, angle}, ... ]}
+intent: Informational | Commercial | Transactional | Navigational
+difficulty: Easy | Medium | Hard
+PROMPT;
+
+            $r = wp_remote_post(
+                'https://api.openai.com/v1/chat/completions',
+                [
+                    'timeout' => 45,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'body' => json_encode( [
+                        'model'           => 'gpt-4o-mini',
+                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
+                        'temperature'     => 0.4,
+                        'response_format' => [ 'type' => 'json_object' ],
+                    ] ),
+                ]
+            );
+
+            if ( is_wp_error( $r ) ) return [ 'error' => 'Keyword research failed.' ];
+
+            $decoded  = json_decode(
+                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
+                true
+            );
+            $keywords = $decoded['keywords'] ?? [];
+            if ( $keywords ) set_transient( $cache_key, $keywords, DAY_IN_SECONDS );
+            return [ 'keywords' => $keywords ];
+        }
+
+        case 'check_compliance': {
+            $content = $args['content'] ?? '';
+
+            $prompt = <<<PROMPT
+You are a CFPB and FINRA mortgage advertising compliance auditor.
+Audit the following mortgage marketing content. Return ONLY valid JSON:
+{
+  "passed": true/false,
+  "score": 0-100,
+  "flags": [ { "severity": "high|medium|low", "issue": "...", "suggestion": "..." } ],
+  "safe_to_post": true/false,
+  "summary": "one-sentence verdict"
+}
+
+Flag these specifically: guaranteed rates, APR without full disclosure, superlatives without substantiation, missing NMLS number, equal housing omission, discriminatory language, false urgency.
+
+CONTENT:
+{$content}
+PROMPT;
+
+            $r = wp_remote_post(
+                'https://api.openai.com/v1/chat/completions',
+                [
+                    'timeout' => 30,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'body' => json_encode( [
+                        'model'           => 'gpt-4o-mini',
+                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
+                        'temperature'     => 0.1,
+                        'response_format' => [ 'type' => 'json_object' ],
+                    ] ),
+                ]
+            );
+
+            if ( is_wp_error( $r ) ) return [ 'error' => 'Compliance check failed.' ];
+
+            return json_decode(
+                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
+                true
+            ) ?: [ 'error' => 'Unexpected compliance response.' ];
+        }
+
+        case 'suggest_silo': {
+            $topic     = $args['topic'] ?? '';
+            $silos_raw = get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() );
+            $silos     = json_decode( $silos_raw, true );
+            $silo_json = json_encode( $silos );
+
+            $prompt = <<<PROMPT
+You are an MLO website SEO architect. Given the silo structure below and a topic, recommend:
+1. Which silo this topic belongs in (use the exact silo label from the structure)
+2. The ideal URL slug for a new page
+3. Three internal linking suggestions (which existing pages in the silo should link to this new page)
+4. A 1-sentence SEO meta description for the page
+
+Return ONLY valid JSON:
+{"silo": "...", "url_slug": "...", "internal_links": ["...", "...", "..."], "meta_description": "..."}
+
+SILO STRUCTURE:
+{$silo_json}
+
+TOPIC: {$topic}
+PROMPT;
+
+            $r = wp_remote_post(
+                'https://api.openai.com/v1/chat/completions',
+                [
+                    'timeout' => 30,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'body' => json_encode( [
+                        'model'           => 'gpt-4o-mini',
+                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
+                        'temperature'     => 0.3,
+                        'response_format' => [ 'type' => 'json_object' ],
+                    ] ),
+                ]
+            );
+
+            if ( is_wp_error( $r ) ) return [ 'error' => 'Silo suggestion failed.' ];
+
+            return json_decode(
+                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
+                true
+            ) ?: [ 'error' => 'Unexpected silo response.' ];
+        }
+
+        default:
+            return [ 'error' => "Unknown tool: {$name}" ];
+    }
+}
+
+// ─── Shortcode: Agentic Chat ──────────────────────────────────────────────────
+
+add_shortcode( 'ypnus_agent', function () {
+    $nmls    = get_option( 'ypnus_mlo_nmls', '' );
+    $company = get_option( 'ypnus_mlo_company', '' );
+    $label   = $company ? esc_html( $company ) . ' AI Agent' : 'MLO AI Agent';
+    $sub     = $nmls ? 'NMLS #' . esc_html( $nmls ) . ' · Powered by YPNUS' : 'Powered by YPNUS';
+
+    ob_start(); ?>
+    <div class="ypnus-agent" id="ypnus-agent" role="main" aria-label="MLO AI Agent">
+        <div class="ypnus-agent__header">
+            <div class="ypnus-agent__avatar" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+            </div>
+            <div>
+                <div class="ypnus-agent__name"><?php echo $label; ?></div>
+                <div class="ypnus-agent__sub"><?php echo $sub; ?></div>
+            </div>
+            <div class="ypnus-agent__status" id="ypnus-agent-status" aria-live="polite">
+                <span class="ypnus-agent__dot"></span>
+                <span class="ypnus-agent__status-text">Ready</span>
+            </div>
+        </div>
+
+        <div class="ypnus-agent__messages" id="ypnus-agent-messages" role="log" aria-live="polite" aria-label="Conversation">
+            <div class="ypnus-agent__message ypnus-agent__message--agent">
+                <div class="ypnus-agent__bubble">
+                    Hi! I'm your MLO AI Agent. I can write compliant social posts, find SEO keywords, audit your copy for CFPB compliance, or suggest how to organize your content silos — all in one conversation. What do you need?
+                </div>
+            </div>
+        </div>
+
+        <div class="ypnus-agent__suggestions" id="ypnus-agent-suggestions">
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Write me 3 VA loan posts for LinkedIn, Instagram, and TikTok')">Write VA loan posts</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Find SEO keywords for DSCR loans for real estate investors')">DSCR keywords</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Check this for compliance: We offer the best mortgage rates guaranteed!')">Compliance check</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Where should I publish a page about FHA down payment assistance?')">Silo placement</button>
+        </div>
+
+        <form class="ypnus-agent__input-row" id="ypnus-agent-form" onsubmit="ypnusAgentSend(event)" novalidate>
+            <textarea
+                id="ypnus-agent-input"
+                class="ypnus-agent__input"
+                placeholder="Ask anything — write posts, find keywords, check compliance, plan content…"
+                rows="1"
+                aria-label="Message the MLO agent"
+            ></textarea>
+            <button type="submit" class="ypnus-agent__send" id="ypnus-agent-send" aria-label="Send message">
+                <span class="ypnus-btn__text">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+                <span class="ypnus-btn__loader" aria-hidden="true"></span>
+            </button>
+        </form>
+
+        <div class="ypnus-agent__footer">
+            This AI agent assists with content creation and planning. Always review output before publishing. · <?php echo $sub; ?>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+} );

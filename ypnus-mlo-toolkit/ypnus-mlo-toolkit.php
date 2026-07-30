@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.3.0
+ * Version:     2.3.1
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '2.3.0' );
+define( 'YPNUS_MLO_VERSION', '2.3.1' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
@@ -88,8 +88,26 @@ function ypnus_format_memory_for_prompt() {
 // ─── Admin menu ──────────────────────────────────────────────────────────────
 
 add_action( 'admin_menu', function () {
-    add_options_page( 'MLO Toolkit', 'MLO Toolkit', 'manage_options', 'ypnus-mlo', 'ypnus_admin_page' );
+    add_menu_page(
+        'MLO Toolkit',
+        'MLO Toolkit',
+        'manage_options',
+        'ypnus-mlo',
+        'ypnus_admin_page',
+        'dashicons-superhero-alt',
+        3
+    );
+    add_submenu_page( 'ypnus-mlo', 'Settings',     'Settings',     'manage_options', 'ypnus-mlo',              'ypnus_admin_page' );
+    add_submenu_page( 'ypnus-mlo', 'Tools',        'Tools',        'manage_options', 'ypnus-mlo-tools',        'ypnus_admin_tools_redirect' );
+    add_submenu_page( 'ypnus-mlo', 'Agent Memory', 'Agent Memory', 'manage_options', 'ypnus-mlo-memory',       'ypnus_admin_memory_redirect' );
 } );
+
+function ypnus_admin_tools_redirect() {
+    wp_redirect( admin_url( 'admin.php?page=ypnus-mlo&tab=tools' ) ); exit;
+}
+function ypnus_admin_memory_redirect() {
+    wp_redirect( admin_url( 'admin.php?page=ypnus-mlo&tab=memory' ) ); exit;
+}
 
 add_action( 'admin_init', function () {
     register_setting( 'ypnus_mlo_group', 'ypnus_mlo_openai_key',  [ 'sanitize_callback' => 'sanitize_text_field' ] );
@@ -153,7 +171,7 @@ function ypnus_admin_page() {
         <h1>MLO Toolkit <small style="font-size:13px;color:#999;">v<?php echo YPNUS_MLO_VERSION; ?></small></h1>
         <nav class="nav-tab-wrapper" style="margin-bottom:20px;">
             <?php foreach ( $tabs as $t => $label ): ?>
-                <a href="<?php echo esc_url( admin_url( "options-general.php?page=ypnus-mlo&tab={$t}" ) ); ?>"
+                <a href="<?php echo esc_url( admin_url( "admin.php?page=ypnus-mlo&tab={$t}" ) ); ?>"
                    class="nav-tab<?php echo $tab === $t ? ' nav-tab-active' : ''; ?>">
                     <?php echo esc_html( $label ); ?>
                 </a>
@@ -266,7 +284,7 @@ function ypnus_admin_page() {
             </table>
             <?php submit_button( $editing ? 'Update Tool' : 'Save Tool' ); ?>
             <?php if ( $editing ): ?>
-                <a href="<?php echo esc_url( admin_url( 'options-general.php?page=ypnus-mlo&tab=tools' ) ); ?>" class="button">Cancel</a>
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=ypnus-mlo&tab=tools' ) ); ?>" class="button">Cancel</a>
             <?php endif; ?>
         </form>
         </div>
@@ -353,7 +371,7 @@ function ypnus_admin_page() {
                 <td><code><?php echo esc_html( $t['format'] ?? 'text' ); ?></code></td>
                 <td><?php echo empty( $t['enabled'] ) ? '<span style="color:#c00;">Off</span>' : '<span style="color:#0a0;">On</span>'; ?></td>
                 <td>
-                    <a href="<?php echo esc_url( admin_url( "options-general.php?page=ypnus-mlo&tab=tools&edit=" . urlencode( $t['slug'] ) ) ); ?>">Edit</a> |
+                    <a href="<?php echo esc_url( admin_url( "admin.php?page=ypnus-mlo&tab=tools&edit=" . urlencode( $t['slug'] ) ) ); ?>">Edit</a> |
                     <form method="post" style="display:inline;" onsubmit="return confirm('Delete this tool?')">
                         <?php wp_nonce_field( 'ypnus_save_tool', 'ypnus_tool_nonce' ); ?>
                         <input type="hidden" name="tool_action" value="delete">

@@ -771,7 +771,13 @@ SYSTEM;
     $message = $data['choices'][0]['message'] ?? null;
 
     if ( ! $message || empty( $message['tool_calls'] ) ) {
-        wp_send_json_error( [ 'message' => 'Agent could not determine the right action. Please rephrase your request.' ] );
+        $debug = [
+            'http_code'    => wp_remote_retrieve_response_code( $response ),
+            'openai_error' => $data['error']['message'] ?? null,
+            'finish'       => $data['choices'][0]['finish_reason'] ?? null,
+            'content'      => $data['choices'][0]['message']['content'] ?? null,
+        ];
+        wp_send_json_error( [ 'message' => 'Agent could not route your request. Debug: ' . json_encode( $debug ) ] );
     }
 
     // Step 2: Execute each tool call and collect formatted output

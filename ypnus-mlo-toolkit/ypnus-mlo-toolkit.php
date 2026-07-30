@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Mortgage Compliance Social-Content Generator, Keyword Scout, and Programmatic Silo Navigation for Loan Officers.
- * Version:     1.1.0
+ * Version:     1.2.0
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '1.1.0' );
+define( 'YPNUS_MLO_VERSION', '1.2.0' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
@@ -583,6 +583,7 @@ MANDATORY TOOL ROUTING — follow this exactly:
 - User mentions "compliance", "check this", "is this ok to post", "CFPB", "audit" → call check_compliance
 - User mentions "silo", "where to publish", "organize", "structure" → call suggest_silo
 - User mentions ANYTHING broken, wrong, slow, error, not working, white screen, not responding, "fix", "problem", "issue" → call diagnose_error
+- User mentions "google my business", "GMB", "google business profile", "gbp", "local listing", "optimize my listing", "score my gmb", "local seo score" → call score_gmb
 - When in doubt: call the most relevant tool. NEVER skip tool calls.
 
 After every tool result, synthesize a full, detailed, actionable response — never one sentence. Format results clearly with headings and sections.
@@ -709,6 +710,59 @@ SYSTEM;
                         ],
                     ],
                     'required' => [ 'symptom' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'score_gmb',
+                'description' => 'Score and optimize a Mortgage Loan Officer\'s Google My Business (Google Business Profile) listing. Asks for their current profile details and returns a 0-100 optimization score broken down by category (completeness, categories, reviews, posts, photos, Q&A, service areas, hours/NAP) with a specific action list for every gap. Also generates a full GMB optimization guide page published to WordPress as a draft. Use whenever the user mentions Google My Business, GMB, their Google listing, local SEO score, or wants to optimize their local presence.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'business_name' => [
+                            'type'        => 'string',
+                            'description' => 'The MLO\'s business name as it appears (or should appear) on Google.',
+                        ],
+                        'city' => [
+                            'type'        => 'string',
+                            'description' => 'Primary city and state (e.g. "Fresno CA").',
+                        ],
+                        'categories' => [
+                            'type'        => 'string',
+                            'description' => 'Current GMB primary and secondary categories (e.g. "Mortgage Lender, Financial Institution"). Leave blank if unknown.',
+                        ],
+                        'review_count' => [
+                            'type'        => 'integer',
+                            'description' => 'Number of Google reviews currently on the profile. Use 0 if unknown.',
+                        ],
+                        'avg_rating' => [
+                            'type'        => 'number',
+                            'description' => 'Current average star rating (e.g. 4.7). Use 0 if unknown.',
+                        ],
+                        'has_photos' => [
+                            'type'        => 'boolean',
+                            'description' => 'True if the profile has uploaded photos.',
+                        ],
+                        'posts_per_month' => [
+                            'type'        => 'integer',
+                            'description' => 'How many Google Posts the MLO publishes per month. Use 0 if unknown.',
+                        ],
+                        'has_qa' => [
+                            'type'        => 'boolean',
+                            'description' => 'True if the Q&A section has been filled in.',
+                        ],
+                        'services_listed' => [
+                            'type'        => 'boolean',
+                            'description' => 'True if services (VA loans, FHA, DSCR, etc.) are listed on the profile.',
+                        ],
+                        'description_filled' => [
+                            'type'        => 'boolean',
+                            'description' => 'True if the business description is filled out.',
+                        ],
+                    ],
+                    'required' => [ 'business_name', 'city' ],
                 ],
             ],
         ],
@@ -942,6 +996,67 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
             return $out;
         }
 
+        case 'score_gmb': {
+            $total   = $result['total_score']   ?? 0;
+            $grade   = $result['grade']         ?? 'N/A';
+            $summary = $result['summary']       ?? '';
+            $cats    = $result['categories']    ?? [];
+
+            // Score bar emoji
+            $bar = str_repeat( '█', (int)round( $total / 10 ) ) . str_repeat( '░', 10 - (int)round( $total / 10 ) );
+            $color = $total >= 80 ? '🟢' : ( $total >= 60 ? '🟡' : '🔴' );
+
+            $out  = "## Google My Business Score {$color}\n\n";
+            $out .= "# {$total}/100 — Grade: {$grade}\n";
+            $out .= "`{$bar}`\n\n";
+            $out .= "_{$summary}_\n\n";
+
+            if ( $cats ) {
+                $out .= "### Score Breakdown\n\n";
+                $out .= "| Category | Score | Max | Status |\n";
+                $out .= "|----------|-------|-----|--------|\n";
+                foreach ( $cats as $c ) {
+                    $icon = ( ( $c['score'] ?? 0 ) >= ( $c['max'] ?? 10 ) * 0.8 ) ? '✅' : ( ( $c['score'] ?? 0 ) >= ( $c['max'] ?? 10 ) * 0.5 ? '⚠️' : '❌' );
+                    $out .= sprintf( "| %s | %s | %s | %s |\n",
+                        $c['name']  ?? '',
+                        $c['score'] ?? 0,
+                        $c['max']   ?? 10,
+                        $icon . ' ' . ( $c['status'] ?? '' )
+                    );
+                }
+                $out .= "\n";
+
+                $out .= "### Action Items by Category\n\n";
+                foreach ( $cats as $c ) {
+                    $actions = $c['actions'] ?? [];
+                    if ( ! $actions ) continue;
+                    $out .= "**" . ( $c['name'] ?? '' ) . "** (" . ( $c['score'] ?? 0 ) . "/" . ( $c['max'] ?? 10 ) . ")\n";
+                    foreach ( $actions as $a ) {
+                        $priority = strtoupper( $a['priority'] ?? 'medium' );
+                        $out .= "- [{$priority}] " . ( $a['action'] ?? $a ) . "\n";
+                    }
+                    $out .= "\n";
+                }
+            }
+
+            $tips = $result['quick_wins'] ?? [];
+            if ( $tips ) {
+                $out .= "### 🏆 Quick Wins (Do These First)\n";
+                foreach ( $tips as $t ) {
+                    $out .= "1. {$t}\n";
+                }
+                $out .= "\n";
+            }
+
+            if ( ! empty( $result['wp_post_id'] ) ) {
+                $out .= "---\n✅ **Full GMB Optimization Guide saved as WordPress draft!**\n";
+                $out .= "- [Edit Guide in WordPress](" . ( $result['wp_edit_url'] ?? '#' ) . ")\n";
+                $out .= "- [Preview Guide](" . ( $result['wp_preview_url'] ?? '#' ) . ")\n";
+            }
+
+            return $out;
+        }
+
         case 'plan_website': {
             $out  = "## Website Architecture Plan\n\n";
             $out .= ( $result['summary'] ?? '' ) . "\n\n";
@@ -989,6 +1104,33 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
         default:
             return "**Tool:** `{$fn_name}`\n\n```json\n" . json_encode( $result, JSON_PRETTY_PRINT ) . "\n```";
     }
+}
+
+function ypnus_auto_category( $context ) {
+    $ctx = strtolower( $context );
+
+    $map = [
+        'local-markets'          => [ 'fresno', 'sacramento', 'bakersfield', 'stockton', 'modesto', 'los angeles', 'san diego', 'city', 'local', 'market', 'area', 'county', 'region', 'neighborhood' ],
+        'financing-mastery'      => [ 'va loan', 'fha', 'dscr', 'jumbo', 'conventional', 'usda', 'reverse mortgage', 'heloc', 'refinance', 'refi', 'first-time', 'first time', 'down payment', 'purchase', 'home loan', 'mortgage loan', 'interest rate', 'arm ', 'fixed rate' ],
+        'lead-generation'        => [ 'lead', 'landing page', 'capture', 'funnel', 'opt-in', 'contact', 'call to action', 'cta', 'form', 'convert', 'pipeline' ],
+        'mortgage-marketing'     => [ 'marketing', 'brand', 'content', 'social', 'email', 'newsletter', 'campaign', 'advertising', 'ad ', 'promotion', 'gmb', 'google my business', 'google business', 'seo', 'rank', 'keyword', 'blog' ],
+        'realtor-partnerships'   => [ 'realtor', 'agent', 'partner', 'referral', 'co-market', 'open house', 'listing', 'broker' ],
+        'mlo-growth-engine'      => [ 'growth', 'strategy', 'system', 'process', 'workflow', 'automation', 'scale', 'plan', 'playbook', 'training', 'coaching' ],
+        'ai-tools'               => [ 'ai ', 'artificial intelligence', 'chatgpt', 'openai', 'automation', 'tool', 'software', 'technology', 'plugin' ],
+    ];
+
+    foreach ( $map as $slug => $keywords ) {
+        foreach ( $keywords as $kw ) {
+            if ( str_contains( $ctx, $kw ) ) {
+                $term = get_term_by( 'slug', $slug, 'category' );
+                if ( $term ) return $term->term_id;
+            }
+        }
+    }
+
+    // Default to Financing Mastery for mortgage pages
+    $default = get_term_by( 'slug', 'financing-mastery', 'category' );
+    return $default ? $default->term_id : 0;
 }
 
 function ypnus_run_agent_tool( $name, $args, $api_key, $disclosure ) {
@@ -1383,12 +1525,16 @@ PROMPT;
                 $html .= '<p class="ypnus-trust">' . implode( ' &middot; ', array_map( 'esc_html', $trust ) ) . '</p>';
             }
 
+            // Auto-assign category based on page type
+            $category_id = ypnus_auto_category( $page_type . ' ' . $city . ' ' . $angle );
+
             // Publish as draft page in WordPress
             $post_id = wp_insert_post( [
-                'post_title'   => $result['h1'] ?? ( $page_type . ( $city ? " — {$city}" : '' ) ),
-                'post_content' => $html,
-                'post_status'  => 'draft',
-                'post_type'    => 'page',
+                'post_title'    => $result['h1'] ?? ( $page_type . ( $city ? " — {$city}" : '' ) ),
+                'post_content'  => $html,
+                'post_status'   => 'draft',
+                'post_type'     => 'page',
+                'post_category' => $category_id ? [ $category_id ] : [],
             ] );
 
             if ( $post_id && ! is_wp_error( $post_id ) ) {
@@ -1478,6 +1624,195 @@ PROMPT;
             return $result ?: [ 'error' => 'Unexpected website plan response.' ];
         }
 
+        case 'score_gmb': {
+            $business_name      = $args['business_name']      ?? '';
+            $city               = $args['city']               ?? '';
+            $categories         = $args['categories']         ?? '';
+            $review_count       = (int) ( $args['review_count']   ?? 0 );
+            $avg_rating         = (float) ( $args['avg_rating']   ?? 0 );
+            $has_photos         = ! empty( $args['has_photos'] );
+            $posts_per_month    = (int) ( $args['posts_per_month'] ?? 0 );
+            $has_qa             = ! empty( $args['has_qa'] );
+            $services_listed    = ! empty( $args['services_listed'] );
+            $description_filled = ! empty( $args['description_filled'] );
+            $nmls               = get_option( 'ypnus_mlo_nmls', '' );
+            $company            = get_option( 'ypnus_mlo_company', '' );
+
+            $prompt = <<<PROMPT
+You are a Google Business Profile (Google My Business) optimization expert specializing in mortgage loan officers and local service businesses.
+
+Score this MLO's Google Business Profile and return a complete optimization report.
+
+PROFILE DATA:
+- Business Name: {$business_name}
+- City/Market: {$city}
+- Current Categories: {$categories}
+- Review Count: {$review_count}
+- Average Rating: {$avg_rating}
+- Has Photos Uploaded: {$has_photos}
+- Google Posts Per Month: {$posts_per_month}
+- Q&A Section Filled: {$has_qa}
+- Services Listed: {$services_listed}
+- Business Description Filled: {$description_filled}
+- NMLS: {$nmls}
+- Company: {$company}
+
+Return ONLY valid JSON with this exact structure:
+{
+  "total_score": <integer 0-100>,
+  "grade": "<A|B|C|D|F>",
+  "summary": "<1-2 sentence plain-English verdict>",
+  "categories": [
+    {
+      "name": "Profile Completeness",
+      "score": <0-20>,
+      "max": 20,
+      "status": "<Excellent|Good|Needs Work|Critical>",
+      "why": "<1 sentence explaining the score>",
+      "actions": [
+        {"priority": "high|medium|low", "action": "<specific step to take, e.g. Add business description: Go to Business Profile Manager → Info → Description and write 750 characters about your services in {$city}>"}
+      ]
+    },
+    {
+      "name": "Category Selection",
+      "score": <0-10>,
+      "max": 10,
+      "status": "<Excellent|Good|Needs Work|Critical>",
+      "why": "<why this score>",
+      "actions": [
+        {"priority": "high|medium|low", "action": "<specific GMB category to add or change>"}
+      ]
+    },
+    {
+      "name": "Review Velocity",
+      "score": <0-20>,
+      "max": 20,
+      "status": "<Excellent|Good|Needs Work|Critical>",
+      "why": "<why>",
+      "actions": [
+        {"priority": "high|medium|low", "action": "<specific step, e.g. Create a review request text message template and send to your last 5 closed borrowers>"}
+      ]
+    },
+    {
+      "name": "Google Posts",
+      "score": <0-15>,
+      "max": 15,
+      "status": "<Excellent|Good|Needs Work|Critical>",
+      "why": "<why>",
+      "actions": [
+        {"priority": "high|medium|low", "action": "<specific post type and topic to publish this week>"}
+      ]
+    },
+    {
+      "name": "Photos & Visual Content",
+      "score": <0-10>,
+      "max": 10,
+      "status": "<Excellent|Good|Needs Work|Critical>",
+      "why": "<why>",
+      "actions": [
+        {"priority": "high|medium|low", "action": "<exactly which photos to upload and how many>"}
+      ]
+    },
+    {
+      "name": "Q&A Section",
+      "score": <0-10>,
+      "max": 10,
+      "status": "<Excellent|Good|Needs Work|Critical>",
+      "why": "<why>",
+      "actions": [
+        {"priority": "high|medium|low", "action": "<specific mortgage Q&As to self-post and answer>"}
+      ]
+    },
+    {
+      "name": "Services & Products",
+      "score": <0-10>,
+      "max": 10,
+      "status": "<Excellent|Good|Needs Work|Critical>",
+      "why": "<why>",
+      "actions": [
+        {"priority": "high|medium|low", "action": "<specific loan types to list as services>"}
+      ]
+    },
+    {
+      "name": "NAP Consistency & Hours",
+      "score": <0-5>,
+      "max": 5,
+      "status": "<Excellent|Good|Needs Work|Critical>",
+      "why": "<why>",
+      "actions": [
+        {"priority": "high|medium|low", "action": "<specific fix for hours or address consistency>"}
+      ]
+    }
+  ],
+  "quick_wins": [
+    "<The single highest-impact action they can take today — be specific>",
+    "<Second easiest win — specific>",
+    "<Third — specific>"
+  ],
+  "gmb_guide_html": "<Full HTML guide article (600-800 words) for a WordPress page — use <h2>, <h3>, <p>, <ul>, <ol> tags — explaining the optimization strategy for this MLO in {$city}, their score results, and an action plan. Include the score in the intro. No markdown, only valid HTML elements.>"
+}
+
+Be hyper-specific — name exact menu paths in Google Business Profile Manager, exact loan types to list, exact post topics. Never give generic advice like 'improve your profile'. Every action must tell the MLO exactly what to click or type.
+PROMPT;
+
+            $r = wp_remote_post(
+                'https://api.openai.com/v1/chat/completions',
+                [
+                    'timeout' => 90,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'body' => json_encode( [
+                        'model'           => 'gpt-4o-mini',
+                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
+                        'temperature'     => 0.3,
+                        'response_format' => [ 'type' => 'json_object' ],
+                    ] ),
+                ]
+            );
+
+            if ( is_wp_error( $r ) ) return [ 'error' => 'GMB score generation failed.' ];
+
+            $result = json_decode(
+                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
+                true
+            );
+
+            if ( ! $result ) return [ 'error' => 'Unexpected GMB response.' ];
+
+            // Publish GMB guide as a WordPress draft page
+            $guide_html = $result['gmb_guide_html'] ?? '';
+            unset( $result['gmb_guide_html'] ); // don't send giant HTML back to chat output
+
+            if ( $guide_html ) {
+                $score     = $result['total_score'] ?? 0;
+                $page_title = "Google My Business Optimization Guide — {$business_name} ({$city}) — Score: {$score}/100";
+
+                $post_id = wp_insert_post( [
+                    'post_title'   => $page_title,
+                    'post_content' => $guide_html,
+                    'post_status'  => 'draft',
+                    'post_type'    => 'page',
+                ] );
+
+                // Assign to Mortgage Marketing category
+                if ( $post_id && ! is_wp_error( $post_id ) ) {
+                    $cat = get_term_by( 'slug', 'mortgage-marketing', 'category' );
+                    if ( $cat ) wp_set_post_categories( $post_id, [ $cat->term_id ] );
+
+                    update_post_meta( $post_id, 'rank_math_title', "GMB Optimization for {$business_name} in {$city} | Local SEO Score" );
+                    update_post_meta( $post_id, 'rank_math_description', "See your Google Business Profile score and get a step-by-step optimization checklist for {$business_name} in {$city}." );
+
+                    $result['wp_post_id']     = $post_id;
+                    $result['wp_edit_url']    = admin_url( "post.php?post={$post_id}&action=edit" );
+                    $result['wp_preview_url'] = get_preview_post_link( $post_id );
+                }
+            }
+
+            return $result;
+        }
+
         default:
             return [ 'error' => "Unknown tool: {$name}" ];
     }
@@ -1524,6 +1859,7 @@ add_shortcode( 'ypnus_agent', function () {
             <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Plan my entire mortgage website — I focus on VA and FHA loans')">Plan my website</button>
             <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Write me 3 VA loan posts for LinkedIn, Instagram, and TikTok')">Write social posts</button>
             <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Find SEO keywords for DSCR investor loans')">Find keywords</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Score my Google My Business profile — my business name is [Your Name] Mortgage, my city is [Your City], I have about 10 reviews, 4.8 stars, no posts, and no Q&A filled in')">Score my GMB listing</button>
         </div>
 
         <form class="ypnus-agent__input-row" id="ypnus-agent-form" onsubmit="ypnusAgentSend(event)" novalidate>

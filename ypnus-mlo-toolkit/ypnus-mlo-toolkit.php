@@ -574,9 +574,11 @@ MLO: {$company} | NMLS #{$nmls}
 Compliance disclosure (append to all generated content): {$disclosure}
 Content silos: {$silo_list}
 
-You have access to six tools. Use them autonomously and in sequence when helpful — never ask the user to go to another page or tool. Always reason about which tool(s) to call before responding. After any tool result, synthesize an actionable reply.
+You have access to seven tools. Use them autonomously and in sequence when helpful — never ask the user to go to another page or tool. Always reason about which tool(s) to call before responding. After any tool result, synthesize an actionable reply.
 
-For website building requests: use build_page to generate full page copy, or plan_website to create a complete site architecture. After building a page, offer to also scout keywords for it or check compliance on its copy.
+For website building: use build_page for full page copy, plan_website for complete site architecture.
+For anything broken, slow, or wrong: ALWAYS call diagnose_error first — even for vague symptoms. Never ask the user to figure it out themselves. If they say "something is wrong", "it's broken", "I'm getting errors", "the page doesn't respond", "something is written on the page" — call diagnose_error immediately with whatever detail they gave you.
+For content after a page is built: offer to scout keywords or check compliance automatically.
 
 Rules:
 - Never promise specific interest rates or guaranteed loan approvals.
@@ -680,6 +682,27 @@ SYSTEM;
                         ],
                     ],
                     'required' => [ 'page_type' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'diagnose_error',
+                'description' => 'Diagnose any WordPress error, broken behavior, plugin conflict, PHP error, white screen, theme issue, slow page, or site problem. Returns root cause, step-by-step fix, corrected code if applicable, and what to check. Use this whenever the user describes ANYTHING broken, wrong, slow, missing, or not working on their site.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'symptom' => [
+                            'type'        => 'string',
+                            'description' => 'Full description of the problem — error message text, what the user sees, what they expected, when it started. The more detail the better.',
+                        ],
+                        'context' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: WordPress version, active theme, relevant plugins, what was changed before the error appeared, hosting environment.',
+                        ],
+                    ],
+                    'required' => [ 'symptom' ],
                 ],
             ],
         ],
@@ -982,6 +1005,90 @@ PROMPT;
             ) ?: [ 'error' => 'Unexpected silo response.' ];
         }
 
+        case 'diagnose_error': {
+            $symptom = $args['symptom'] ?? '';
+            $context = $args['context'] ?? '';
+            $theme   = 'GeneratePress';
+            $plugins = 'YPNUS MLO Toolkit, Xagio SEO, CookieYes, Google Site Kit, Stripe';
+            $host    = 'Hostinger Cloud (shared, PHP 8.x, no persistent Node.js)';
+
+            $ctx_block = $context
+                ? "Additional context provided by user: {$context}"
+                : "Known site context: Theme: {$theme} | Plugins: {$plugins} | Host: {$host}";
+
+            $prompt = <<<PROMPT
+You are a senior WordPress developer and systems architect with 15 years of experience. You debug WordPress sites, PHP errors, plugin conflicts, theme issues, performance problems, and white screens of death.
+
+Diagnose the following problem and return a complete fix. Think like an expert — go beyond surface symptoms to identify the real root cause.
+
+PROBLEM: {$symptom}
+{$ctx_block}
+
+Return ONLY valid JSON:
+{
+  "root_cause": "Precise technical explanation of WHY this is happening",
+  "category": "one of: php-error | plugin-conflict | theme-issue | database | permissions | memory-limit | caching | css-js | block-editor | htaccess | hosting-config | third-party-api | user-error",
+  "severity": "critical | high | medium | low",
+  "diagnosis_confidence": "high | medium | low",
+  "immediate_fix": {
+    "summary": "What to do right now in one sentence",
+    "steps": [
+      "Exact step 1 with specific menu paths, file paths, or settings",
+      "Exact step 2",
+      "Exact step 3"
+    ]
+  },
+  "code_fix": {
+    "needed": true,
+    "file": "path/to/file.php or null",
+    "language": "php | css | js | htaccess | null",
+    "before": "the broken code snippet, if applicable",
+    "after": "the corrected code snippet, if applicable",
+    "instructions": "where exactly to paste this"
+  },
+  "root_fix": {
+    "summary": "The permanent solution to prevent this recurring",
+    "steps": ["step 1", "step 2"]
+  },
+  "what_to_check_first": [
+    "Specific thing to verify first (e.g. WordPress Admin → Tools → Site Health → Info → PHP version)",
+    "Second thing",
+    "Third thing"
+  ],
+  "safe_to_ignore": false,
+  "warning": "Any risk of data loss or site downtime from the fix, or null if safe"
+}
+
+If the symptom is vague, give the most likely diagnosis for a WordPress site on shared Hostinger hosting running GeneratePress theme. Always give exact menu paths (e.g. 'Plugins → Installed Plugins → Deactivate All') not generic instructions.
+PROMPT;
+
+            $r = wp_remote_post(
+                'https://api.openai.com/v1/chat/completions',
+                [
+                    'timeout' => 60,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'body' => json_encode( [
+                        'model'           => 'gpt-4o-mini',
+                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
+                        'temperature'     => 0.2,
+                        'response_format' => [ 'type' => 'json_object' ],
+                    ] ),
+                ]
+            );
+
+            if ( is_wp_error( $r ) ) return [ 'error' => 'Diagnosis failed — API error.' ];
+
+            $result = json_decode(
+                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
+                true
+            );
+
+            return $result ?: [ 'error' => 'Unexpected diagnosis response.' ];
+        }
+
         case 'build_page': {
             $page_type  = $args['page_type'] ?? 'mortgage';
             $city       = $args['city']       ?? '';
@@ -1167,17 +1274,17 @@ add_shortcode( 'ypnus_agent', function () {
         <div class="ypnus-agent__messages" id="ypnus-agent-messages" role="log" aria-live="polite" aria-label="Conversation">
             <div class="ypnus-agent__message ypnus-agent__message--agent">
                 <div class="ypnus-agent__bubble">
-                    Hi! I'm your MLO AI Agent. I can build complete website pages, plan your entire site architecture, write compliant social posts, find SEO keywords, audit copy for CFPB compliance, and suggest content silo placement — all in one conversation. What do you need?
+                    Hi! I'm your MLO AI Agent — part marketer, part senior WordPress developer. I can diagnose and fix WordPress errors, build complete website pages, plan your entire site architecture, write compliant social posts, find SEO keywords, and audit copy for CFPB compliance. Describe any problem — broken page, weird error, something not responding — and I'll diagnose it like a coder and give you the exact fix.
                 </div>
             </div>
         </div>
 
         <div class="ypnus-agent__suggestions" id="ypnus-agent-suggestions">
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('My WordPress page is broken and showing text written up and down — what is wrong and how do I fix it?')">Fix a broken page</button>
             <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Build me a VA loan page for my website')">Build a page</button>
             <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Plan my entire mortgage website — I focus on VA and FHA loans')">Plan my website</button>
             <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Write me 3 VA loan posts for LinkedIn, Instagram, and TikTok')">Write social posts</button>
             <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Find SEO keywords for DSCR investor loans')">Find keywords</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Check this for compliance: We offer the best mortgage rates guaranteed!')">Check compliance</button>
         </div>
 
         <form class="ypnus-agent__input-row" id="ypnus-agent-form" onsubmit="ypnusAgentSend(event)" novalidate>

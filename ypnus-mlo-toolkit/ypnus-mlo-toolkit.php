@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.1.1
+ * Version:     2.2.0
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '2.1.1' );
+define( 'YPNUS_MLO_VERSION', '2.2.0' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
@@ -272,15 +272,77 @@ function ypnus_admin_page() {
         </div>
 
         <div style="flex:3;min-width:0;">
-        <h2>Installed Tools <span style="font-size:13px;color:#999;">(<?php echo count( ypnus_get_tools() ); ?> custom)</span></h2>
-        <?php
-        $core_tools = [ 'generate_social_posts', 'scout_keywords', 'check_compliance', 'suggest_silo', 'build_page', 'plan_website', 'score_gmb', 'create_tool', 'update_tool', 'save_memory', 'recall_memory' ];
-        echo '<p style="color:#666;font-size:13px;">Core tools (always active): ' . implode( ', ', array_map( fn($t) => "<code>{$t}</code>", $core_tools ) ) . '</p>';
 
-        $dtools = ypnus_get_tools();
-        if ( $dtools ):
+        <?php
+        // Handle core-tool toggle
+        if ( isset( $_POST['core_tool_toggle'], $_POST['ypnus_core_toggle_nonce'] )
+            && wp_verify_nonce( sanitize_key( $_POST['ypnus_core_toggle_nonce'] ), 'ypnus_core_toggle' ) ) {
+            $ctslug   = sanitize_key( $_POST['core_tool_toggle'] );
+            $cstate   = ! empty( $_POST['core_tool_enabled'] ) ? 1 : 0;
+            $disabled = get_option( 'ypnus_disabled_core_tools', [] );
+            if ( $cstate ) {
+                $disabled = array_values( array_diff( $disabled, [ $ctslug ] ) );
+            } else {
+                $disabled[] = $ctslug;
+                $disabled   = array_values( array_unique( $disabled ) );
+            }
+            update_option( 'ypnus_disabled_core_tools', $disabled );
+        }
+        $disabled_core = get_option( 'ypnus_disabled_core_tools', [] );
+
+        $core_tool_meta = [
+            'scout_keywords'        => [ 'name' => 'Keyword Scout',           'shortcode' => '[ypnus_keyword_scout]',    'desc' => 'Find 10 long-tail mortgage keywords with difficulty + site fit rating.' ],
+            'generate_social_posts' => [ 'name' => 'Social Post Generator',   'shortcode' => '[ypnus_content_generator]','desc' => 'FINRA-compliant LinkedIn / Instagram / TikTok posts from any article.' ],
+            'check_compliance'      => [ 'name' => 'Compliance Checker',      'shortcode' => '',                         'desc' => 'Audit marketing copy for CFPB/FINRA compliance issues.' ],
+            'suggest_silo'          => [ 'name' => 'Content Silo Advisor',    'shortcode' => '',                         'desc' => 'Recommends the right silo and URL for any topic.' ],
+            'build_page'            => [ 'name' => 'Page Builder',            'shortcode' => '',                         'desc' => 'Generates a full SEO landing page and saves it as a WordPress draft.' ],
+            'plan_website'          => [ 'name' => 'Website Planner',         'shortcode' => '',                         'desc' => 'Creates a complete website architecture for an MLO.' ],
+            'score_gmb'             => [ 'name' => 'GMB Scorer',              'shortcode' => '',                         'desc' => 'Scores a Google Business Profile 0–100 and gives an optimization guide.' ],
+            'recommend_plugins'     => [ 'name' => 'Plugin Advisor',          'shortcode' => '',                         'desc' => 'Recommends the right WordPress plugins for your stack.' ],
+            'marketing_advisor'     => [ 'name' => 'Marketing Advisor',       'shortcode' => '',                         'desc' => 'Full-funnel strategy: lead capture, email sequences, CRM, conversions.' ],
+            'diagnose_error'        => [ 'name' => 'Error Diagnostics',       'shortcode' => '',                         'desc' => 'Diagnoses WordPress errors, white screens, and plugin conflicts.' ],
+            'create_tool'           => [ 'name' => 'Self-Learning (Create)',  'shortcode' => '',                         'desc' => 'Agent can create new custom tools and save them to this panel.' ],
+            'update_tool'           => [ 'name' => 'Self-Learning (Update)',  'shortcode' => '',                         'desc' => 'Agent can update existing tools without reinstalling the plugin.' ],
+            'save_memory'           => [ 'name' => 'Agent Memory (Save)',     'shortcode' => '',                         'desc' => 'Saves facts across conversations (markets, niche, preferences).' ],
+            'recall_memory'         => [ 'name' => 'Agent Memory (Recall)',   'shortcode' => '',                         'desc' => 'Retrieves all saved memory so the agent picks up where it left off.' ],
+        ];
         ?>
-        <table class="widefat striped" style="margin-top:10px;">
+
+        <h2>Core Tools</h2>
+        <p style="color:#666;font-size:13px;">Built-in tools. Toggle any off if you don't need it. Copy shortcodes to add tools to any page.</p>
+        <table class="widefat striped" style="margin-bottom:28px;">
+            <thead><tr><th>Tool</th><th>Description</th><th>Shortcode</th><th style="width:56px;text-align:center;">On/Off</th></tr></thead>
+            <tbody>
+            <?php foreach ( $core_tool_meta as $cslug => $cmeta ):
+                $is_on = ! in_array( $cslug, $disabled_core, true );
+            ?>
+            <tr>
+                <td><strong><?php echo esc_html( $cmeta['name'] ); ?></strong></td>
+                <td style="font-size:13px;color:#555;"><?php echo esc_html( $cmeta['desc'] ); ?></td>
+                <td><?php if ( $cmeta['shortcode'] ): ?>
+                    <code style="font-size:12px;user-select:all;"><?php echo esc_html( $cmeta['shortcode'] ); ?></code>
+                <?php else: ?>
+                    <span style="color:#bbb;font-size:12px;">agent only</span>
+                <?php endif; ?></td>
+                <td style="text-align:center;">
+                    <form method="post" style="margin:0;">
+                        <?php wp_nonce_field( 'ypnus_core_toggle', 'ypnus_core_toggle_nonce' ); ?>
+                        <input type="hidden" name="core_tool_toggle" value="<?php echo esc_attr( $cslug ); ?>">
+                        <input type="hidden" name="core_tool_enabled" value="<?php echo $is_on ? '0' : '1'; ?>">
+                        <button type="submit" title="<?php echo $is_on ? 'Click to disable' : 'Click to enable'; ?>"
+                            style="background:none;border:none;cursor:pointer;font-size:20px;padding:2px 0;line-height:1;">
+                            <?php echo $is_on ? '🟢' : '🔴'; ?>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+
+        <h2>Custom Tools <span style="font-size:13px;color:#999;">(<?php echo count( ypnus_get_tools() ); ?>)</span></h2>
+        <?php $dtools = ypnus_get_tools(); if ( $dtools ): ?>
+        <table class="widefat striped">
             <thead><tr><th>Name</th><th>Triggers</th><th>Format</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
             <?php foreach ( $dtools as $t ): ?>
@@ -563,8 +625,12 @@ After every tool result: give a complete, detailed, actionable response — neve
 Rules: Never promise specific rates or guaranteed approvals. Always append disclosure to social content.
 SYSTEM;
 
-    // Core tool definitions
-    $core_tools = ypnus_core_tool_definitions();
+    // Core tool definitions (filter out admin-disabled tools)
+    $disabled_core = get_option( 'ypnus_disabled_core_tools', [] );
+    $core_tools = array_values( array_filter(
+        ypnus_core_tool_definitions(),
+        fn( $t ) => ! in_array( $t['function']['name'] ?? '', $disabled_core, true )
+    ) );
 
     // Dynamic tool definitions
     $dynamic_tools = ypnus_dynamic_tool_definitions();

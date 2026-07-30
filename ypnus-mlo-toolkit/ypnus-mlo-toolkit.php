@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.3.1
+ * Version:     2.4.0
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '2.3.1' );
+define( 'YPNUS_MLO_VERSION', '2.4.0' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
@@ -313,8 +313,10 @@ function ypnus_admin_page() {
             'generate_social_posts' => [ 'name' => 'Social Post Generator',   'shortcode' => '[ypnus_content_generator]','desc' => 'FINRA-compliant LinkedIn / Instagram / TikTok posts from any article.' ],
             'check_compliance'      => [ 'name' => 'Compliance Checker',      'shortcode' => '',                         'desc' => 'Audit marketing copy for CFPB/FINRA compliance issues.' ],
             'suggest_silo'          => [ 'name' => 'Content Silo Advisor',    'shortcode' => '',                         'desc' => 'Recommends the right silo and URL for any topic.' ],
-            'build_page'            => [ 'name' => 'Page Builder',            'shortcode' => '',                         'desc' => 'Generates a full SEO landing page and saves it as a WordPress draft.' ],
-            'write_article'         => [ 'name' => 'Article Writer',          'shortcode' => '',                         'desc' => 'Writes a 1500–2000 word SEO article with internal links, authority backlinks, and optional affiliate products.' ],
+            'site_wizard'           => [ 'name' => 'Site Wizard (Onboarding)', 'shortcode' => '',                         'desc' => 'Guides an MLO through building their complete website — 5 questions → full plan with prioritized pages, plugin checklist, and conversion rules.' ],
+            'build_full_site'       => [ 'name' => 'Build Full Site',          'shortcode' => '',                         'desc' => 'Bulk-creates all core website pages as WordPress drafts in one shot, each conversion-optimized with CTAs, lead forms, and trust signals.' ],
+            'build_page'            => [ 'name' => 'Page Builder',             'shortcode' => '',                         'desc' => 'Generates a full SEO landing page and saves it as a WordPress draft.' ],
+            'write_article'         => [ 'name' => 'Article Writer',           'shortcode' => '',                         'desc' => 'Writes a 1500–2000 word SEO article with internal links, authority backlinks, and optional affiliate products.' ],
             'plan_website'          => [ 'name' => 'Website Planner',         'shortcode' => '',                         'desc' => 'Creates a complete website architecture for an MLO.' ],
             'score_gmb'             => [ 'name' => 'GMB Scorer',              'shortcode' => '',                         'desc' => 'Scores a Google Business Profile 0–100 and gives an optimization guide.' ],
             'recommend_plugins'     => [ 'name' => 'Plugin Advisor',          'shortcode' => '',                         'desc' => 'Recommends the right WordPress plugins for your stack.' ],
@@ -623,6 +625,8 @@ Content silos: {$silo_list}
 {$memory_str}
 
 MANDATORY TOOL ROUTING:
+- "help me build my site", "I'm new", "just starting", "getting started", "build my website", "where do I start", "set up my site", "onboard me", "website wizard", "site wizard" → site_wizard
+- "build all my pages", "build everything", "create all pages", "build the whole site", "all at once", "turnkey" → build_full_site
 - "page", "build", "landing page", "create a page" → build_page
 - "article", "write an article", "blog post", "1500 words", "long form", "write about", "SEO article", "content piece", "affiliate", "backlinks" → write_article
 - "website", "site plan", "what pages", "site structure" → plan_website
@@ -641,7 +645,8 @@ MANDATORY TOOL ROUTING:
 {$dtool_hint}
 - When in doubt: call the most relevant tool. NEVER skip.
 
-After every tool result: give a complete, detailed, actionable response — never one sentence.
+After every tool result: give a complete, detailed, actionable response — never one sentence. Always tell the MLO exactly what to do next in plain English. Be encouraging and specific — these are busy professionals who need a guide, not a tool.
+If the MLO seems new or hasn't built pages yet: proactively suggest running site_wizard to get their full plan.
 Rules: Never promise specific rates or guaranteed approvals. Always append disclosure to social content.
 SYSTEM;
 
@@ -707,6 +712,8 @@ function ypnus_core_tool_definitions() {
         [ 'type' => 'function', 'function' => [ 'name' => 'suggest_silo', 'description' => 'Recommend the best content silo and URL for a topic.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'topic' => [ 'type' => 'string', 'description' => 'Topic to place.' ] ], 'required' => [ 'topic' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'build_page', 'description' => 'Generate complete conversion-optimized page copy and publish as WordPress draft.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'page_type' => [ 'type' => 'string', 'description' => 'Type of page (VA loan, FHA, DSCR, about, etc).' ], 'city' => [ 'type' => 'string', 'description' => 'Optional city/state.' ], 'angle' => [ 'type' => 'string', 'description' => 'Optional selling angle.' ] ], 'required' => [ 'page_type' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'diagnose_error', 'description' => 'Diagnose any WordPress error, broken behavior, plugin conflict, white screen, or site problem.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'symptom' => [ 'type' => 'string', 'description' => 'Full description of the problem.' ], 'context' => [ 'type' => 'string', 'description' => 'Optional: theme, plugins, hosting.' ] ], 'required' => [ 'symptom' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'site_wizard', 'description' => 'Onboard a new MLO and generate their complete website launch plan with prioritized page build order, plugin checklist, conversion rules, and step-by-step launch checklist. Use when someone wants to build their website, is just starting out, or says "help me build my site".', 'parameters' => [ 'type' => 'object', 'properties' => [ 'full_name' => [ 'type' => 'string', 'description' => 'MLO full name.' ], 'city' => [ 'type' => 'string', 'description' => 'Primary market city and state.' ], 'loan_niches' => [ 'type' => 'string', 'description' => 'Comma-separated loan types they specialize in (e.g. VA, FHA, DSCR, Jumbo).' ], 'target_buyer' => [ 'type' => 'string', 'description' => 'Who they serve (e.g. first-time buyers, veterans, investors, move-up buyers).' ], 'primary_goal' => [ 'type' => 'string', 'description' => 'Their #1 website goal (e.g. generate leads, rank locally, build referral partner trust).' ] ], 'required' => [ 'city', 'loan_niches' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'build_full_site', 'description' => 'Bulk-create all core website pages as WordPress drafts in one shot — homepage, about, contact, loan type pages, local area pages — each conversion-optimized with CTAs, lead forms, trust signals, and NMLS disclosure. Use when someone says "build my whole site", "build all my pages", or after site_wizard runs.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'city' => [ 'type' => 'string', 'description' => 'Primary market city (pulled from memory if saved).' ], 'loan_niches' => [ 'type' => 'string', 'description' => 'Loan types to build pages for (pulled from memory if saved).' ], 'target_buyer' => [ 'type' => 'string', 'description' => 'Target audience (pulled from memory if saved).' ] ], 'required' => [] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'write_article', 'description' => 'Write a full 1500–2000 word SEO article with internal links, authority backlinks, and optional affiliate product mentions. Saves as WordPress draft.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'topic' => [ 'type' => 'string', 'description' => 'Article topic (e.g. "FHA loans for first-time buyers").' ], 'city' => [ 'type' => 'string', 'description' => 'Optional city/market for local SEO.' ], 'loan_type' => [ 'type' => 'string', 'description' => 'Optional loan type focus (FHA, VA, USDA, Conventional, Jumbo).' ], 'include_affiliates' => [ 'type' => 'boolean', 'description' => 'Set true to include relevant affiliate product links (credit monitoring, insurance, etc).' ] ], 'required' => [ 'topic' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'plan_website', 'description' => 'Generate a complete website architecture for an MLO.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'niche' => [ 'type' => 'string', 'description' => 'Loan niche(s).' ], 'market' => [ 'type' => 'string', 'description' => 'Optional geographic market.' ], 'goal' => [ 'type' => 'string', 'description' => 'Optional business goal.' ] ], 'required' => [ 'niche' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'score_gmb', 'description' => 'Score and optimize a Google Business Profile for an MLO. Returns 0-100 score with action items.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'business_name' => [ 'type' => 'string', 'description' => 'Business name on Google.' ], 'city' => [ 'type' => 'string', 'description' => 'City and state.' ], 'categories' => [ 'type' => 'string', 'description' => 'Current GMB categories.' ], 'review_count' => [ 'type' => 'integer', 'description' => 'Number of reviews.' ], 'avg_rating' => [ 'type' => 'number', 'description' => 'Average star rating.' ], 'has_photos' => [ 'type' => 'boolean', 'description' => 'Photos uploaded?' ], 'posts_per_month' => [ 'type' => 'integer', 'description' => 'Posts per month.' ], 'has_qa' => [ 'type' => 'boolean', 'description' => 'Q&A filled in?' ], 'services_listed' => [ 'type' => 'boolean', 'description' => 'Services listed?' ], 'description_filled' => [ 'type' => 'boolean', 'description' => 'Description filled?' ] ], 'required' => [ 'business_name', 'city' ] ] ] ],
@@ -1017,6 +1024,144 @@ PROMPT;
             $prompt  = "Senior mortgage website architect. Plan a complete MLO website.\nNiche: {$niche}. Market: {$market}. Goal: {$goal}. MLO: {$creds}\n\nReturn JSON: {site_summary,pages:[{title,url,purpose,primary_keyword,content_brief,priority,links_to:[]}],silo_structure:{},launch_order:[],quick_wins:[]}\n\nMinimum 10 pages. Make URLs and keywords specific.";
             $r = ypnus_openai( $api_key, $prompt, 0.5, 90 );
             return json_decode( $r['content'] ?? '{}', true ) ?: [ 'error' => 'Website plan failed.' ];
+        }
+
+        case 'site_wizard': {
+            $name       = $args['full_name']    ?? $company;
+            $city       = $args['city']         ?? '';
+            $niches     = $args['loan_niches']  ?? 'purchase, refinance';
+            $audience   = $args['target_buyer'] ?? 'first-time homebuyers';
+            $goal       = $args['primary_goal'] ?? 'generate leads and rank locally';
+            $creds      = "NMLS #{$nmls}" . ( $company ? " | {$company}" : '' );
+
+            // Save everything to agent memory
+            if ( $name )     ypnus_save_memory( 'full_name',    $name );
+            if ( $city )     ypnus_save_memory( 'primary_city', $city );
+            if ( $niches )   ypnus_save_memory( 'loan_niches',  $niches );
+            if ( $audience ) ypnus_save_memory( 'target_buyer', $audience );
+            if ( $goal )     ypnus_save_memory( 'primary_goal', $goal );
+
+            $prompt = <<<PROMPT
+You are a senior mortgage website strategist. An MLO just answered 5 onboarding questions. Create their complete website launch plan.
+
+MLO: {$creds}
+Name: {$name}
+City/Market: {$city}
+Loan niches: {$niches}
+Target buyer: {$audience}
+Primary goal: {$goal}
+
+Return JSON:
+{
+  "welcome_message": "One warm, encouraging sentence welcoming them and summarizing what you're about to build together",
+  "site_summary": "2-3 sentence overview of their site strategy",
+  "pages": [
+    {
+      "title": "",
+      "url_slug": "",
+      "purpose": "",
+      "primary_keyword": "",
+      "conversion_elements": ["CTA button text", "lead form type", "trust signal"],
+      "build_command": "Exact sentence the MLO can paste to build this page (e.g. Build me a VA loan page for Phoenix AZ targeting first-time buyers)",
+      "priority": "1-15",
+      "estimated_time": "minutes to build with AI"
+    }
+  ],
+  "plugin_checklist": [
+    {"plugin": "", "purpose": "", "free": true, "install_first": true}
+  ],
+  "conversion_rules": [
+    "Rule every page must follow for max conversions"
+  ],
+  "launch_checklist": [
+    "Step-by-step ordered checklist item"
+  ],
+  "first_thing_to_do": "The single most important next step right now, in plain English",
+  "encouragement": "One motivating sentence about how close they are to having a real lead-generating machine"
+}
+
+Pages to include (minimum 12): Homepage, About/Bio, Contact/Apply Now, Purchase Loans hub, Refinance hub, at least 3 loan-type pages (VA/FHA/USDA/Conventional/Jumbo/DSCR based on their niche), at least 2 local area pages (city + nearby suburb), Mortgage Calculator, Blog/Resources hub, First-Time Buyer Guide.
+
+Every page must have a phone-number CTA above the fold, a lead capture form, and NMLS disclosure. Make build_command entries specific to their city and niche.
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.5, 90 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            return $result ?: [ 'error' => 'Site wizard failed.' ];
+        }
+
+        case 'build_full_site': {
+            $mem        = ypnus_get_memory();
+            $city       = $mem['primary_city']['value']  ?? $args['city']       ?? '';
+            $niches     = $mem['loan_niches']['value']   ?? $args['loan_niches'] ?? 'purchase, refinance, VA, FHA';
+            $audience   = $mem['target_buyer']['value']  ?? $args['target_buyer'] ?? 'first-time homebuyers';
+            $creds      = "NMLS #{$nmls}" . ( $company ? " | {$company}" : '' );
+            $city_str   = $city ? " in {$city}" : '';
+
+            $core_pages = [
+                [ 'type' => 'homepage',       'city' => $city, 'angle' => "conversion-focused homepage for {$audience}" ],
+                [ 'type' => 'about',          'city' => $city, 'angle' => 'personal bio and trust-building' ],
+                [ 'type' => 'purchase loans', 'city' => $city, 'angle' => "home purchase mortgage{$city_str}" ],
+                [ 'type' => 'refinance',      'city' => $city, 'angle' => "mortgage refinance options{$city_str}" ],
+                [ 'type' => 'contact',        'city' => $city, 'angle' => 'apply now and free consultation' ],
+                [ 'type' => 'mortgage calculator', 'city' => $city, 'angle' => 'interactive tool page' ],
+            ];
+
+            // Add niche-specific pages
+            $niche_list = array_map( 'trim', explode( ',', $niches ) );
+            foreach ( array_slice( $niche_list, 0, 4 ) as $n ) {
+                $core_pages[] = [ 'type' => trim( $n ) . ' loans', 'city' => $city, 'angle' => "{$n} mortgage specialist{$city_str}" ];
+            }
+
+            $built = [];
+            $failed = [];
+            foreach ( $core_pages as $pg ) {
+                $pg_prompt = "Expert mortgage copywriter and conversion specialist. Generate complete, conversion-optimized page copy.\nPage type: {$pg['type']}{$city_str}. Angle: {$pg['angle']}.\nMLO: {$creds}. Target buyer: {$audience}.\n\nCONVERSION REQUIREMENTS (mandatory on every page):\n- Phone CTA button above the fold\n- Lead capture form (name, email, phone, loan type)\n- 3+ trust signals (NMLS, years experience, reviews, local expertise)\n- 1 primary CTA button (e.g. Get Pre-Approved, Apply Now, Schedule a Call)\n- Social proof section\n- NMLS disclosure at bottom\n- Mobile-first layout\n\nReturn JSON: {meta_title,meta_description,h1,subheadline,hero_paragraph,benefit_blocks:[{icon_label,headline,body}],body_sections:[{heading,content}],faqs:[{question,answer}],primary_cta:{button_text,supporting_text},trust_signals:[],url_slug}";
+
+                $r   = ypnus_openai( $api_key, $pg_prompt, 0.65, 90 );
+                $res = json_decode( $r['content'] ?? '{}', true );
+                if ( ! empty( $res['h1'] ) ) {
+                    $html  = '<p><em>' . esc_html( $res['subheadline'] ?? '' ) . '</em></p>';
+                    $html .= '<p>' . nl2br( esc_html( $res['hero_paragraph'] ?? '' ) ) . '</p>';
+                    foreach ( $res['benefit_blocks'] ?? [] as $b ) {
+                        $html .= '<div><strong>' . esc_html( $b['headline'] ?? '' ) . '</strong><p>' . esc_html( $b['body'] ?? '' ) . '</p></div>';
+                    }
+                    foreach ( $res['body_sections'] ?? [] as $s ) {
+                        $html .= '<h2>' . esc_html( $s['heading'] ?? '' ) . '</h2><p>' . esc_html( $s['content'] ?? '' ) . '</p>';
+                    }
+                    if ( ! empty( $res['faqs'] ) ) {
+                        $html .= '<h2>Frequently Asked Questions</h2>';
+                        foreach ( $res['faqs'] as $faq ) {
+                            $html .= '<h3>' . esc_html( $faq['question'] ?? '' ) . '</h3><p>' . esc_html( $faq['answer'] ?? '' ) . '</p>';
+                        }
+                    }
+                    if ( $cta = $res['primary_cta'] ?? [] ) {
+                        $html .= '<p><strong>' . esc_html( $cta['button_text'] ?? 'Apply Now' ) . '</strong> — ' . esc_html( $cta['supporting_text'] ?? '' ) . '</p>';
+                    }
+                    if ( $trust = $res['trust_signals'] ?? [] ) {
+                        $html .= '<p>' . implode( ' · ', array_map( 'esc_html', $trust ) ) . '</p>';
+                    }
+                    if ( $disclosure ) $html .= '<p><small>' . esc_html( $disclosure ) . '</small></p>';
+
+                    $wp = ypnus_publish_draft( $res['h1'], $html, $pg['type'] . ' ' . $city, '', $res['meta_title'] ?? '', $res['meta_description'] ?? '' );
+                    $built[] = [
+                        'title'       => $res['h1'],
+                        'slug'        => $res['url_slug'] ?? '',
+                        'edit_url'    => $wp['wp_edit_url'] ?? '',
+                        'preview_url' => $wp['wp_preview_url'] ?? '',
+                    ];
+                } else {
+                    $failed[] = $pg['type'];
+                }
+            }
+
+            return [
+                'pages_built'  => count( $built ),
+                'pages_failed' => count( $failed ),
+                'built'        => $built,
+                'failed'       => $failed,
+                'next_step'    => 'Review each draft in WordPress (Pages → All Pages), customize your phone number and headshot photo on each page, then publish when ready.',
+            ];
         }
 
         case 'score_gmb': {
@@ -1361,6 +1506,83 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
 
         case 'build_page': {
             return ypnus_format_page_result( $fn_args, $result );
+        }
+
+        case 'site_wizard': {
+            $out  = "## 🏠 Your Website Launch Plan\n\n";
+            $out .= ( $result['welcome_message'] ?? '' ) . "\n\n";
+            $out .= "### Your Strategy\n" . ( $result['site_summary'] ?? '' ) . "\n\n";
+
+            $pages = $result['pages'] ?? [];
+            if ( $pages ) {
+                $out .= "### Pages to Build (in order)\n\n";
+                foreach ( $pages as $i => $p ) {
+                    $num  = $i + 1;
+                    $out .= "**{$num}. {$p['title']}** — `/{$p['url_slug']}`\n";
+                    $out .= "_Purpose:_ {$p['purpose']}\n";
+                    $out .= "_Keyword:_ {$p['primary_keyword']}\n";
+                    if ( ! empty( $p['conversion_elements'] ) ) {
+                        $out .= "_Conversion elements:_ " . implode( ', ', $p['conversion_elements'] ) . "\n";
+                    }
+                    $out .= "_To build it, tell me:_ \"{$p['build_command']}\"\n\n";
+                }
+            }
+
+            if ( ! empty( $result['plugin_checklist'] ) ) {
+                $out .= "### Plugins to Install First\n";
+                foreach ( $result['plugin_checklist'] as $pl ) {
+                    $free = ! empty( $pl['free'] ) ? ' (free)' : '';
+                    $out .= "- **{$pl['plugin']}**{$free} — {$pl['purpose']}\n";
+                }
+                $out .= "\n";
+            }
+
+            if ( ! empty( $result['conversion_rules'] ) ) {
+                $out .= "### Conversion Rules for Every Page\n";
+                foreach ( $result['conversion_rules'] as $r ) $out .= "- {$r}\n";
+                $out .= "\n";
+            }
+
+            if ( ! empty( $result['launch_checklist'] ) ) {
+                $out .= "### Launch Checklist\n";
+                foreach ( $result['launch_checklist'] as $i => $step ) {
+                    $out .= ( $i + 1 ) . ". {$step}\n";
+                }
+                $out .= "\n";
+            }
+
+            $out .= "---\n**Your next step right now:** " . ( $result['first_thing_to_do'] ?? '' ) . "\n\n";
+            $out .= "_" . ( $result['encouragement'] ?? '' ) . "_\n\n";
+            $out .= "> 💡 **Tip:** Tell me \"build all my pages\" and I'll create every draft in WordPress automatically — then all you have to do is review and hit publish.\n";
+            return $out;
+        }
+
+        case 'build_full_site': {
+            $built  = $result['built']  ?? [];
+            $failed = $result['failed'] ?? [];
+            $out    = "## ✅ Your Website Is Built!\n\n";
+            $out   .= "**" . count( $built ) . " pages created as WordPress drafts.**\n\n";
+
+            if ( $built ) {
+                $out .= "### Pages Ready to Review\n";
+                foreach ( $built as $p ) {
+                    $out .= "- **{$p['title']}** — `/{$p['slug']}`";
+                    if ( ! empty( $p['edit_url'] ) )    $out .= " | [Edit]({$p['edit_url']})";
+                    if ( ! empty( $p['preview_url'] ) ) $out .= " | [Preview]({$p['preview_url']})";
+                    $out .= "\n";
+                }
+                $out .= "\n";
+            }
+
+            if ( $failed ) {
+                $out .= "### Pages to Retry\n";
+                foreach ( $failed as $f ) $out .= "- {$f}\n";
+                $out .= "\n";
+            }
+
+            $out .= "---\n**Next step:** " . ( $result['next_step'] ?? 'Review your drafts in WordPress → Pages → All Pages.' ) . "\n\n";
+            $out .= "**After reviewing:** Tell me which page to write a long-form article for, or ask me to score your Google My Business listing to drive local traffic to this new site.\n";
+            return $out;
         }
 
         case 'write_article': {
@@ -1720,6 +1942,8 @@ add_shortcode( 'ypnus_agent', function () {
 
     // Build suggestion chips including active custom tools
     $chips = [
+        [ 'label' => '🚀 Build my website', 'msg' => 'Help me build my website — I\'m just getting started' ],
+        [ 'label' => 'Build ALL pages', 'msg' => 'Build all my website pages right now — use what you know about me' ],
         [ 'label' => 'Build a page', 'msg' => 'Build me a VA loan page for Fresno CA' ],
         [ 'label' => 'Write an article', 'msg' => 'Write a 1500 word SEO article about FHA loans for first-time buyers in [Your City] — include affiliate links' ],
         [ 'label' => 'Plan my website', 'msg' => 'Plan my entire mortgage website — I focus on VA and FHA loans' ],

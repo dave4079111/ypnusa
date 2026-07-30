@@ -677,6 +677,7 @@ MANDATORY TOOL ROUTING:
 - User asks you to build a new capability, "teach yourself", "add a tool", "you can't do X" → create_tool
 - User wants to change how an existing tool works → update_tool
 - User mentions "plugin", "install", "what plugin", "best plugin", "plugin conflict", "plugin recommendation", "which plugin", "do I need", "plugin for" → recommend_plugins
+- User mentions "menu", "nav", "navigation", "remove from menu", "add to menu", "menu item", "header link", "show me the menu", "take out", "delete from nav" → manage_nav_menu
 - User mentions "marketing", "funnel", "email sequence", "conversion", "optimize my site", "get more leads", "marketing strategy", "grow my business", "maximize", "marketing stack", "CRM", "email marketing", "drip campaign", "follow up", "automate marketing" → marketing_advisor
 {$dtool_hint}
 - When in doubt: call the most relevant tool. NEVER skip.
@@ -779,6 +780,36 @@ function ypnus_core_tool_definitions() {
                         ],
                     ],
                     'required' => [ 'need' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'manage_nav_menu',
+                'description' => 'View, add, remove, or reorder items in any WordPress navigation menu. Use when the user asks to change the nav menu, add a page to the menu, remove a menu item, or reorder navigation links.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'action' => [
+                            'type'        => 'string',
+                            'enum'        => [ 'list', 'remove', 'add' ],
+                            'description' => 'list = show all menu items; remove = delete an item by title/label; add = add a URL to the menu.',
+                        ],
+                        'item_title' => [
+                            'type'        => 'string',
+                            'description' => 'For remove: the nav label to remove (partial match, case-insensitive). For add: the link label to display.',
+                        ],
+                        'item_url' => [
+                            'type'        => 'string',
+                            'description' => 'For add: the full URL or path to add to the menu.',
+                        ],
+                        'menu_name' => [
+                            'type'        => 'string',
+                            'description' => 'Optional menu name or slug. Defaults to the primary nav menu.',
+                        ],
+                    ],
+                    'required' => [ 'action' ],
                 ],
             ],
         ],
@@ -1368,6 +1399,68 @@ PROMPT;
             $r = ypnus_openai( $api_key, $prompt, 0.4, 90 );
             $result = json_decode( $r['content'] ?? '{}', true );
             return $result ?: [ 'error' => 'Marketing advisory failed.' ];
+        }
+
+        case 'manage_nav_menu': {
+            $action     = $args['action']     ?? 'list';
+            $item_title = $args['item_title'] ?? '';
+            $item_url   = $args['item_url']   ?? '';
+            $menu_name  = $args['menu_name']  ?? '';
+
+            // Resolve menu: prefer named menu, otherwise fall back to first registered location
+            $menu_obj = null;
+            if ( $menu_name ) {
+                $menu_obj = wp_get_nav_menu_object( $menu_name );
+            }
+            if ( ! $menu_obj ) {
+                $locations = get_nav_menu_locations();
+                foreach ( $locations as $loc_menu_id ) {
+                    $menu_obj = wp_get_nav_menu_object( $loc_menu_id );
+                    if ( $menu_obj ) break;
+                }
+            }
+            if ( ! $menu_obj ) return [ 'error' => 'No navigation menu found. Please create one in Appearance → Menus.' ];
+
+            $menu_id    = $menu_obj->term_id;
+            $menu_items = wp_get_nav_menu_items( $menu_id );
+            if ( ! is_array( $menu_items ) ) $menu_items = [];
+
+            if ( $action === 'list' ) {
+                $list = array_map( fn( $i ) => [
+                    'id'    => $i->ID,
+                    'title' => $i->title,
+                    'url'   => $i->url,
+                    'order' => $i->menu_order,
+                ], $menu_items );
+                return [ 'menu' => $menu_obj->name, 'items' => $list, 'count' => count( $list ) ];
+            }
+
+            if ( $action === 'remove' ) {
+                if ( ! $item_title ) return [ 'error' => 'item_title is required to remove a menu item.' ];
+                $removed = [];
+                foreach ( $menu_items as $item ) {
+                    if ( stripos( $item->title, $item_title ) !== false ) {
+                        wp_delete_post( $item->ID, true );
+                        $removed[] = $item->title;
+                    }
+                }
+                if ( empty( $removed ) ) return [ 'error' => "No menu item matching \"{$item_title}\" found in the \"{$menu_obj->name}\" menu.", 'available' => array_column( $menu_items, 'title' ) ];
+                return [ 'status' => 'removed', 'removed' => $removed, 'menu' => $menu_obj->name, 'message' => 'Item(s) removed from the nav menu.' ];
+            }
+
+            if ( $action === 'add' ) {
+                if ( ! $item_title || ! $item_url ) return [ 'error' => 'item_title and item_url are required to add a menu item.' ];
+                $item_id = wp_update_nav_menu_item( $menu_id, 0, [
+                    'menu-item-title'  => $item_title,
+                    'menu-item-url'    => $item_url,
+                    'menu-item-status' => 'publish',
+                    'menu-item-type'   => 'custom',
+                ] );
+                if ( is_wp_error( $item_id ) ) return [ 'error' => $item_id->get_error_message() ];
+                return [ 'status' => 'added', 'item_id' => $item_id, 'title' => $item_title, 'url' => $item_url, 'menu' => $menu_obj->name, 'message' => "\"{$item_title}\" added to the \"{$menu_obj->name}\" menu." ];
+            }
+
+            return [ 'error' => 'Unknown action. Use list, remove, or add.' ];
         }
 
         default:

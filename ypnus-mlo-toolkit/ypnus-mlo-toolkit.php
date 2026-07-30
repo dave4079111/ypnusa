@@ -677,6 +677,7 @@ MANDATORY TOOL ROUTING:
 - User asks you to build a new capability, "teach yourself", "add a tool", "you can't do X" → create_tool
 - User wants to change how an existing tool works → update_tool
 - User mentions "plugin", "install", "what plugin", "best plugin", "plugin conflict", "plugin recommendation", "which plugin", "do I need", "plugin for" → recommend_plugins
+- User mentions "code", "php", "function", "snippet", "plugin", "hook", "filter", "action", "custom post type", "CPT", "meta box", "REST API", "endpoint", "ajax", "database", "SQL", "query", "cron", "wp-cli", "child theme", "functions.php", "shortcode", "widget", "admin page", "build me a", "write me a", "create a script", "backend", "developer", "debug this code", "error in my code", "PHP error", "fatal error" → backend_developer
 - User mentions "menu", "nav", "navigation", "remove from menu", "add to menu", "menu item", "header link", "show me the menu", "take out", "delete from nav" → manage_nav_menu
 - User mentions "marketing", "funnel", "email sequence", "conversion", "optimize my site", "get more leads", "marketing strategy", "grow my business", "maximize", "marketing stack", "CRM", "email marketing", "drip campaign", "follow up", "automate marketing" → marketing_advisor
 {$dtool_hint}
@@ -810,6 +811,36 @@ function ypnus_core_tool_definitions() {
                         ],
                     ],
                     'required' => [ 'action' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'backend_developer',
+                'description' => 'Senior WordPress backend developer specialist. Writes production-ready PHP code, builds custom plugins and theme functions, creates REST API endpoints, custom post types, meta boxes, admin pages, AJAX handlers, WP-CLI commands, database queries, and cron jobs. Debugs PHP errors, hook conflicts, and performance issues. Knows Hostinger shared hosting constraints (PHP 8.3, MySQL 8, no root access), GeneratePress theme hooks, and WordPress coding standards. Always outputs complete, copy-paste-ready code with inline comments. Use when the user asks for custom code, a plugin snippet, a function, a REST route, a database fix, or any PHP/WordPress development task.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'task' => [
+                            'type'        => 'string',
+                            'description' => 'What to build or fix. Be specific — include what the code should do, any inputs/outputs, and where it will run (plugin file, functions.php, child theme, etc.).',
+                        ],
+                        'context' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: existing code, error messages, plugin names, table names, or any other relevant technical context.',
+                        ],
+                        'output_format' => [
+                            'type'        => 'string',
+                            'enum'        => [ 'plugin_snippet', 'functions_php', 'rest_endpoint', 'cpt_registration', 'ajax_handler', 'db_query', 'cli_command', 'full_plugin', 'debug_analysis' ],
+                            'description' => 'The type of output needed. Omit if unsure — the agent will decide.',
+                        ],
+                        'save_as_draft' => [
+                            'type'        => 'boolean',
+                            'description' => 'Set true to save the generated code as a WordPress draft post so you can copy it from the admin.',
+                        ],
+                    ],
+                    'required' => [ 'task' ],
                 ],
             ],
         ],
@@ -1401,6 +1432,88 @@ PROMPT;
             return $result ?: [ 'error' => 'Marketing advisory failed.' ];
         }
 
+        case 'backend_developer': {
+            $task          = $args['task']          ?? '';
+            $context       = $args['context']       ?? '';
+            $output_format = $args['output_format'] ?? '';
+            $save_draft    = ! empty( $args['save_as_draft'] );
+
+            $format_hint = $output_format ? "Output format requested: {$output_format}.\n" : '';
+            $ctx_block   = $context ? "\n\nAdditional context provided:\n{$context}" : '';
+
+            $dev_prompt = <<<PROMPT
+You are a senior WordPress backend developer with 10+ years of experience. You specialize in:
+- WordPress plugin and theme development (PHP 8.3, WordPress coding standards)
+- Custom Post Types, taxonomies, meta boxes, REST API endpoints
+- AJAX handlers (both wp_ajax_ and wp_ajax_nopriv_)
+- WordPress hooks system (add_action, add_filter, do_action, apply_filters)
+- WP_Query, wpdb, direct SQL with prepared statements
+- WP-CLI commands and automation scripts
+- Hostinger shared hosting constraints: PHP 8.3.x, MySQL 8, no root, no exec(), shared resources
+- GeneratePress theme hooks and child theme development
+- Performance optimization: transients, object cache, query optimization
+- Security: nonce verification, capability checks, input sanitization, output escaping
+- WordPress REST API: register_rest_route, WP_REST_Controller, authentication
+
+TASK: {$task}
+{$format_hint}{$ctx_block}
+
+OUTPUT RULES:
+1. Return ONLY valid, production-ready PHP code — no placeholders, no TODO comments for core logic
+2. Every function must be prefixed to avoid conflicts (use a unique prefix)
+3. Include nonce verification on all AJAX handlers
+4. Include capability checks on all admin-facing code
+5. Sanitize all inputs, escape all outputs
+6. Add brief inline comments only where behavior is non-obvious
+7. If the task requires multiple files, clearly label each file path at the top
+8. After the code, provide a 3-5 line "How to use" block explaining exactly where to paste it and what to do
+
+Return your response as JSON:
+{
+  "title": "Short title of what was built",
+  "files": [
+    {
+      "path": "where to put this file or 'paste into functions.php' etc",
+      "code": "the complete PHP code"
+    }
+  ],
+  "how_to_use": "Step by step instructions in plain English",
+  "warnings": "Any gotchas, version requirements, or conflicts to watch for (empty string if none)"
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $dev_prompt, 0.2, 90 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+
+            if ( empty( $result['files'] ) ) {
+                // OpenAI returned plain text instead of JSON — wrap it
+                $result = [
+                    'title'      => 'Code Output',
+                    'files'      => [ [ 'path' => 'See below', 'code' => $r['content'] ?? '' ] ],
+                    'how_to_use' => '',
+                    'warnings'   => '',
+                ];
+            }
+
+            // Optionally save as WordPress draft
+            if ( $save_draft && ! empty( $result['files'] ) ) {
+                $combined = '';
+                foreach ( $result['files'] as $f ) {
+                    $combined .= "/* File: " . ( $f['path'] ?? '' ) . " */\n" . ( $f['code'] ?? '' ) . "\n\n";
+                }
+                $draft_id = wp_insert_post( [
+                    'post_title'   => 'Dev: ' . ( $result['title'] ?? $task ),
+                    'post_content' => '<pre>' . esc_html( $combined ) . '</pre>',
+                    'post_status'  => 'draft',
+                    'post_type'    => 'post',
+                ] );
+                $result['draft_id']       = $draft_id;
+                $result['draft_edit_url'] = is_wp_error( $draft_id ) ? '' : get_edit_post_link( $draft_id, 'raw' );
+            }
+
+            return $result;
+        }
+
         case 'manage_nav_menu': {
             $action     = $args['action']     ?? 'list';
             $item_title = $args['item_title'] ?? '';
@@ -1534,6 +1647,33 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
         if ( empty( $mem ) ) return "I don't have anything saved in memory yet. Tell me about your markets, loan niches, or business details and I'll remember them.";
         $out = "## What I Remember About You\n\n";
         foreach ( $mem as $m ) $out .= "- **{$m['key']}**: {$m['value']}\n";
+        return $out;
+    }
+    if ( $fn_name === 'backend_developer' ) {
+        $title    = $result['title']      ?? 'Code Output';
+        $files    = $result['files']      ?? [];
+        $howto    = $result['how_to_use'] ?? '';
+        $warnings = $result['warnings']   ?? '';
+        $draft    = $result['draft_edit_url'] ?? '';
+
+        $out = "## 🛠 Backend Dev: {$title}\n\n";
+
+        foreach ( $files as $f ) {
+            $path = $f['path'] ?? '';
+            $code = $f['code'] ?? '';
+            if ( $path ) $out .= "**File:** `{$path}`\n\n";
+            $out .= "```php\n{$code}\n```\n\n";
+        }
+
+        if ( $howto ) {
+            $out .= "### How to Use\n{$howto}\n\n";
+        }
+        if ( $warnings ) {
+            $out .= "> ⚠️ **Note:** {$warnings}\n\n";
+        }
+        if ( $draft ) {
+            $out .= "📋 **[View saved draft in WordPress admin]({$draft})**\n";
+        }
         return $out;
     }
     if ( $fn_name === 'create_tool' ) {

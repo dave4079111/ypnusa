@@ -2,8 +2,8 @@
 /**
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
- * Description: Mortgage Compliance Social-Content Generator, Keyword Scout, and Programmatic Silo Navigation for Loan Officers.
- * Version:     1.2.0
+ * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
+ * Version:     2.0.0
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,45 +11,156 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '1.2.0' );
+define( 'YPNUS_MLO_VERSION', '2.0.0' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
-// ─── Settings ────────────────────────────────────────────────────────────────
+// ─── Storage helpers ─────────────────────────────────────────────────────────
+
+function ypnus_get_tools() {
+    $tools = get_option( 'ypnus_dynamic_tools', [] );
+    return is_array( $tools ) ? $tools : [];
+}
+
+function ypnus_save_tools( $tools ) {
+    update_option( 'ypnus_dynamic_tools', $tools, false );
+}
+
+function ypnus_get_tool_by_slug( $slug ) {
+    foreach ( ypnus_get_tools() as $t ) {
+        if ( ( $t['slug'] ?? '' ) === $slug ) return $t;
+    }
+    return null;
+}
+
+function ypnus_upsert_tool( $tool ) {
+    $tools = ypnus_get_tools();
+    $slug  = $tool['slug'] ?? sanitize_title( $tool['name'] ?? 'tool_' . time() );
+    $tool['slug'] = $slug;
+    foreach ( $tools as $i => $t ) {
+        if ( ( $t['slug'] ?? '' ) === $slug ) {
+            $tools[ $i ] = array_merge( $t, $tool );
+            ypnus_save_tools( $tools );
+            return $slug;
+        }
+    }
+    $tool['created_at'] = current_time( 'mysql' );
+    $tools[] = $tool;
+    ypnus_save_tools( $tools );
+    return $slug;
+}
+
+function ypnus_delete_tool( $slug ) {
+    $tools = array_values( array_filter( ypnus_get_tools(), fn( $t ) => ( $t['slug'] ?? '' ) !== $slug ) );
+    ypnus_save_tools( $tools );
+}
+
+function ypnus_get_memory() {
+    $mem = get_option( 'ypnus_agent_memory', [] );
+    return is_array( $mem ) ? $mem : [];
+}
+
+function ypnus_save_memory( $key, $value ) {
+    $mem = ypnus_get_memory();
+    $mem[ sanitize_key( $key ) ] = [
+        'value'      => sanitize_textarea_field( $value ),
+        'updated_at' => current_time( 'mysql' ),
+    ];
+    update_option( 'ypnus_agent_memory', $mem, false );
+}
+
+function ypnus_delete_memory( $key ) {
+    $mem = ypnus_get_memory();
+    unset( $mem[ sanitize_key( $key ) ] );
+    update_option( 'ypnus_agent_memory', $mem, false );
+}
+
+function ypnus_format_memory_for_prompt() {
+    $mem = ypnus_get_memory();
+    if ( empty( $mem ) ) return '';
+    $lines = [ 'Known facts about this MLO (from memory):' ];
+    foreach ( $mem as $k => $v ) {
+        $lines[] = "- {$k}: " . ( $v['value'] ?? '' );
+    }
+    return implode( "\n", $lines );
+}
+
+// ─── Admin menu ──────────────────────────────────────────────────────────────
 
 add_action( 'admin_menu', function () {
-    add_options_page(
-        'MLO Toolkit Settings',
-        'MLO Toolkit',
-        'manage_options',
-        'ypnus-mlo-settings',
-        'ypnus_mlo_settings_page'
-    );
+    add_options_page( 'MLO Toolkit', 'MLO Toolkit', 'manage_options', 'ypnus-mlo', 'ypnus_admin_page' );
 } );
 
 add_action( 'admin_init', function () {
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_openai_key', [
-        'sanitize_callback' => 'sanitize_text_field',
-    ] );
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_nmls', [
-        'sanitize_callback' => 'sanitize_text_field',
-    ] );
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_company', [
-        'sanitize_callback' => 'sanitize_text_field',
-    ] );
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_disclosure', [
-        'sanitize_callback' => 'sanitize_textarea_field',
-    ] );
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_silos', [
-        'sanitize_callback' => 'sanitize_textarea_field',
-    ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_openai_key',  [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_nmls',        [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_company',     [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_disclosure',  [ 'sanitize_callback' => 'sanitize_textarea_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_silos',       [ 'sanitize_callback' => 'sanitize_textarea_field' ] );
 } );
 
-function ypnus_mlo_settings_page() {
+function ypnus_admin_page() {
     if ( ! current_user_can( 'manage_options' ) ) return;
+    $tab = sanitize_key( $_GET['tab'] ?? 'settings' );
+
+    // Handle tool save
+    if ( $tab === 'tools' && $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['ypnus_tool_nonce'] ) ) {
+        check_admin_referer( 'ypnus_save_tool', 'ypnus_tool_nonce' );
+        $action = sanitize_key( $_POST['tool_action'] ?? 'save' );
+        if ( $action === 'delete' ) {
+            ypnus_delete_tool( sanitize_key( $_POST['tool_slug'] ?? '' ) );
+            echo '<div class="notice notice-success"><p>Tool deleted.</p></div>';
+        } else {
+            $name     = sanitize_text_field( $_POST['tool_name']        ?? '' );
+            $desc     = sanitize_textarea_field( $_POST['tool_desc']    ?? '' );
+            $keywords = sanitize_text_field( $_POST['tool_keywords']    ?? '' );
+            $prompt   = sanitize_textarea_field( $_POST['tool_prompt']  ?? '' );
+            $format   = sanitize_key( $_POST['tool_format']             ?? 'text' );
+            $category = sanitize_text_field( $_POST['tool_category']    ?? '' );
+            $enabled  = isset( $_POST['tool_enabled'] ) ? 1 : 0;
+            $slug     = sanitize_key( $_POST['tool_slug'] ?? sanitize_title( $name ) );
+            if ( $name && $prompt ) {
+                ypnus_upsert_tool( compact( 'slug', 'name', 'desc', 'keywords', 'prompt', 'format', 'category', 'enabled' ) );
+                echo '<div class="notice notice-success"><p>Tool saved.</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>Name and prompt are required.</p></div>';
+            }
+        }
+    }
+
+    // Handle memory delete
+    if ( $tab === 'memory' && $_SERVER['REQUEST_METHOD'] === 'POST' && isset( $_POST['ypnus_memory_nonce'] ) ) {
+        check_admin_referer( 'ypnus_memory_action', 'ypnus_memory_nonce' );
+        $mk = sanitize_key( $_POST['memory_key'] ?? '' );
+        if ( $mk ) {
+            ypnus_delete_memory( $mk );
+            echo '<div class="notice notice-success"><p>Memory entry deleted.</p></div>';
+        }
+    }
+
+    $editing = null;
+    if ( $tab === 'tools' && isset( $_GET['edit'] ) ) {
+        $editing = ypnus_get_tool_by_slug( sanitize_key( $_GET['edit'] ) );
+    }
+
+    $tabs = [
+        'settings' => 'Settings',
+        'tools'    => 'Agent Tools',
+        'memory'   => 'Agent Memory',
+    ];
     ?>
     <div class="wrap">
-        <h1>MLO Toolkit Settings</h1>
+        <h1>MLO Toolkit <small style="font-size:13px;color:#999;">v<?php echo YPNUS_MLO_VERSION; ?></small></h1>
+        <nav class="nav-tab-wrapper" style="margin-bottom:20px;">
+            <?php foreach ( $tabs as $t => $label ): ?>
+                <a href="<?php echo esc_url( admin_url( "options-general.php?page=ypnus-mlo&tab={$t}" ) ); ?>"
+                   class="nav-tab<?php echo $tab === $t ? ' nav-tab-active' : ''; ?>">
+                    <?php echo esc_html( $label ); ?>
+                </a>
+            <?php endforeach; ?>
+        </nav>
+
+        <?php if ( $tab === 'settings' ): ?>
         <form method="post" action="options.php">
             <?php settings_fields( 'ypnus_mlo_group' ); ?>
             <table class="form-table">
@@ -59,56 +170,178 @@ function ypnus_mlo_settings_page() {
                         <input type="password" id="ypnus_mlo_openai_key" name="ypnus_mlo_openai_key"
                                value="<?php echo esc_attr( get_option( 'ypnus_mlo_openai_key' ) ); ?>"
                                class="regular-text" autocomplete="off" />
-                        <p class="description">Your OpenAI API key for content and keyword generation.</p>
+                        <p class="description">Your OpenAI key — stored encrypted in the database, never displayed in plain text.</p>
                     </td>
                 </tr>
                 <tr>
                     <th><label for="ypnus_mlo_nmls">NMLS Number</label></th>
-                    <td>
-                        <input type="text" id="ypnus_mlo_nmls" name="ypnus_mlo_nmls"
-                               value="<?php echo esc_attr( get_option( 'ypnus_mlo_nmls' ) ); ?>"
-                               class="regular-text" />
-                    </td>
+                    <td><input type="text" id="ypnus_mlo_nmls" name="ypnus_mlo_nmls" value="<?php echo esc_attr( get_option( 'ypnus_mlo_nmls' ) ); ?>" class="regular-text" /></td>
                 </tr>
                 <tr>
                     <th><label for="ypnus_mlo_company">Company Name</label></th>
-                    <td>
-                        <input type="text" id="ypnus_mlo_company" name="ypnus_mlo_company"
-                               value="<?php echo esc_attr( get_option( 'ypnus_mlo_company' ) ); ?>"
-                               class="regular-text" />
-                    </td>
+                    <td><input type="text" id="ypnus_mlo_company" name="ypnus_mlo_company" value="<?php echo esc_attr( get_option( 'ypnus_mlo_company' ) ); ?>" class="regular-text" /></td>
                 </tr>
                 <tr>
                     <th><label for="ypnus_mlo_disclosure">Compliance Disclosure</label></th>
                     <td>
-                        <textarea id="ypnus_mlo_disclosure" name="ypnus_mlo_disclosure"
-                                  rows="5" class="large-text"><?php
-                            echo esc_textarea( get_option( 'ypnus_mlo_disclosure',
-                                ypnus_mlo_default_disclosure() ) );
-                        ?></textarea>
-                        <p class="description">This disclosure is automatically appended to every generated post.</p>
+                        <textarea id="ypnus_mlo_disclosure" name="ypnus_mlo_disclosure" rows="4" class="large-text"><?php echo esc_textarea( get_option( 'ypnus_mlo_disclosure', ypnus_mlo_default_disclosure() ) ); ?></textarea>
+                        <p class="description">Auto-appended to every generated post. Required for NMLS compliance.</p>
                     </td>
                 </tr>
                 <tr>
                     <th><label for="ypnus_mlo_silos">Silo Structure (JSON)</label></th>
                     <td>
-                        <textarea id="ypnus_mlo_silos" name="ypnus_mlo_silos"
-                                  rows="10" class="large-text code"><?php
-                            echo esc_textarea( get_option( 'ypnus_mlo_silos',
-                                ypnus_mlo_default_silos() ) );
-                        ?></textarea>
-                        <p class="description">
-                            Define your silo pillars in JSON. Each key is a URL prefix; value has <code>label</code> and <code>children</code> array.<br>
-                            Example: <code>{"\/mlo-marketing": {"label": "MLO Marketing", "children": [{"label": "Lead Generation", "url": "\/mlo-marketing\/lead-generation\/"}]}}</code>
-                        </p>
+                        <textarea id="ypnus_mlo_silos" name="ypnus_mlo_silos" rows="8" class="large-text code"><?php echo esc_textarea( get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() ) ); ?></textarea>
                     </td>
                 </tr>
             </table>
             <?php submit_button(); ?>
         </form>
+
+        <?php elseif ( $tab === 'tools' ): ?>
+
+        <div style="display:flex;gap:30px;align-items:flex-start;">
+        <div style="flex:2;min-width:0;">
+        <h2><?php echo $editing ? 'Edit Tool' : 'Add New Tool'; ?></h2>
+        <form method="post">
+            <?php wp_nonce_field( 'ypnus_save_tool', 'ypnus_tool_nonce' ); ?>
+            <input type="hidden" name="tool_action" value="save">
+            <input type="hidden" name="tool_slug" value="<?php echo esc_attr( $editing['slug'] ?? '' ); ?>">
+            <table class="form-table">
+                <tr>
+                    <th><label>Tool Name</label></th>
+                    <td><input type="text" name="tool_name" value="<?php echo esc_attr( $editing['name'] ?? '' ); ?>" class="regular-text" placeholder="e.g. Pre-Approval Letter Helper" required /></td>
+                </tr>
+                <tr>
+                    <th><label>Description</label></th>
+                    <td><input type="text" name="tool_desc" value="<?php echo esc_attr( $editing['desc'] ?? '' ); ?>" class="large-text" placeholder="What does this tool do? (shown to the agent)" /></td>
+                </tr>
+                <tr>
+                    <th><label>Trigger Keywords</label></th>
+                    <td>
+                        <input type="text" name="tool_keywords" value="<?php echo esc_attr( $editing['keywords'] ?? '' ); ?>" class="large-text" placeholder="pre-approval, pre-qual, letter, qualification letter" />
+                        <p class="description">Comma-separated words. When the user says any of these, the agent calls this tool.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label>Prompt Template</label></th>
+                    <td>
+                        <textarea name="tool_prompt" rows="10" class="large-text code" placeholder="Write the AI instructions here. Use {args.field} for agent-provided values, {nmls}, {company}, {city}, {disclosure} for MLO data."><?php echo esc_textarea( $editing['prompt'] ?? '' ); ?></textarea>
+                        <p class="description">
+                            Available placeholders: <code>{args.topic}</code> <code>{args.city}</code> <code>{args.content}</code> <code>{nmls}</code> <code>{company}</code> <code>{disclosure}</code><br>
+                            Return format: plain text, or JSON for structured outputs.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label>Output Format</label></th>
+                    <td>
+                        <select name="tool_format">
+                            <?php
+                            $formats = [
+                                'text'         => 'Plain Text / Markdown',
+                                'social_posts' => 'Social Posts (LinkedIn + Instagram + TikTok)',
+                                'page'         => 'WordPress Page (auto-publish as draft)',
+                                'keyword_table'=> 'Keyword Table',
+                            ];
+                            $cur = $editing['format'] ?? 'text';
+                            foreach ( $formats as $v => $l ):
+                            ?>
+                                <option value="<?php echo esc_attr($v); ?>" <?php selected( $cur, $v ); ?>><?php echo esc_html($l); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label>Auto-Publish Category</label></th>
+                    <td>
+                        <input type="text" name="tool_category" value="<?php echo esc_attr( $editing['category'] ?? '' ); ?>" class="regular-text" placeholder="mortgage-marketing (category slug)" />
+                        <p class="description">Only used when Output Format is "WordPress Page". Leave blank for auto-detect.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label>Enabled</label></th>
+                    <td><label><input type="checkbox" name="tool_enabled" value="1" <?php checked( $editing['enabled'] ?? 1 ); ?> /> Active — agent can use this tool</label></td>
+                </tr>
+            </table>
+            <?php submit_button( $editing ? 'Update Tool' : 'Save Tool' ); ?>
+            <?php if ( $editing ): ?>
+                <a href="<?php echo esc_url( admin_url( 'options-general.php?page=ypnus-mlo&tab=tools' ) ); ?>" class="button">Cancel</a>
+            <?php endif; ?>
+        </form>
+        </div>
+
+        <div style="flex:3;min-width:0;">
+        <h2>Installed Tools <span style="font-size:13px;color:#999;">(<?php echo count( ypnus_get_tools() ); ?> custom)</span></h2>
+        <?php
+        $core_tools = [ 'generate_social_posts', 'scout_keywords', 'check_compliance', 'suggest_silo', 'build_page', 'plan_website', 'score_gmb', 'create_tool', 'update_tool', 'save_memory', 'recall_memory' ];
+        echo '<p style="color:#666;font-size:13px;">Core tools (always active): ' . implode( ', ', array_map( fn($t) => "<code>{$t}</code>", $core_tools ) ) . '</p>';
+
+        $dtools = ypnus_get_tools();
+        if ( $dtools ):
+        ?>
+        <table class="widefat striped" style="margin-top:10px;">
+            <thead><tr><th>Name</th><th>Triggers</th><th>Format</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+            <?php foreach ( $dtools as $t ): ?>
+            <tr>
+                <td><strong><?php echo esc_html( $t['name'] ?? '' ); ?></strong><br><small style="color:#888;"><?php echo esc_html( $t['slug'] ?? '' ); ?></small></td>
+                <td><small><?php echo esc_html( $t['keywords'] ?? '' ); ?></small></td>
+                <td><code><?php echo esc_html( $t['format'] ?? 'text' ); ?></code></td>
+                <td><?php echo empty( $t['enabled'] ) ? '<span style="color:#c00;">Off</span>' : '<span style="color:#0a0;">On</span>'; ?></td>
+                <td>
+                    <a href="<?php echo esc_url( admin_url( "options-general.php?page=ypnus-mlo&tab=tools&edit=" . urlencode( $t['slug'] ) ) ); ?>">Edit</a> |
+                    <form method="post" style="display:inline;" onsubmit="return confirm('Delete this tool?')">
+                        <?php wp_nonce_field( 'ypnus_save_tool', 'ypnus_tool_nonce' ); ?>
+                        <input type="hidden" name="tool_action" value="delete">
+                        <input type="hidden" name="tool_slug" value="<?php echo esc_attr( $t['slug'] ); ?>">
+                        <button type="submit" style="background:none;border:none;color:#c00;cursor:pointer;padding:0;">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <p style="color:#888;">No custom tools yet. Add one above, or ask the agent to create one for you.</p>
+        <?php endif; ?>
+        </div>
+        </div>
+
+        <?php elseif ( $tab === 'memory' ): ?>
+
+        <h2>Agent Memory</h2>
+        <p style="color:#666;">The agent saves facts here during conversations — your markets, preferences, what's been built. You can delete any entry.</p>
+        <?php $mem = ypnus_get_memory(); if ( $mem ): ?>
+        <table class="widefat striped" style="max-width:900px;">
+            <thead><tr><th>Key</th><th>Value</th><th>Updated</th><th></th></tr></thead>
+            <tbody>
+            <?php foreach ( $mem as $k => $v ): ?>
+            <tr>
+                <td><code><?php echo esc_html( $k ); ?></code></td>
+                <td><?php echo esc_html( $v['value'] ?? '' ); ?></td>
+                <td style="color:#888;font-size:12px;"><?php echo esc_html( $v['updated_at'] ?? '' ); ?></td>
+                <td>
+                    <form method="post" style="display:inline;">
+                        <?php wp_nonce_field( 'ypnus_memory_action', 'ypnus_memory_nonce' ); ?>
+                        <input type="hidden" name="memory_key" value="<?php echo esc_attr( $k ); ?>">
+                        <button type="submit" style="background:none;border:none;color:#c00;cursor:pointer;">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <p style="color:#888;">No memory yet. The agent will start saving facts as you have conversations.</p>
+        <?php endif; ?>
+
+        <?php endif; ?>
     </div>
     <?php
 }
+
+// ─── Default config ───────────────────────────────────────────────────────────
 
 function ypnus_mlo_default_disclosure() {
     $nmls    = get_option( 'ypnus_mlo_nmls', 'XXXXXX' );
@@ -118,420 +351,151 @@ function ypnus_mlo_default_disclosure() {
 
 function ypnus_mlo_default_silos() {
     return json_encode( [
-        '/mlo-marketing' => [
-            'label'    => 'MLO Marketing',
-            'children' => [
-                [ 'label' => 'Lead Generation',   'url' => '/mlo-marketing/lead-generation/' ],
-                [ 'label' => 'Compliance Tools',  'url' => '/mlo-marketing/compliance-tools/' ],
-                [ 'label' => 'Social Content',    'url' => '/mlo-marketing/social-content/' ],
-            ],
-        ],
-        '/mortgage-compliance' => [
-            'label'    => 'Mortgage Compliance',
-            'children' => [
-                [ 'label' => 'Social Media Rules', 'url' => '/mortgage-compliance/social-media-rules/' ],
-                [ 'label' => 'NMLS Requirements',  'url' => '/mortgage-compliance/nmls-requirements/' ],
-            ],
-        ],
-        '/ai-marketing-tools' => [
-            'label'    => 'AI Marketing Tools',
-            'children' => [
-                [ 'label' => 'Content Generator',  'url' => '/ai-marketing-tools/content-generator/' ],
-                [ 'label' => 'Keyword Scout',      'url' => '/ai-marketing-tools/keyword-scout/' ],
-            ],
-        ],
+        '/mlo-marketing'      => [ 'label' => 'MLO Marketing',       'children' => [ [ 'label' => 'Lead Generation',  'url' => '/mlo-marketing/lead-generation/' ], [ 'label' => 'Social Content', 'url' => '/mlo-marketing/social-content/' ] ] ],
+        '/mortgage-compliance'=> [ 'label' => 'Mortgage Compliance', 'children' => [ [ 'label' => 'Social Media Rules','url' => '/mortgage-compliance/social-media-rules/' ] ] ],
+        '/ai-marketing-tools' => [ 'label' => 'AI Marketing Tools',  'children' => [ [ 'label' => 'Content Generator','url' => '/ai-marketing-tools/content-generator/' ] ] ],
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
 }
 
-// ─── Assets ──────────────────────────────────────────────────────────────────
-// Handled by ypnus_mlo_enqueue_assets() below (registered after shortcode definitions).
+// ─── Assets ───────────────────────────────────────────────────────────────────
 
-// ─── AJAX: Content Generator ─────────────────────────────────────────────────
+add_action( 'wp_enqueue_scripts', 'ypnus_mlo_enqueue_assets' );
+
+function ypnus_mlo_enqueue_assets() {
+    global $post;
+    if ( ! is_a( $post, 'WP_Post' ) ) return;
+    $sc = [ 'ypnus_content_generator', 'ypnus_keyword_scout', 'ypnus_silo_nav', 'ypnus_agent' ];
+    $has = false;
+    foreach ( $sc as $s ) { if ( has_shortcode( $post->post_content, $s ) ) { $has = true; break; } }
+    if ( ! $has ) return;
+    wp_enqueue_style(  'ypnus-mlo-style',  YPNUS_MLO_URL . 'assets/style.css',  [], YPNUS_MLO_VERSION );
+    wp_enqueue_script( 'ypnus-mlo-script', YPNUS_MLO_URL . 'assets/script.js', [], YPNUS_MLO_VERSION, true );
+    wp_localize_script( 'ypnus-mlo-script', 'ypnusMLO', [
+        'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+        'nonce'      => wp_create_nonce( 'ypnus_mlo_nonce' ),
+        'disclosure' => get_option( 'ypnus_mlo_disclosure', ypnus_mlo_default_disclosure() ),
+    ] );
+}
+
+// ─── AJAX: legacy content generator ──────────────────────────────────────────
 
 add_action( 'wp_ajax_nopriv_ypnus_generate_content', 'ypnus_handle_generate_content' );
 add_action( 'wp_ajax_ypnus_generate_content',        'ypnus_handle_generate_content' );
 
 function ypnus_handle_generate_content() {
     check_ajax_referer( 'ypnus_mlo_nonce', 'nonce' );
-
-    $article    = isset( $_POST['article'] ) ? sanitize_textarea_field( wp_unslash( $_POST['article'] ) ) : '';
+    $article    = sanitize_textarea_field( wp_unslash( $_POST['article'] ?? '' ) );
     $disclosure = get_option( 'ypnus_mlo_disclosure', ypnus_mlo_default_disclosure() );
-
-    if ( empty( $article ) ) {
-        wp_send_json_error( [ 'message' => 'Please paste an article or newsletter to generate content.' ] );
-    }
-
+    if ( empty( $article ) ) wp_send_json_error( [ 'message' => 'Please paste an article.' ] );
     $api_key = get_option( 'ypnus_mlo_openai_key', '' );
-    if ( empty( $api_key ) ) {
-        wp_send_json_error( [ 'message' => 'OpenAI API key is not configured. Please visit MLO Toolkit settings.' ] );
-    }
+    if ( empty( $api_key ) ) wp_send_json_error( [ 'message' => 'OpenAI API key not configured.' ] );
 
-    $system_prompt = 'You are a licensed mortgage marketing specialist who writes FINRA/CFPB-compliant social media content for Loan Officers. You write in plain, engaging language. You never make promises about rates, guaranteed approvals, or specific loan terms. You never use superlatives like "best" or "cheapest" without substantiation.';
-
-    $user_prompt = <<<PROMPT
-Based on the following article or newsletter content, generate three distinct social media posts for a Mortgage Loan Officer. Return ONLY valid JSON with keys: linkedin, instagram, tiktok.
-
-Rules for each post:
-- linkedin: 150-300 words. Professional, educational, thought-leader tone. Use 2-3 relevant hashtags. No emojis in the body.
-- instagram: 80-150 words. Conversational, warm, relatable. Use 5-8 hashtags. 1-2 emojis allowed.
-- tiktok: A 30-45 second script with [VISUAL CUE] stage directions in brackets. Hook in first 3 seconds. Fast-paced, energetic. One clear CTA at end.
-
-Do NOT include any compliance disclosure — that is added separately. Just write the post body.
-
-ARTICLE:
-{$article}
-PROMPT;
-
-    $response = wp_remote_post(
-        'https://api.openai.com/v1/chat/completions',
-        [
-            'timeout' => 60,
-            'headers' => [
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type'  => 'application/json',
-            ],
-            'body' => json_encode( [
-                'model'       => 'gpt-4o-mini',
-                'messages'    => [
-                    [ 'role' => 'system', 'content' => $system_prompt ],
-                    [ 'role' => 'user',   'content' => $user_prompt ],
-                ],
-                'temperature'    => 0.7,
-                'response_format' => [ 'type' => 'json_object' ],
-            ] ),
-        ]
-    );
-
-    if ( is_wp_error( $response ) ) {
-        wp_send_json_error( [ 'message' => 'API connection failed: ' . $response->get_error_message() ] );
-    }
-
-    $body = json_decode( wp_remote_retrieve_body( $response ), true );
-
-    if ( empty( $body['choices'][0]['message']['content'] ) ) {
-        wp_send_json_error( [ 'message' => 'Unexpected API response. Please try again.' ] );
-    }
-
-    $posts = json_decode( $body['choices'][0]['message']['content'], true );
-
-    if ( ! isset( $posts['linkedin'], $posts['instagram'], $posts['tiktok'] ) ) {
-        wp_send_json_error( [ 'message' => 'Content generation returned an unexpected format.' ] );
-    }
-
-    // Append mandatory disclosure
-    foreach ( $posts as &$content ) {
-        $content .= "\n\n" . $disclosure;
-    }
-    unset( $content );
-
+    $prompt = "Generate three compliant social posts for a Mortgage Loan Officer. Return ONLY JSON: {linkedin, instagram, tiktok}.\nlinkedin: 150-300 words, professional, 2-3 hashtags.\ninstagram: 80-150 words, conversational, 5-8 hashtags.\ntiktok: 30-45s script with [VISUAL CUE] directions.\nNo disclosure in output.\n\nARTICLE:\n{$article}";
+    $r = ypnus_openai( $api_key, $prompt, 0.7 );
+    $posts = json_decode( $r['content'] ?? '{}', true );
+    if ( ! isset( $posts['linkedin'] ) ) wp_send_json_error( [ 'message' => 'Unexpected format.' ] );
+    foreach ( $posts as &$c ) $c .= "\n\n" . $disclosure;
+    unset( $c );
     wp_send_json_success( $posts );
 }
 
-// ─── AJAX: Keyword Scout ─────────────────────────────────────────────────────
+// ─── AJAX: legacy keyword scout ───────────────────────────────────────────────
 
 add_action( 'wp_ajax_nopriv_ypnus_keyword_scout', 'ypnus_handle_keyword_scout' );
 add_action( 'wp_ajax_ypnus_keyword_scout',        'ypnus_handle_keyword_scout' );
 
 function ypnus_handle_keyword_scout() {
     check_ajax_referer( 'ypnus_mlo_nonce', 'nonce' );
-
-    $topic = isset( $_POST['topic'] ) ? sanitize_text_field( wp_unslash( $_POST['topic'] ) ) : '';
-
-    if ( empty( $topic ) ) {
-        wp_send_json_error( [ 'message' => 'Please enter a topic to research.' ] );
-    }
-
-    // Cache results per topic for 24 hours to reduce API costs
+    $topic = sanitize_text_field( wp_unslash( $_POST['topic'] ?? '' ) );
+    if ( empty( $topic ) ) wp_send_json_error( [ 'message' => 'Enter a topic.' ] );
     $cache_key = 'ypnus_kw_' . md5( strtolower( $topic ) );
-    $cached    = get_transient( $cache_key );
-    if ( $cached !== false ) {
-        wp_send_json_success( $cached );
-    }
-
+    $cached = get_transient( $cache_key );
+    if ( $cached !== false ) wp_send_json_success( $cached );
     $api_key = get_option( 'ypnus_mlo_openai_key', '' );
-    if ( empty( $api_key ) ) {
-        wp_send_json_error( [ 'message' => 'OpenAI API key is not configured.' ] );
-    }
-
-    $user_prompt = <<<PROMPT
-You are an SEO specialist for mortgage and real estate professionals. Generate a list of 10 high-intent, long-tail keyword ideas related to the topic: "{$topic}".
-
-Focus on keywords a Mortgage Loan Officer's potential borrowers would actually search for. Prioritize question-based and comparison keywords that signal buying intent but are specific enough to rank for without a huge domain authority.
-
-Return ONLY valid JSON: an array of 10 objects, each with these keys:
-- keyword (string): the exact long-tail keyword phrase
-- intent (string): one of "Informational", "Commercial", "Navigational", or "Transactional"
-- difficulty (string): one of "Easy", "Medium", or "Hard" (estimate based on specificity)
-- angle (string): a 1-sentence content angle or hook for this keyword (what makes it rankable and useful)
-PROMPT;
-
-    $response = wp_remote_post(
-        'https://api.openai.com/v1/chat/completions',
-        [
-            'timeout' => 45,
-            'headers' => [
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type'  => 'application/json',
-            ],
-            'body' => json_encode( [
-                'model'          => 'gpt-4o-mini',
-                'messages'       => [
-                    [ 'role' => 'user', 'content' => $user_prompt ],
-                ],
-                'temperature'    => 0.5,
-                'response_format' => [ 'type' => 'json_object' ],
-            ] ),
-        ]
-    );
-
-    if ( is_wp_error( $response ) ) {
-        wp_send_json_error( [ 'message' => 'API connection failed.' ] );
-    }
-
-    $body     = json_decode( wp_remote_retrieve_body( $response ), true );
-    $raw      = $body['choices'][0]['message']['content'] ?? '{}';
-    $decoded  = json_decode( $raw, true );
-
-    // API returns object with a keywords key, or just an array
-    $keywords = $decoded['keywords'] ?? ( is_array( $decoded ) && isset( $decoded[0] ) ? $decoded : null );
-
-    if ( ! $keywords ) {
-        wp_send_json_error( [ 'message' => 'Keyword generation returned an unexpected format.' ] );
-    }
-
-    set_transient( $cache_key, $keywords, DAY_IN_SECONDS );
+    if ( empty( $api_key ) ) wp_send_json_error( [ 'message' => 'API key not configured.' ] );
+    $r = ypnus_openai( $api_key, "SEO specialist for mortgage. Generate 10 long-tail keywords for: \"{$topic}\". Return JSON: {\"keywords\":[{keyword,intent,difficulty,angle}]}", 0.4 );
+    $decoded = json_decode( $r['content'] ?? '{}', true );
+    $keywords = $decoded['keywords'] ?? [];
+    if ( $keywords ) set_transient( $cache_key, $keywords, DAY_IN_SECONDS );
     wp_send_json_success( $keywords );
 }
 
-// ─── Shortcode: Content Generator ────────────────────────────────────────────
+// ─── OpenAI helper ────────────────────────────────────────────────────────────
 
-add_shortcode( 'ypnus_content_generator', function () {
-    ob_start(); ?>
-    <div class="ypnus-tool" id="ypnus-content-generator" role="main" aria-label="Social Content Generator">
-        <div class="ypnus-tool__header">
-            <span class="ypnus-tool__eyebrow">FINRA / CFPB Compliant</span>
-            <h2 class="ypnus-tool__title">Social Content Generator</h2>
-            <p class="ypnus-tool__desc">Paste any market update, newsletter, or article. Get three platform-ready posts with your compliance disclosure attached.</p>
-        </div>
+function ypnus_openai( $api_key, $prompt, $temp = 0.5, $timeout = 60, $system = '' ) {
+    $messages = [];
+    if ( $system ) $messages[] = [ 'role' => 'system', 'content' => $system ];
+    $messages[] = [ 'role' => 'user', 'content' => $prompt ];
 
-        <div class="ypnus-form">
-            <label for="ypnus-article-input" class="ypnus-label">Article or Newsletter Content</label>
-            <textarea
-                id="ypnus-article-input"
-                class="ypnus-textarea"
-                rows="8"
-                placeholder="Paste your article, email newsletter, or market update here. The more detail, the better the output..."
-                aria-describedby="ypnus-article-hint"
-            ></textarea>
-            <p class="ypnus-hint" id="ypnus-article-hint">Tip: Copy from your weekly market update email and paste it here.</p>
-            <button class="ypnus-btn ypnus-btn--primary" id="ypnus-generate-btn" onclick="ypnusGenerateContent()">
-                <span class="ypnus-btn__text">Generate 3 Posts</span>
-                <span class="ypnus-btn__loader" aria-hidden="true"></span>
-            </button>
-        </div>
+    $r = wp_remote_post( 'https://api.openai.com/v1/chat/completions', [
+        'timeout' => $timeout,
+        'headers' => [ 'Authorization' => 'Bearer ' . $api_key, 'Content-Type' => 'application/json' ],
+        'body'    => json_encode( [
+            'model'           => 'gpt-4o-mini',
+            'messages'        => $messages,
+            'temperature'     => $temp,
+            'response_format' => [ 'type' => 'json_object' ],
+        ] ),
+    ] );
 
-        <div id="ypnus-content-output" class="ypnus-output" hidden aria-live="polite">
-            <div class="ypnus-output-grid">
-                <div class="ypnus-post-card" id="ypnus-card-linkedin">
-                    <div class="ypnus-post-card__header">
-                        <span class="ypnus-platform-badge ypnus-platform-badge--linkedin">LinkedIn</span>
-                        <button class="ypnus-copy-btn" onclick="ypnusCopy('ypnus-linkedin-content', this)" aria-label="Copy LinkedIn post">Copy</button>
-                    </div>
-                    <div class="ypnus-post-card__body">
-                        <pre id="ypnus-linkedin-content" class="ypnus-post-text"></pre>
-                    </div>
-                    <div class="ypnus-disclosure-badge" aria-label="Compliance disclosure included">Disclosure Included</div>
-                </div>
+    if ( is_wp_error( $r ) ) return [ 'error' => $r->get_error_message() ];
+    $body = json_decode( wp_remote_retrieve_body( $r ), true );
+    return [
+        'content' => $body['choices'][0]['message']['content'] ?? null,
+        'error'   => $body['error']['message'] ?? null,
+    ];
+}
 
-                <div class="ypnus-post-card" id="ypnus-card-instagram">
-                    <div class="ypnus-post-card__header">
-                        <span class="ypnus-platform-badge ypnus-platform-badge--instagram">Instagram</span>
-                        <button class="ypnus-copy-btn" onclick="ypnusCopy('ypnus-instagram-content', this)" aria-label="Copy Instagram post">Copy</button>
-                    </div>
-                    <div class="ypnus-post-card__body">
-                        <pre id="ypnus-instagram-content" class="ypnus-post-text"></pre>
-                    </div>
-                    <div class="ypnus-disclosure-badge" aria-label="Compliance disclosure included">Disclosure Included</div>
-                </div>
+// ─── Auto-category ────────────────────────────────────────────────────────────
 
-                <div class="ypnus-post-card" id="ypnus-card-tiktok">
-                    <div class="ypnus-post-card__header">
-                        <span class="ypnus-platform-badge ypnus-platform-badge--tiktok">TikTok / Reel</span>
-                        <button class="ypnus-copy-btn" onclick="ypnusCopy('ypnus-tiktok-content', this)" aria-label="Copy TikTok script">Copy</button>
-                    </div>
-                    <div class="ypnus-post-card__body">
-                        <pre id="ypnus-tiktok-content" class="ypnus-post-text"></pre>
-                    </div>
-                    <div class="ypnus-disclosure-badge" aria-label="Compliance disclosure included">Disclosure Included</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="ypnus-content-error" class="ypnus-error" hidden role="alert"></div>
-    </div>
-    <?php
-    return ob_get_clean();
-} );
-
-// ─── Shortcode: Keyword Scout ─────────────────────────────────────────────────
-
-add_shortcode( 'ypnus_keyword_scout', function () {
-    ob_start(); ?>
-    <div class="ypnus-tool" id="ypnus-keyword-scout" role="main" aria-label="Keyword Scout">
-        <div class="ypnus-tool__header">
-            <span class="ypnus-tool__eyebrow">SEO Research</span>
-            <h2 class="ypnus-tool__title">Keyword Scout</h2>
-            <p class="ypnus-tool__desc">Enter any mortgage or real estate topic. Get 10 long-tail keyword ideas ranked by competition level with a content angle for each.</p>
-        </div>
-
-        <div class="ypnus-form ypnus-form--inline">
-            <label for="ypnus-keyword-input" class="ypnus-label">Topic or Niche</label>
-            <div class="ypnus-input-row">
-                <input
-                    type="text"
-                    id="ypnus-keyword-input"
-                    class="ypnus-input"
-                    placeholder="e.g. VA home loans, first-time buyer programs, FHA down payment..."
-                    aria-label="Enter a mortgage topic to research"
-                />
-                <button class="ypnus-btn ypnus-btn--primary" id="ypnus-keyword-btn" onclick="ypnusKeywordScout()">
-                    <span class="ypnus-btn__text">Find Keywords</span>
-                    <span class="ypnus-btn__loader" aria-hidden="true"></span>
-                </button>
-            </div>
-        </div>
-
-        <div id="ypnus-keyword-output" class="ypnus-output" hidden aria-live="polite">
-            <div class="ypnus-table-wrap">
-                <table class="ypnus-keyword-table" id="ypnus-keyword-table">
-                    <thead>
-                        <tr>
-                            <th>Keyword</th>
-                            <th>Intent</th>
-                            <th>Difficulty</th>
-                            <th>Content Angle</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="ypnus-keyword-body"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <div id="ypnus-keyword-error" class="ypnus-error" hidden role="alert"></div>
-    </div>
-    <?php
-    return ob_get_clean();
-} );
-
-// ─── Shortcode: Silo Navigation ──────────────────────────────────────────────
-
-add_shortcode( 'ypnus_silo_nav', function () {
-    $silos_raw = get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() );
-    $silos     = json_decode( $silos_raw, true );
-
-    if ( ! is_array( $silos ) ) return '';
-
-    $current_path = parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH );
-    $active_silo  = null;
-    $active_key   = '';
-
-    foreach ( $silos as $prefix => $silo ) {
-        if ( str_starts_with( $current_path, $prefix ) ) {
-            $active_silo = $silo;
-            $active_key  = $prefix;
-            break;
+function ypnus_auto_category( $context, $override_slug = '' ) {
+    if ( $override_slug ) {
+        $term = get_term_by( 'slug', $override_slug, 'category' );
+        if ( $term ) return $term->term_id;
+    }
+    $ctx = strtolower( $context );
+    $map = [
+        'local-markets'        => [ 'fresno', 'sacramento', 'bakersfield', 'stockton', 'modesto', 'los angeles', 'san diego', 'city', 'local', 'market', 'area', 'county', 'region' ],
+        'financing-mastery'    => [ 'va loan', 'fha', 'dscr', 'jumbo', 'conventional', 'usda', 'reverse mortgage', 'heloc', 'refinance', 'first-time', 'down payment', 'home loan', 'mortgage loan', 'interest rate', 'arm ', 'fixed rate' ],
+        'lead-generation'      => [ 'lead', 'landing page', 'capture', 'funnel', 'opt-in', 'contact', 'call to action', 'form', 'convert', 'pipeline' ],
+        'mortgage-marketing'   => [ 'marketing', 'brand', 'content', 'social', 'email', 'newsletter', 'campaign', 'gmb', 'google my business', 'google business', 'seo', 'rank', 'keyword', 'blog' ],
+        'realtor-partnerships' => [ 'realtor', 'agent', 'partner', 'referral', 'co-market', 'open house', 'listing', 'broker' ],
+        'mlo-growth-engine'    => [ 'growth', 'strategy', 'system', 'process', 'workflow', 'automation', 'scale', 'plan', 'playbook', 'training', 'coaching' ],
+        'ai-tools'             => [ 'ai ', 'artificial intelligence', 'chatgpt', 'openai', 'automation', 'tool', 'software', 'technology', 'plugin' ],
+    ];
+    foreach ( $map as $slug => $keywords ) {
+        foreach ( $keywords as $kw ) {
+            if ( str_contains( $ctx, $kw ) ) {
+                $term = get_term_by( 'slug', $slug, 'category' );
+                if ( $term ) return $term->term_id;
+            }
         }
     }
+    $default = get_term_by( 'slug', 'financing-mastery', 'category' );
+    return $default ? $default->term_id : 0;
+}
 
-    if ( ! $active_silo ) return '';
+// ─── Publish page helper ──────────────────────────────────────────────────────
 
-    $label    = esc_html( $active_silo['label'] );
-    $children = $active_silo['children'] ?? [];
-    $home_url = esc_url( home_url( $active_key . '/' ) );
-
-    ob_start();
-    ?>
-    <nav class="ypnus-silo-nav" aria-label="<?php echo esc_attr( $label ); ?> section navigation">
-        <div class="ypnus-silo-nav__breadcrumb">
-            <a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="ypnus-silo-nav__home">Home</a>
-            <span class="ypnus-silo-nav__sep" aria-hidden="true">/</span>
-            <a href="<?php echo $home_url; ?>" class="ypnus-silo-nav__pillar"><?php echo $label; ?></a>
-            <?php if ( get_the_title() ): ?>
-                <span class="ypnus-silo-nav__sep" aria-hidden="true">/</span>
-                <span class="ypnus-silo-nav__current" aria-current="page"><?php echo esc_html( get_the_title() ); ?></span>
-            <?php endif; ?>
-        </div>
-        <?php if ( $children ): ?>
-        <div class="ypnus-silo-nav__children">
-            <span class="ypnus-silo-nav__label">In this section:</span>
-            <?php foreach ( $children as $child ):
-                $is_current = rtrim( $current_path, '/' ) === rtrim( $child['url'], '/' );
-            ?>
-                <a href="<?php echo esc_url( home_url( $child['url'] ) ); ?>"
-                   class="ypnus-silo-nav__child<?php echo $is_current ? ' ypnus-silo-nav__child--active' : ''; ?>"
-                   <?php echo $is_current ? 'aria-current="page"' : ''; ?>>
-                    <?php echo esc_html( $child['label'] ); ?>
-                </a>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-    </nav>
-    <?php
-    return ob_get_clean();
-} );
-
-// ─── Auto-inject Silo Nav (optional hook) ────────────────────────────────────
-// If you want the silo nav to appear automatically on every page without a shortcode,
-// uncomment the block below. It will inject before the entry content.
-
-/*
-add_action( 'generate_before_content', function () {
-    echo do_shortcode( '[ypnus_silo_nav]' );
-} );
-*/
-
-// ─── Asset enqueue: also load for ypnus_agent shortcode ──────────────────────
-
-add_filter( 'ypnus_mlo_has_shortcode', function ( $has, $post ) {
-    return $has || has_shortcode( $post->post_content, 'ypnus_agent' );
-}, 10, 2 );
-
-// Override the existing enqueue check to use this filter
-remove_action( 'wp_enqueue_scripts', 'ypnus_mlo_enqueue_assets' );
-add_action( 'wp_enqueue_scripts', 'ypnus_mlo_enqueue_assets' );
-
-function ypnus_mlo_enqueue_assets() {
-    global $post;
-    if ( ! is_a( $post, 'WP_Post' ) ) return;
-
-    $has = has_shortcode( $post->post_content, 'ypnus_content_generator' )
-        || has_shortcode( $post->post_content, 'ypnus_keyword_scout' )
-        || has_shortcode( $post->post_content, 'ypnus_silo_nav' )
-        || has_shortcode( $post->post_content, 'ypnus_agent' );
-
-    if ( ! $has ) return;
-
-    wp_enqueue_style(
-        'ypnus-mlo-style',
-        YPNUS_MLO_URL . 'assets/style.css',
-        [],
-        YPNUS_MLO_VERSION
-    );
-
-    wp_enqueue_script(
-        'ypnus-mlo-script',
-        YPNUS_MLO_URL . 'assets/script.js',
-        [],
-        YPNUS_MLO_VERSION,
-        true
-    );
-
-    wp_localize_script( 'ypnus-mlo-script', 'ypnusMLO', [
-        'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
-        'nonce'      => wp_create_nonce( 'ypnus_mlo_nonce' ),
-        'disclosure' => get_option( 'ypnus_mlo_disclosure', ypnus_mlo_default_disclosure() ),
+function ypnus_publish_draft( $title, $html, $context, $category_slug, $meta_title = '', $meta_desc = '' ) {
+    $cat_id  = ypnus_auto_category( $context, $category_slug );
+    $post_id = wp_insert_post( [
+        'post_title'   => $title,
+        'post_content' => $html,
+        'post_status'  => 'draft',
+        'post_type'    => 'page',
+        'post_category'=> $cat_id ? [ $cat_id ] : [],
     ] );
+    if ( $post_id && ! is_wp_error( $post_id ) ) {
+        if ( $meta_title ) update_post_meta( $post_id, 'rank_math_title',       $meta_title );
+        if ( $meta_desc  ) update_post_meta( $post_id, 'rank_math_description', $meta_desc );
+        return [
+            'wp_post_id'      => $post_id,
+            'wp_edit_url'     => admin_url( "post.php?post={$post_id}&action=edit" ),
+            'wp_preview_url'  => get_preview_post_link( $post_id ),
+        ];
+    }
+    return [];
 }
 
 // ─── AJAX: Agentic Chat ───────────────────────────────────────────────────────
@@ -543,652 +507,232 @@ function ypnus_handle_agent_chat() {
     check_ajax_referer( 'ypnus_mlo_nonce', 'nonce' );
 
     $api_key = get_option( 'ypnus_mlo_openai_key', '' );
-    if ( empty( $api_key ) ) {
-        wp_send_json_error( [ 'message' => 'OpenAI API key is not configured. Visit MLO Toolkit → Settings.' ] );
-    }
+    if ( empty( $api_key ) ) wp_send_json_error( [ 'message' => 'OpenAI API key not configured.' ] );
 
-    $raw_history = isset( $_POST['history'] ) ? wp_unslash( $_POST['history'] ) : '[]';
-    $history     = json_decode( $raw_history, true );
+    $history = json_decode( wp_unslash( $_POST['history'] ?? '[]' ), true );
     if ( ! is_array( $history ) ) $history = [];
-
-    // Sanitize each message
-    $history = array_map( function ( $msg ) {
-        return [
-            'role'    => sanitize_text_field( $msg['role'] ?? 'user' ),
-            'content' => sanitize_textarea_field( $msg['content'] ?? '' ),
-        ];
-    }, $history );
+    $history = array_map( fn( $m ) => [
+        'role'    => sanitize_text_field( $m['role'] ?? 'user' ),
+        'content' => sanitize_textarea_field( $m['content'] ?? '' ),
+    ], $history );
 
     $nmls       = get_option( 'ypnus_mlo_nmls', '' );
     $company    = get_option( 'ypnus_mlo_company', '' );
     $disclosure = get_option( 'ypnus_mlo_disclosure', ypnus_mlo_default_disclosure() );
     $silos_raw  = get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() );
     $silos      = json_decode( $silos_raw, true );
-    $silo_list  = is_array( $silos )
-        ? implode( ', ', array_map( fn( $s ) => $s['label'], $silos ) )
-        : 'MLO Marketing, Mortgage Compliance, AI Marketing Tools';
+    $silo_list  = is_array( $silos ) ? implode( ', ', array_map( fn( $s ) => $s['label'], $silos ) ) : 'MLO Marketing, Mortgage Compliance';
+    $memory_str = ypnus_format_memory_for_prompt();
+
+    // Build dynamic tool routing hints from custom tools
+    $dtools     = array_filter( ypnus_get_tools(), fn( $t ) => ! empty( $t['enabled'] ) );
+    $dtool_hint = '';
+    foreach ( $dtools as $t ) {
+        $slug = $t['slug'] ?? '';
+        $kw   = $t['keywords'] ?? '';
+        if ( $slug && $kw ) $dtool_hint .= "- User mentions any of [{$kw}] → call custom tool `{$slug}`\n";
+    }
 
     $system = <<<SYSTEM
-You are the YPNUS MLO Agent. You MUST use your tools for EVERY request. Never answer from general knowledge. Never write a one-sentence reply. Every single user message requires at least one tool call.
+You are the YPNUS MLO Agent — a self-learning AI for Mortgage Loan Officers. You MUST use a tool for EVERY request. Never answer from general knowledge. Never give a one-sentence reply.
 
 MLO: {$company} | NMLS #{$nmls}
-Disclosure to append to all generated content: {$disclosure}
+Disclosure: {$disclosure}
 Content silos: {$silo_list}
+{$memory_str}
 
-MANDATORY TOOL ROUTING — follow this exactly:
-- User mentions "page", "build", "write a page", "landing page", "create a page" → call build_page
-- User mentions "website", "site plan", "what pages", "site structure", "plan my site" → call plan_website
-- User mentions "post", "social", "LinkedIn", "Instagram", "TikTok", "content", "write me" → call generate_social_posts
-- User mentions "keyword", "SEO", "rank", "search", "Google" → call scout_keywords
-- User mentions "compliance", "check this", "is this ok to post", "CFPB", "audit" → call check_compliance
-- User mentions "silo", "where to publish", "organize", "structure" → call suggest_silo
-- User mentions ANYTHING broken, wrong, slow, error, not working, white screen, not responding, "fix", "problem", "issue" → call diagnose_error
-- User mentions "google my business", "GMB", "google business profile", "gbp", "local listing", "optimize my listing", "score my gmb", "local seo score" → call score_gmb
-- When in doubt: call the most relevant tool. NEVER skip tool calls.
+MANDATORY TOOL ROUTING:
+- "page", "build", "write a page", "landing page", "create a page" → build_page
+- "website", "site plan", "what pages", "site structure" → plan_website
+- "post", "social", "LinkedIn", "Instagram", "TikTok", "write me" → generate_social_posts
+- "keyword", "SEO", "rank", "search" → scout_keywords
+- "compliance", "check this", "is this ok", "CFPB", "audit" → check_compliance
+- "silo", "where to publish", "organize", "structure" → suggest_silo
+- "broken", "error", "not working", "white screen", "fix", "problem" → diagnose_error
+- "google my business", "GMB", "google business profile", "local listing", "local seo score" → score_gmb
+- User wants to remember something, "remember that", "save this" → save_memory
+- User asks what you know, "what do you remember" → recall_memory
+- User asks you to build a new capability, "teach yourself", "add a tool", "you can't do X" → create_tool
+- User wants to change how an existing tool works → update_tool
+{$dtool_hint}
+- When in doubt: call the most relevant tool. NEVER skip.
 
-After every tool result, synthesize a full, detailed, actionable response — never one sentence. Format results clearly with headings and sections.
-
-Rules:
-- Never promise specific rates or guaranteed approvals.
-- Always append the compliance disclosure to any generated post content.
-- Never give a one-sentence answer. Every response must be complete and useful.
+After every tool result: give a complete, detailed, actionable response — never one sentence.
+Rules: Never promise specific rates or guaranteed approvals. Always append disclosure to social content.
 SYSTEM;
 
-    $tools = [
-        [
-            'type'     => 'function',
-            'function' => [
-                'name'        => 'generate_social_posts',
-                'description' => 'Generate three FINRA/CFPB-compliant social media posts (LinkedIn, Instagram, TikTok) from a topic or article text. Use this when the user wants content, posts, copy, or social media material.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'source_text' => [
-                            'type'        => 'string',
-                            'description' => 'The article, topic, talking point, or prompt to base the posts on.',
-                        ],
-                        'loan_type' => [
-                            'type'        => 'string',
-                            'description' => 'Optional: the mortgage product focus (e.g. VA, FHA, DSCR, Jumbo, First-Time Buyer).',
-                        ],
-                    ],
-                    'required' => [ 'source_text' ],
-                ],
-            ],
-        ],
-        [
-            'type'     => 'function',
-            'function' => [
-                'name'        => 'scout_keywords',
-                'description' => 'Return 10 high-intent long-tail SEO keywords for a mortgage topic. Use this when the user asks about keywords, SEO, what to rank for, or content ideas.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'topic' => [
-                            'type'        => 'string',
-                            'description' => 'The mortgage topic or niche to research (e.g. "DSCR loans for investors", "VA loan eligibility").',
-                        ],
-                    ],
-                    'required' => [ 'topic' ],
-                ],
-            ],
-        ],
-        [
-            'type'     => 'function',
-            'function' => [
-                'name'        => 'check_compliance',
-                'description' => 'Audit a piece of mortgage marketing text for CFPB/FINRA compliance issues. Returns a pass/fail score plus specific flags. Use this before the user publishes any content.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'content' => [
-                            'type'        => 'string',
-                            'description' => 'The marketing copy, post, or ad text to audit.',
-                        ],
-                    ],
-                    'required' => [ 'content' ],
-                ],
-            ],
-        ],
-        [
-            'type'     => 'function',
-            'function' => [
-                'name'        => 'suggest_silo',
-                'description' => 'Recommend the best content silo and page placement for a topic, plus internal linking suggestions. Use when the user asks where to publish, how to organize content, or how to structure their site.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'topic' => [
-                            'type'        => 'string',
-                            'description' => 'The topic or page idea to place within the silo structure.',
-                        ],
-                    ],
-                    'required' => [ 'topic' ],
-                ],
-            ],
-        ],
-        [
-            'type'     => 'function',
-            'function' => [
-                'name'        => 'build_page',
-                'description' => 'Generate complete, conversion-optimized website page copy for a mortgage loan officer. Output includes: H1 headline, subheadline, hero paragraph, 3 benefit/feature blocks, body copy sections, FAQ section (5 Q&As), a primary CTA, trust signals, and SEO meta title/description. Use this when the user asks to build, write, or create a page, landing page, or any website content.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'page_type' => [
-                            'type'        => 'string',
-                            'description' => 'The type of page to build. Examples: VA loan, FHA loan, DSCR loan, first-time homebuyer, jumbo loan, refinance, about, homepage, contact, lead capture.',
-                        ],
-                        'city' => [
-                            'type'        => 'string',
-                            'description' => 'Optional: city or geographic market to localize the page for (e.g. "Phoenix AZ", "Tampa FL").',
-                        ],
-                        'angle' => [
-                            'type'        => 'string',
-                            'description' => 'Optional: a specific selling angle or hook (e.g. "no down payment", "investor focused", "self-employed borrowers").',
-                        ],
-                    ],
-                    'required' => [ 'page_type' ],
-                ],
-            ],
-        ],
-        [
-            'type'     => 'function',
-            'function' => [
-                'name'        => 'diagnose_error',
-                'description' => 'Diagnose any WordPress error, broken behavior, plugin conflict, PHP error, white screen, theme issue, slow page, or site problem. Returns root cause, step-by-step fix, corrected code if applicable, and what to check. Use this whenever the user describes ANYTHING broken, wrong, slow, missing, or not working on their site.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'symptom' => [
-                            'type'        => 'string',
-                            'description' => 'Full description of the problem — error message text, what the user sees, what they expected, when it started. The more detail the better.',
-                        ],
-                        'context' => [
-                            'type'        => 'string',
-                            'description' => 'Optional: WordPress version, active theme, relevant plugins, what was changed before the error appeared, hosting environment.',
-                        ],
-                    ],
-                    'required' => [ 'symptom' ],
-                ],
-            ],
-        ],
-        [
-            'type'     => 'function',
-            'function' => [
-                'name'        => 'score_gmb',
-                'description' => 'Score and optimize a Mortgage Loan Officer\'s Google My Business (Google Business Profile) listing. Asks for their current profile details and returns a 0-100 optimization score broken down by category (completeness, categories, reviews, posts, photos, Q&A, service areas, hours/NAP) with a specific action list for every gap. Also generates a full GMB optimization guide page published to WordPress as a draft. Use whenever the user mentions Google My Business, GMB, their Google listing, local SEO score, or wants to optimize their local presence.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'business_name' => [
-                            'type'        => 'string',
-                            'description' => 'The MLO\'s business name as it appears (or should appear) on Google.',
-                        ],
-                        'city' => [
-                            'type'        => 'string',
-                            'description' => 'Primary city and state (e.g. "Fresno CA").',
-                        ],
-                        'categories' => [
-                            'type'        => 'string',
-                            'description' => 'Current GMB primary and secondary categories (e.g. "Mortgage Lender, Financial Institution"). Leave blank if unknown.',
-                        ],
-                        'review_count' => [
-                            'type'        => 'integer',
-                            'description' => 'Number of Google reviews currently on the profile. Use 0 if unknown.',
-                        ],
-                        'avg_rating' => [
-                            'type'        => 'number',
-                            'description' => 'Current average star rating (e.g. 4.7). Use 0 if unknown.',
-                        ],
-                        'has_photos' => [
-                            'type'        => 'boolean',
-                            'description' => 'True if the profile has uploaded photos.',
-                        ],
-                        'posts_per_month' => [
-                            'type'        => 'integer',
-                            'description' => 'How many Google Posts the MLO publishes per month. Use 0 if unknown.',
-                        ],
-                        'has_qa' => [
-                            'type'        => 'boolean',
-                            'description' => 'True if the Q&A section has been filled in.',
-                        ],
-                        'services_listed' => [
-                            'type'        => 'boolean',
-                            'description' => 'True if services (VA loans, FHA, DSCR, etc.) are listed on the profile.',
-                        ],
-                        'description_filled' => [
-                            'type'        => 'boolean',
-                            'description' => 'True if the business description is filled out.',
-                        ],
-                    ],
-                    'required' => [ 'business_name', 'city' ],
-                ],
-            ],
-        ],
-        [
-            'type'     => 'function',
-            'function' => [
-                'name'        => 'plan_website',
-                'description' => 'Generate a complete website architecture plan for a mortgage loan officer — page list with URLs, content briefs, primary keywords, and internal linking strategy. Use when the user asks to plan, design, or structure their whole website, or asks what pages they need.',
-                'parameters'  => [
-                    'type'       => 'object',
-                    'properties' => [
-                        'niche' => [
-                            'type'        => 'string',
-                            'description' => 'The MLO\'s primary loan niche(s) (e.g. "VA and FHA", "DSCR investor loans", "first-time buyers", "full service").',
-                        ],
-                        'market' => [
-                            'type'        => 'string',
-                            'description' => 'Optional: geographic market or state (e.g. "Phoenix AZ", "Texas statewide", "Southeast US").',
-                        ],
-                        'goal' => [
-                            'type'        => 'string',
-                            'description' => 'Optional: primary business goal (e.g. "generate leads", "rank locally", "establish authority", "convert referrals").',
-                        ],
-                    ],
-                    'required' => [ 'niche' ],
-                ],
-            ],
-        ],
-    ];
+    // Core tool definitions
+    $core_tools = ypnus_core_tool_definitions();
 
-    $messages = array_merge(
-        [ [ 'role' => 'system', 'content' => $system ] ],
-        $history
-    );
+    // Dynamic tool definitions
+    $dynamic_tools = ypnus_dynamic_tool_definitions();
 
-    // Step 1: Ask OpenAI which tool to call (forced)
-    $response = wp_remote_post(
-        'https://api.openai.com/v1/chat/completions',
-        [
-            'timeout' => 30,
-            'headers' => [
-                'Authorization' => 'Bearer ' . $api_key,
-                'Content-Type'  => 'application/json',
-            ],
-            'body' => json_encode( [
-                'model'       => 'gpt-4o-mini',
-                'messages'    => $messages,
-                'tools'       => $tools,
-                'tool_choice' => 'required',
-                'temperature' => 0.3,
-            ] ),
-        ]
-    );
+    $all_tools = array_merge( $core_tools, $dynamic_tools );
 
-    if ( is_wp_error( $response ) ) {
-        wp_send_json_error( [ 'message' => 'API connection failed: ' . $response->get_error_message() ] );
-    }
+    $messages = array_merge( [ [ 'role' => 'system', 'content' => $system ] ], $history );
+
+    $response = wp_remote_post( 'https://api.openai.com/v1/chat/completions', [
+        'timeout' => 30,
+        'headers' => [ 'Authorization' => 'Bearer ' . $api_key, 'Content-Type' => 'application/json' ],
+        'body'    => json_encode( [
+            'model'       => 'gpt-4o-mini',
+            'messages'    => $messages,
+            'tools'       => $all_tools,
+            'tool_choice' => 'required',
+            'temperature' => 0.3,
+        ] ),
+    ] );
+
+    if ( is_wp_error( $response ) ) wp_send_json_error( [ 'message' => 'API error: ' . $response->get_error_message() ] );
 
     $data    = json_decode( wp_remote_retrieve_body( $response ), true );
     $message = $data['choices'][0]['message'] ?? null;
 
     if ( ! $message || empty( $message['tool_calls'] ) ) {
         $debug = [
-            'http_code'    => wp_remote_retrieve_response_code( $response ),
-            'openai_error' => $data['error']['message'] ?? null,
-            'finish'       => $data['choices'][0]['finish_reason'] ?? null,
-            'content'      => $data['choices'][0]['message']['content'] ?? null,
+            'http_code' => wp_remote_retrieve_response_code( $response ),
+            'finish'    => $data['choices'][0]['finish_reason'] ?? null,
+            'error'     => $data['error']['message'] ?? null,
+            'content'   => $data['choices'][0]['message']['content'] ?? null,
         ];
-        wp_send_json_error( [ 'message' => 'Agent could not route your request. Debug: ' . json_encode( $debug ) ] );
+        wp_send_json_error( [ 'message' => 'Agent could not route request. Debug: ' . json_encode( $debug ) ] );
     }
 
-    // Step 2: Execute each tool call and collect formatted output
     $output_parts = [];
-
     foreach ( $message['tool_calls'] as $tc ) {
         $fn_name = $tc['function']['name'] ?? '';
         $fn_args = json_decode( $tc['function']['arguments'] ?? '{}', true );
-        $tc_id   = $tc['id'] ?? '';
-
-        $result = ypnus_run_agent_tool( $fn_name, $fn_args, $api_key, $disclosure );
-
-        // Format the result directly in PHP — no second AI call that can summarize
+        $result  = ypnus_run_agent_tool( $fn_name, $fn_args, $api_key, $disclosure );
         $output_parts[] = ypnus_format_tool_result( $fn_name, $fn_args, $result );
-
-        // Keep conversation history accurate (unused for now but available for future multi-turn)
-        $tool_results_placeholder[] = [
-            'role'         => 'tool',
-            'tool_call_id' => $tc_id,
-            'content'      => json_encode( $result ),
-        ];
     }
 
     wp_send_json_success( [ 'reply' => implode( "\n\n---\n\n", $output_parts ) ] );
 }
 
-// ── Tool Result Formatter ─────────────────────────────────────────────────────
-// Converts raw JSON tool output into rich markdown the frontend renders.
+// ─── Core tool definitions ────────────────────────────────────────────────────
 
-function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
-    if ( isset( $result['error'] ) ) {
-        return "**Error:** " . esc_html( $result['error'] );
-    }
-
-    switch ( $fn_name ) {
-
-        case 'generate_social_posts': {
-            $loan = $fn_args['loan_type'] ?? '';
-            $label = $loan ? " ({$loan})" : '';
-            $out  = "## Social Posts{$label}\n\n";
-            $out .= "### LinkedIn\n" . ( $result['linkedin']  ?? '*(none)*' ) . "\n\n";
-            $out .= "### Instagram\n" . ( $result['instagram'] ?? '*(none)*' ) . "\n\n";
-            $out .= "### TikTok Script\n" . ( $result['tiktok']    ?? '*(none)*' );
-            return $out;
-        }
-
-        case 'scout_keywords': {
-            $topic = $fn_args['topic'] ?? '';
-            $out   = "## Keyword Research — {$topic}\n\n";
-            $out  .= "| Keyword | Intent | Difficulty | Content Angle |\n";
-            $out  .= "|---------|--------|------------|---------------|\n";
-            $keywords = $result['keywords'] ?? $result ?? [];
-            foreach ( (array) $keywords as $kw ) {
-                $out .= sprintf(
-                    "| %s | %s | %s | %s |\n",
-                    $kw['keyword']    ?? '',
-                    $kw['intent']     ?? '',
-                    $kw['difficulty'] ?? '',
-                    $kw['angle']      ?? ''
-                );
-            }
-            return $out;
-        }
-
-        case 'check_compliance': {
-            $score    = $result['score']   ?? '?';
-            $verdict  = $result['verdict'] ?? 'Unknown';
-            $icon     = ( strtolower($verdict) === 'pass' ) ? '✅' : '❌';
-            $out      = "## Compliance Check {$icon} — {$verdict} (Score: {$score}/100)\n\n";
-            $out     .= "**Summary:** " . ( $result['summary'] ?? '' ) . "\n\n";
-            $flags = $result['flags'] ?? [];
-            if ( $flags ) {
-                $out .= "### Issues Found\n";
-                foreach ( $flags as $f ) {
-                    $sev  = strtoupper( $f['severity'] ?? 'INFO' );
-                    $out .= "- **[{$sev}]** {$f['issue']} — _{$f['recommendation']}_\n";
-                }
-                $out .= "\n";
-            }
-            $out .= "**Required Disclosures:** " . implode( ', ', (array)( $result['required_disclosures'] ?? [] ) );
-            return $out;
-        }
-
-        case 'suggest_silo': {
-            $out  = "## Content Silo Recommendation\n\n";
-            $out .= "**Silo:** " . ( $result['silo_name'] ?? '' ) . "\n\n";
-            $out .= "**URL Slug:** `" . ( $result['url_slug'] ?? '' ) . "`\n\n";
-            $out .= "**Meta Description:** " . ( $result['meta_description'] ?? '' ) . "\n\n";
-            $links = $result['internal_links'] ?? [];
-            if ( $links ) {
-                $out .= "### Suggested Internal Links\n";
-                foreach ( $links as $l ) {
-                    $out .= "- [{$l['anchor']}]({$l['url']}) — {$l['reason']}\n";
-                }
-            }
-            return $out;
-        }
-
-        case 'diagnose_error': {
-            $sev  = strtoupper( $result['severity'] ?? 'medium' );
-            $out  = "## WordPress Error Diagnosis\n\n";
-            $out .= "**Root Cause:** " . ( $result['root_cause'] ?? '' ) . "\n\n";
-            $out .= "**Category:** " . ( $result['category'] ?? '' ) . " | **Severity:** {$sev}\n\n";
-            $steps = $result['steps'] ?? [];
-            if ( $steps ) {
-                $out .= "### Fix Steps\n";
-                foreach ( $steps as $i => $s ) {
-                    $out .= ( $i + 1 ) . ". {$s}\n";
-                }
-                $out .= "\n";
-            }
-            $fix = $result['code_fix'] ?? '';
-            if ( $fix ) {
-                $out .= "### Code Fix\n```php\n{$fix}\n```\n\n";
-            }
-            $check = $result['what_to_check'] ?? '';
-            if ( $check ) $out .= "**What to Check:** {$check}\n\n";
-            $warn  = $result['warning'] ?? '';
-            if ( $warn )  $out .= "> ⚠️ **Warning:** {$warn}";
-            return $out;
-        }
-
-        case 'build_page': {
-            $out  = "## Page Draft: " . ( $result['h1'] ?? $fn_args['page_type'] ?? 'Page' ) . "\n\n";
-
-            // Show WordPress links if page was published
-            if ( ! empty( $result['wp_post_id'] ) ) {
-                $out .= "✅ **Draft page created in WordPress!**\n";
-                $out .= "- [Edit in WordPress](" . ( $result['wp_edit_url'] ?? '#' ) . ")\n";
-                $out .= "- [Preview Page](" . ( $result['wp_preview_url'] ?? '#' ) . ")\n\n";
-            }
-
-            $out .= "**Subheadline:** " . ( $result['subheadline'] ?? '' ) . "\n\n";
-            $out .= "**Hero Paragraph:**\n" . ( $result['hero_paragraph'] ?? '' ) . "\n\n";
-            $benefits = $result['benefit_blocks'] ?? [];
-            if ( $benefits ) {
-                $out .= "### Key Benefits\n";
-                foreach ( $benefits as $b ) {
-                    $out .= "- **" . ( $b['headline'] ?? '' ) . "** — " . ( $b['body'] ?? $b['description'] ?? '' ) . "\n";
-                }
-                $out .= "\n";
-            }
-            $sections = $result['body_sections'] ?? [];
-            foreach ( $sections as $s ) {
-                $out .= "### " . ( $s['heading'] ?? '' ) . "\n" . ( $s['content'] ?? '' ) . "\n\n";
-            }
-            $faqs = $result['faqs'] ?? [];
-            if ( $faqs ) {
-                $out .= "### Frequently Asked Questions\n";
-                foreach ( $faqs as $f ) {
-                    $out .= "**Q: " . ( $f['question'] ?? '' ) . "**\n" . ( $f['answer'] ?? '' ) . "\n\n";
-                }
-            }
-            $cta = $result['primary_cta'] ?? [];
-            if ( $cta ) {
-                $out .= "**CTA:** " . ( $cta['button_text'] ?? '' ) . " — " . ( $cta['supporting_text'] ?? '' ) . "\n\n";
-            }
-            $out .= "**Trust Signals:** " . implode( ' · ', (array)( $result['trust_signals'] ?? [] ) ) . "\n\n";
-            $out .= "---\n**SEO**\n- Meta Title: " . ( $result['meta_title'] ?? '' ) . "\n";
-            $out .= "- Meta Description: " . ( $result['meta_description'] ?? '' ) . "\n";
-            $out .= "- URL Slug: `" . ( $result['url_slug'] ?? '' ) . "`";
-            return $out;
-        }
-
-        case 'score_gmb': {
-            $total   = $result['total_score']   ?? 0;
-            $grade   = $result['grade']         ?? 'N/A';
-            $summary = $result['summary']       ?? '';
-            $cats    = $result['categories']    ?? [];
-
-            // Score bar emoji
-            $bar = str_repeat( '█', (int)round( $total / 10 ) ) . str_repeat( '░', 10 - (int)round( $total / 10 ) );
-            $color = $total >= 80 ? '🟢' : ( $total >= 60 ? '🟡' : '🔴' );
-
-            $out  = "## Google My Business Score {$color}\n\n";
-            $out .= "# {$total}/100 — Grade: {$grade}\n";
-            $out .= "`{$bar}`\n\n";
-            $out .= "_{$summary}_\n\n";
-
-            if ( $cats ) {
-                $out .= "### Score Breakdown\n\n";
-                $out .= "| Category | Score | Max | Status |\n";
-                $out .= "|----------|-------|-----|--------|\n";
-                foreach ( $cats as $c ) {
-                    $icon = ( ( $c['score'] ?? 0 ) >= ( $c['max'] ?? 10 ) * 0.8 ) ? '✅' : ( ( $c['score'] ?? 0 ) >= ( $c['max'] ?? 10 ) * 0.5 ? '⚠️' : '❌' );
-                    $out .= sprintf( "| %s | %s | %s | %s |\n",
-                        $c['name']  ?? '',
-                        $c['score'] ?? 0,
-                        $c['max']   ?? 10,
-                        $icon . ' ' . ( $c['status'] ?? '' )
-                    );
-                }
-                $out .= "\n";
-
-                $out .= "### Action Items by Category\n\n";
-                foreach ( $cats as $c ) {
-                    $actions = $c['actions'] ?? [];
-                    if ( ! $actions ) continue;
-                    $out .= "**" . ( $c['name'] ?? '' ) . "** (" . ( $c['score'] ?? 0 ) . "/" . ( $c['max'] ?? 10 ) . ")\n";
-                    foreach ( $actions as $a ) {
-                        $priority = strtoupper( $a['priority'] ?? 'medium' );
-                        $out .= "- [{$priority}] " . ( $a['action'] ?? $a ) . "\n";
-                    }
-                    $out .= "\n";
-                }
-            }
-
-            $tips = $result['quick_wins'] ?? [];
-            if ( $tips ) {
-                $out .= "### 🏆 Quick Wins (Do These First)\n";
-                foreach ( $tips as $t ) {
-                    $out .= "1. {$t}\n";
-                }
-                $out .= "\n";
-            }
-
-            if ( ! empty( $result['wp_post_id'] ) ) {
-                $out .= "---\n✅ **Full GMB Optimization Guide saved as WordPress draft!**\n";
-                $out .= "- [Edit Guide in WordPress](" . ( $result['wp_edit_url'] ?? '#' ) . ")\n";
-                $out .= "- [Preview Guide](" . ( $result['wp_preview_url'] ?? '#' ) . ")\n";
-            }
-
-            return $out;
-        }
-
-        case 'plan_website': {
-            $out  = "## Website Architecture Plan\n\n";
-            $out .= ( $result['summary'] ?? '' ) . "\n\n";
-            $pages = $result['pages'] ?? [];
-            if ( $pages ) {
-                $out .= "### Page Map\n";
-                $out .= "| Page | URL | Silo | Priority |\n";
-                $out .= "|------|-----|------|----------|\n";
-                foreach ( $pages as $p ) {
-                    $out .= sprintf( "| %s | `%s` | %s | %s |\n",
-                        $p['title']    ?? '',
-                        $p['url']      ?? '',
-                        $p['silo']     ?? '',
-                        $p['priority'] ?? ''
-                    );
-                }
-                $out .= "\n";
-            }
-            $silos = $result['silos'] ?? [];
-            if ( $silos ) {
-                $out .= "### Content Silos\n";
-                foreach ( $silos as $s ) {
-                    $out .= "- **{$s['name']}**: {$s['description']}\n";
-                }
-                $out .= "\n";
-            }
-            $order = $result['launch_order'] ?? [];
-            if ( $order ) {
-                $out .= "### Launch Order\n";
-                foreach ( $order as $i => $step ) {
-                    $out .= ( $i + 1 ) . ". {$step}\n";
-                }
-                $out .= "\n";
-            }
-            $wins = $result['quick_wins'] ?? [];
-            if ( $wins ) {
-                $out .= "### Quick Wins\n";
-                foreach ( $wins as $w ) {
-                    $out .= "- {$w}\n";
-                }
-            }
-            return $out;
-        }
-
-        default:
-            return "**Tool:** `{$fn_name}`\n\n```json\n" . json_encode( $result, JSON_PRETTY_PRINT ) . "\n```";
-    }
-}
-
-function ypnus_auto_category( $context ) {
-    $ctx = strtolower( $context );
-
-    $map = [
-        'local-markets'          => [ 'fresno', 'sacramento', 'bakersfield', 'stockton', 'modesto', 'los angeles', 'san diego', 'city', 'local', 'market', 'area', 'county', 'region', 'neighborhood' ],
-        'financing-mastery'      => [ 'va loan', 'fha', 'dscr', 'jumbo', 'conventional', 'usda', 'reverse mortgage', 'heloc', 'refinance', 'refi', 'first-time', 'first time', 'down payment', 'purchase', 'home loan', 'mortgage loan', 'interest rate', 'arm ', 'fixed rate' ],
-        'lead-generation'        => [ 'lead', 'landing page', 'capture', 'funnel', 'opt-in', 'contact', 'call to action', 'cta', 'form', 'convert', 'pipeline' ],
-        'mortgage-marketing'     => [ 'marketing', 'brand', 'content', 'social', 'email', 'newsletter', 'campaign', 'advertising', 'ad ', 'promotion', 'gmb', 'google my business', 'google business', 'seo', 'rank', 'keyword', 'blog' ],
-        'realtor-partnerships'   => [ 'realtor', 'agent', 'partner', 'referral', 'co-market', 'open house', 'listing', 'broker' ],
-        'mlo-growth-engine'      => [ 'growth', 'strategy', 'system', 'process', 'workflow', 'automation', 'scale', 'plan', 'playbook', 'training', 'coaching' ],
-        'ai-tools'               => [ 'ai ', 'artificial intelligence', 'chatgpt', 'openai', 'automation', 'tool', 'software', 'technology', 'plugin' ],
+function ypnus_core_tool_definitions() {
+    return [
+        [ 'type' => 'function', 'function' => [ 'name' => 'generate_social_posts', 'description' => 'Generate three FINRA/CFPB-compliant social media posts (LinkedIn, Instagram, TikTok).', 'parameters' => [ 'type' => 'object', 'properties' => [ 'source_text' => [ 'type' => 'string', 'description' => 'Topic or article text.' ], 'loan_type' => [ 'type' => 'string', 'description' => 'Optional mortgage product focus.' ] ], 'required' => [ 'source_text' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'scout_keywords', 'description' => 'Return 10 high-intent long-tail SEO keywords for a mortgage topic.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'topic' => [ 'type' => 'string', 'description' => 'Mortgage topic to research.' ] ], 'required' => [ 'topic' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'check_compliance', 'description' => 'Audit mortgage marketing text for CFPB/FINRA compliance.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'content' => [ 'type' => 'string', 'description' => 'Marketing copy to audit.' ] ], 'required' => [ 'content' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'suggest_silo', 'description' => 'Recommend the best content silo and URL for a topic.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'topic' => [ 'type' => 'string', 'description' => 'Topic to place.' ] ], 'required' => [ 'topic' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'build_page', 'description' => 'Generate complete conversion-optimized page copy and publish as WordPress draft.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'page_type' => [ 'type' => 'string', 'description' => 'Type of page (VA loan, FHA, DSCR, about, etc).' ], 'city' => [ 'type' => 'string', 'description' => 'Optional city/state.' ], 'angle' => [ 'type' => 'string', 'description' => 'Optional selling angle.' ] ], 'required' => [ 'page_type' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'diagnose_error', 'description' => 'Diagnose any WordPress error, broken behavior, plugin conflict, white screen, or site problem.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'symptom' => [ 'type' => 'string', 'description' => 'Full description of the problem.' ], 'context' => [ 'type' => 'string', 'description' => 'Optional: theme, plugins, hosting.' ] ], 'required' => [ 'symptom' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'plan_website', 'description' => 'Generate a complete website architecture for an MLO.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'niche' => [ 'type' => 'string', 'description' => 'Loan niche(s).' ], 'market' => [ 'type' => 'string', 'description' => 'Optional geographic market.' ], 'goal' => [ 'type' => 'string', 'description' => 'Optional business goal.' ] ], 'required' => [ 'niche' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'score_gmb', 'description' => 'Score and optimize a Google Business Profile for an MLO. Returns 0-100 score with action items.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'business_name' => [ 'type' => 'string', 'description' => 'Business name on Google.' ], 'city' => [ 'type' => 'string', 'description' => 'City and state.' ], 'categories' => [ 'type' => 'string', 'description' => 'Current GMB categories.' ], 'review_count' => [ 'type' => 'integer', 'description' => 'Number of reviews.' ], 'avg_rating' => [ 'type' => 'number', 'description' => 'Average star rating.' ], 'has_photos' => [ 'type' => 'boolean', 'description' => 'Photos uploaded?' ], 'posts_per_month' => [ 'type' => 'integer', 'description' => 'Posts per month.' ], 'has_qa' => [ 'type' => 'boolean', 'description' => 'Q&A filled in?' ], 'services_listed' => [ 'type' => 'boolean', 'description' => 'Services listed?' ], 'description_filled' => [ 'type' => 'boolean', 'description' => 'Description filled?' ] ], 'required' => [ 'business_name', 'city' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'save_memory', 'description' => 'Save a fact about this MLO to long-term memory so it persists across all future conversations.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'key' => [ 'type' => 'string', 'description' => 'Short key (e.g. primary_market, loan_niche, top_realtor_partner).' ], 'value' => [ 'type' => 'string', 'description' => 'The value to remember.' ] ], 'required' => [ 'key', 'value' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'recall_memory', 'description' => 'Retrieve everything currently saved in agent memory.', 'parameters' => [ 'type' => 'object', 'properties' => [], 'required' => [] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'create_tool', 'description' => 'Create a new custom agent tool and save it permanently. Use when the user asks for a capability that does not exist yet.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'name' => [ 'type' => 'string', 'description' => 'Human-readable tool name.' ], 'desc' => [ 'type' => 'string', 'description' => 'What this tool does.' ], 'keywords' => [ 'type' => 'string', 'description' => 'Comma-separated trigger keywords.' ], 'prompt' => [ 'type' => 'string', 'description' => 'The AI prompt template. Use {args.field}, {nmls}, {company}, {disclosure} as placeholders.' ], 'format' => [ 'type' => 'string', 'description' => 'Output format: text | social_posts | page | keyword_table' ], 'category' => [ 'type' => 'string', 'description' => 'WordPress category slug for page output.' ] ], 'required' => [ 'name', 'prompt' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'update_tool', 'description' => 'Update the prompt or settings of an existing custom tool.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'slug' => [ 'type' => 'string', 'description' => 'The tool slug to update.' ], 'prompt' => [ 'type' => 'string', 'description' => 'New prompt template.' ], 'keywords' => [ 'type' => 'string', 'description' => 'New trigger keywords.' ], 'desc' => [ 'type' => 'string', 'description' => 'New description.' ] ], 'required' => [ 'slug' ] ] ] ],
     ];
-
-    foreach ( $map as $slug => $keywords ) {
-        foreach ( $keywords as $kw ) {
-            if ( str_contains( $ctx, $kw ) ) {
-                $term = get_term_by( 'slug', $slug, 'category' );
-                if ( $term ) return $term->term_id;
-            }
-        }
-    }
-
-    // Default to Financing Mastery for mortgage pages
-    $default = get_term_by( 'slug', 'financing-mastery', 'category' );
-    return $default ? $default->term_id : 0;
 }
+
+// ─── Dynamic tool definitions (from DB) ───────────────────────────────────────
+
+function ypnus_dynamic_tool_definitions() {
+    $tools = array_filter( ypnus_get_tools(), fn( $t ) => ! empty( $t['enabled'] ) );
+    $defs  = [];
+    foreach ( $tools as $t ) {
+        $slug = $t['slug'] ?? '';
+        if ( ! $slug ) continue;
+        $defs[] = [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'custom__' . $slug,
+                'description' => ( $t['desc'] ?? $t['name'] ?? $slug ) . ' (custom tool)',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'topic'   => [ 'type' => 'string', 'description' => 'The topic or input for this tool.' ],
+                        'city'    => [ 'type' => 'string', 'description' => 'Optional city/location.' ],
+                        'content' => [ 'type' => 'string', 'description' => 'Optional content input.' ],
+                        'details' => [ 'type' => 'string', 'description' => 'Any additional details.' ],
+                    ],
+                    'required' => [],
+                ],
+            ],
+        ];
+    }
+    return $defs;
+}
+
+// ─── Tool executor ────────────────────────────────────────────────────────────
 
 function ypnus_run_agent_tool( $name, $args, $api_key, $disclosure ) {
+    $nmls    = get_option( 'ypnus_mlo_nmls', '' );
+    $company = get_option( 'ypnus_mlo_company', '' );
+
+    // Custom tool (prefixed with custom__)
+    if ( str_starts_with( $name, 'custom__' ) ) {
+        $slug = substr( $name, 8 );
+        $tool = ypnus_get_tool_by_slug( $slug );
+        if ( ! $tool ) return [ 'error' => "Custom tool '{$slug}' not found." ];
+        return ypnus_run_dynamic_tool( $tool, $args, $api_key, $disclosure, $nmls, $company );
+    }
+
     switch ( $name ) {
+
+        case 'save_memory': {
+            $key   = $args['key']   ?? '';
+            $value = $args['value'] ?? '';
+            if ( ! $key ) return [ 'error' => 'Memory key required.' ];
+            ypnus_save_memory( $key, $value );
+            return [ 'status' => 'saved', 'key' => $key, 'value' => $value ];
+        }
+
+        case 'recall_memory': {
+            $mem = ypnus_get_memory();
+            if ( empty( $mem ) ) return [ 'memory' => [], 'note' => 'No memory saved yet.' ];
+            $flat = [];
+            foreach ( $mem as $k => $v ) $flat[] = [ 'key' => $k, 'value' => $v['value'] ?? '', 'updated' => $v['updated_at'] ?? '' ];
+            return [ 'memory' => $flat ];
+        }
+
+        case 'create_tool': {
+            $name_val = $args['name']     ?? '';
+            $desc     = $args['desc']     ?? '';
+            $keywords = $args['keywords'] ?? '';
+            $prompt   = $args['prompt']   ?? '';
+            $format   = $args['format']   ?? 'text';
+            $category = $args['category'] ?? '';
+            if ( ! $name_val || ! $prompt ) return [ 'error' => 'Tool name and prompt are required.' ];
+            $slug = ypnus_upsert_tool( [
+                'name'     => $name_val,
+                'desc'     => $desc,
+                'keywords' => $keywords,
+                'prompt'   => $prompt,
+                'format'   => $format,
+                'category' => $category,
+                'enabled'  => 1,
+            ] );
+            return [ 'status' => 'created', 'slug' => $slug, 'name' => $name_val, 'message' => "Tool '{$name_val}' created and ready to use." ];
+        }
+
+        case 'update_tool': {
+            $slug = $args['slug'] ?? '';
+            if ( ! $slug ) return [ 'error' => 'Tool slug required.' ];
+            $existing = ypnus_get_tool_by_slug( $slug );
+            if ( ! $existing ) return [ 'error' => "Tool '{$slug}' not found." ];
+            $updated = array_merge( $existing, array_filter( [
+                'prompt'   => $args['prompt']   ?? null,
+                'keywords' => $args['keywords'] ?? null,
+                'desc'     => $args['desc']     ?? null,
+            ], fn( $v ) => $v !== null ) );
+            ypnus_upsert_tool( $updated );
+            return [ 'status' => 'updated', 'slug' => $slug, 'message' => "Tool '{$slug}' updated." ];
+        }
 
         case 'generate_social_posts': {
             $source    = $args['source_text'] ?? '';
-            $loan_type = $args['loan_type'] ?? '';
+            $loan_type = $args['loan_type']   ?? '';
             $focus     = $loan_type ? " Focus on {$loan_type} mortgages." : '';
-
-            $prompt = <<<PROMPT
-Generate three compliant social media posts for a Mortgage Loan Officer.{$focus}
-Return ONLY valid JSON with keys: linkedin, instagram, tiktok.
-
-linkedin: 150-300 words. Professional, educational. 2-3 hashtags. No emojis in body.
-instagram: 80-150 words. Warm, conversational. 5-8 hashtags. 1-2 emojis.
-tiktok: 30-45 second script with [VISUAL CUE] stage directions. Hook in first 3 seconds. One clear CTA.
-
-Do NOT include any compliance disclosure in the output.
-
-SOURCE:
-{$source}
-PROMPT;
-
-            $r = wp_remote_post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'timeout' => 60,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $api_key,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'body' => json_encode( [
-                        'model'           => 'gpt-4o-mini',
-                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
-                        'temperature'     => 0.7,
-                        'response_format' => [ 'type' => 'json_object' ],
-                    ] ),
-                ]
-            );
-
-            if ( is_wp_error( $r ) ) {
-                return [ 'error' => 'Content generation failed.' ];
+            $r = ypnus_openai( $api_key, "Generate three compliant social posts for an MLO.{$focus}\nReturn JSON: {linkedin,instagram,tiktok}\nlinkedin: 150-300 words, professional, 2-3 hashtags.\ninstagram: 80-150 words, warm, 5-8 hashtags, 1-2 emojis.\ntiktok: 30-45s script with [VISUAL CUE] directions. No disclosure.\n\nSOURCE:\n{$source}", 0.7, 60 );
+            $posts = json_decode( $r['content'] ?? '{}', true );
+            foreach ( [ 'linkedin', 'instagram', 'tiktok' ] as $p ) {
+                if ( isset( $posts[$p] ) ) $posts[$p] .= "\n\n" . $disclosure;
             }
-
-            $posts = json_decode(
-                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
-                true
-            );
-
-            // Append disclosure to each post
-            foreach ( [ 'linkedin', 'instagram', 'tiktok' ] as $platform ) {
-                if ( isset( $posts[ $platform ] ) ) {
-                    $posts[ $platform ] .= "\n\n" . $disclosure;
-                }
-            }
-
-            return $posts ?: [ 'error' => 'Unexpected content format.' ];
+            return $posts ?: [ 'error' => 'Content generation failed.' ];
         }
 
         case 'scout_keywords': {
@@ -1196,37 +740,8 @@ PROMPT;
             $cache_key = 'ypnus_kw_' . md5( strtolower( $topic ) );
             $cached    = get_transient( $cache_key );
             if ( $cached !== false ) return [ 'keywords' => $cached ];
-
-            $prompt = <<<PROMPT
-SEO specialist for mortgage professionals. Generate 10 high-intent long-tail keywords for: "{$topic}".
-Return ONLY valid JSON: {"keywords": [ {keyword, intent, difficulty, angle}, ... ]}
-intent: Informational | Commercial | Transactional | Navigational
-difficulty: Easy | Medium | Hard
-PROMPT;
-
-            $r = wp_remote_post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'timeout' => 45,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $api_key,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'body' => json_encode( [
-                        'model'           => 'gpt-4o-mini',
-                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
-                        'temperature'     => 0.4,
-                        'response_format' => [ 'type' => 'json_object' ],
-                    ] ),
-                ]
-            );
-
-            if ( is_wp_error( $r ) ) return [ 'error' => 'Keyword research failed.' ];
-
-            $decoded  = json_decode(
-                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
-                true
-            );
+            $r = ypnus_openai( $api_key, "SEO specialist for mortgage pros. Generate 10 high-intent long-tail keywords for: \"{$topic}\". Return JSON: {\"keywords\":[{keyword,intent,difficulty,angle}]}\nintent: Informational|Commercial|Transactional\ndifficulty: Easy|Medium|Hard", 0.4 );
+            $decoded  = json_decode( $r['content'] ?? '{}', true );
             $keywords = $decoded['keywords'] ?? [];
             if ( $keywords ) set_transient( $cache_key, $keywords, DAY_IN_SECONDS );
             return [ 'keywords' => $keywords ];
@@ -1234,580 +749,104 @@ PROMPT;
 
         case 'check_compliance': {
             $content = $args['content'] ?? '';
-
-            $prompt = <<<PROMPT
-You are a CFPB and FINRA mortgage advertising compliance auditor.
-Audit the following mortgage marketing content. Return ONLY valid JSON:
-{
-  "passed": true/false,
-  "score": 0-100,
-  "flags": [ { "severity": "high|medium|low", "issue": "...", "suggestion": "..." } ],
-  "safe_to_post": true/false,
-  "summary": "one-sentence verdict"
-}
-
-Flag these specifically: guaranteed rates, APR without full disclosure, superlatives without substantiation, missing NMLS number, equal housing omission, discriminatory language, false urgency.
-
-CONTENT:
-{$content}
-PROMPT;
-
-            $r = wp_remote_post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'timeout' => 30,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $api_key,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'body' => json_encode( [
-                        'model'           => 'gpt-4o-mini',
-                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
-                        'temperature'     => 0.1,
-                        'response_format' => [ 'type' => 'json_object' ],
-                    ] ),
-                ]
-            );
-
-            if ( is_wp_error( $r ) ) return [ 'error' => 'Compliance check failed.' ];
-
-            return json_decode(
-                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
-                true
-            ) ?: [ 'error' => 'Unexpected compliance response.' ];
+            $r = ypnus_openai( $api_key, "CFPB/FINRA mortgage compliance auditor. Audit this content:\n\n{$content}\n\nReturn JSON: {passed,score,verdict,summary,flags:[{severity,issue,recommendation}],required_disclosures:[]}", 0.1 );
+            return json_decode( $r['content'] ?? '{}', true ) ?: [ 'error' => 'Compliance check failed.' ];
         }
 
         case 'suggest_silo': {
             $topic     = $args['topic'] ?? '';
-            $silos_raw = get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() );
-            $silos     = json_decode( $silos_raw, true );
-            $silo_json = json_encode( $silos );
-
-            $prompt = <<<PROMPT
-You are an MLO website SEO architect. Given the silo structure below and a topic, recommend:
-1. Which silo this topic belongs in (use the exact silo label from the structure)
-2. The ideal URL slug for a new page
-3. Three internal linking suggestions (which existing pages in the silo should link to this new page)
-4. A 1-sentence SEO meta description for the page
-
-Return ONLY valid JSON:
-{"silo": "...", "url_slug": "...", "internal_links": ["...", "...", "..."], "meta_description": "..."}
-
-SILO STRUCTURE:
-{$silo_json}
-
-TOPIC: {$topic}
-PROMPT;
-
-            $r = wp_remote_post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'timeout' => 30,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $api_key,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'body' => json_encode( [
-                        'model'           => 'gpt-4o-mini',
-                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
-                        'temperature'     => 0.3,
-                        'response_format' => [ 'type' => 'json_object' ],
-                    ] ),
-                ]
-            );
-
-            if ( is_wp_error( $r ) ) return [ 'error' => 'Silo suggestion failed.' ];
-
-            return json_decode(
-                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
-                true
-            ) ?: [ 'error' => 'Unexpected silo response.' ];
+            $silo_json = get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() );
+            $r = ypnus_openai( $api_key, "MLO SEO architect. Given silos: {$silo_json}\n\nTopic: {$topic}\n\nReturn JSON: {silo_name,url_slug,meta_description,internal_links:[{anchor,url,reason}]}", 0.3 );
+            return json_decode( $r['content'] ?? '{}', true ) ?: [ 'error' => 'Silo suggestion failed.' ];
         }
 
         case 'diagnose_error': {
             $symptom = $args['symptom'] ?? '';
-            $context = $args['context'] ?? '';
-            $theme   = 'GeneratePress';
-            $plugins = 'YPNUS MLO Toolkit, Xagio SEO, CookieYes, Google Site Kit, Stripe';
-            $host    = 'Hostinger Cloud (shared, PHP 8.x, no persistent Node.js)';
-
-            $ctx_block = $context
-                ? "Additional context provided by user: {$context}"
-                : "Known site context: Theme: {$theme} | Plugins: {$plugins} | Host: {$host}";
-
-            $prompt = <<<PROMPT
-You are a senior WordPress developer and systems architect with 15 years of experience. You debug WordPress sites, PHP errors, plugin conflicts, theme issues, performance problems, and white screens of death.
-
-Diagnose the following problem and return a complete fix. Think like an expert — go beyond surface symptoms to identify the real root cause.
-
-PROBLEM: {$symptom}
-{$ctx_block}
-
-Return ONLY valid JSON:
-{
-  "root_cause": "Precise technical explanation of WHY this is happening",
-  "category": "one of: php-error | plugin-conflict | theme-issue | database | permissions | memory-limit | caching | css-js | block-editor | htaccess | hosting-config | third-party-api | user-error",
-  "severity": "critical | high | medium | low",
-  "diagnosis_confidence": "high | medium | low",
-  "immediate_fix": {
-    "summary": "What to do right now in one sentence",
-    "steps": [
-      "Exact step 1 with specific menu paths, file paths, or settings",
-      "Exact step 2",
-      "Exact step 3"
-    ]
-  },
-  "code_fix": {
-    "needed": true,
-    "file": "path/to/file.php or null",
-    "language": "php | css | js | htaccess | null",
-    "before": "the broken code snippet, if applicable",
-    "after": "the corrected code snippet, if applicable",
-    "instructions": "where exactly to paste this"
-  },
-  "root_fix": {
-    "summary": "The permanent solution to prevent this recurring",
-    "steps": ["step 1", "step 2"]
-  },
-  "what_to_check_first": [
-    "Specific thing to verify first (e.g. WordPress Admin → Tools → Site Health → Info → PHP version)",
-    "Second thing",
-    "Third thing"
-  ],
-  "safe_to_ignore": false,
-  "warning": "Any risk of data loss or site downtime from the fix, or null if safe"
-}
-
-If the symptom is vague, give the most likely diagnosis for a WordPress site on shared Hostinger hosting running GeneratePress theme. Always give exact menu paths (e.g. 'Plugins → Installed Plugins → Deactivate All') not generic instructions.
-PROMPT;
-
-            $r = wp_remote_post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'timeout' => 60,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $api_key,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'body' => json_encode( [
-                        'model'           => 'gpt-4o-mini',
-                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
-                        'temperature'     => 0.2,
-                        'response_format' => [ 'type' => 'json_object' ],
-                    ] ),
-                ]
-            );
-
-            if ( is_wp_error( $r ) ) return [ 'error' => 'Diagnosis failed — API error.' ];
-
-            $result = json_decode(
-                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
-                true
-            );
-
-            return $result ?: [ 'error' => 'Unexpected diagnosis response.' ];
+            $ctx     = $args['context'] ?? "Theme: GeneratePress | Host: Hostinger Cloud PHP 8.3 | Key plugins: YPNUS MLO Toolkit, Rank Math, CookieYes";
+            $r = ypnus_openai( $api_key, "Senior WordPress developer. Diagnose:\n\nPROBLEM: {$symptom}\nCONTEXT: {$ctx}\n\nReturn JSON: {root_cause,category,severity,steps:[],code_fix,what_to_check_first:[],warning}", 0.2, 60 );
+            return json_decode( $r['content'] ?? '{}', true ) ?: [ 'error' => 'Diagnosis failed.' ];
         }
 
         case 'build_page': {
-            $page_type  = $args['page_type'] ?? 'mortgage';
-            $city       = $args['city']       ?? '';
-            $angle      = $args['angle']      ?? '';
-            $nmls       = get_option( 'ypnus_mlo_nmls', '' );
-            $company    = get_option( 'ypnus_mlo_company', '' );
-            $city_str   = $city   ? " in {$city}"          : '';
-            $angle_str  = $angle  ? " Angle/hook: {$angle}." : '';
-            $credit_str = $nmls   ? "NMLS #{$nmls}"        : '';
-            $co_str     = $company ? " | {$company}"        : '';
+            $page_type = $args['page_type'] ?? 'mortgage';
+            $city      = $args['city']      ?? '';
+            $angle     = $args['angle']     ?? '';
+            $city_str  = $city  ? " in {$city}"    : '';
+            $angle_str = $angle ? " Angle: {$angle}." : '';
+            $creds     = "NMLS #{$nmls}" . ( $company ? " | {$company}" : '' );
 
-            $prompt = <<<PROMPT
-You are an expert mortgage website copywriter. Generate complete, conversion-optimized page copy for a Mortgage Loan Officer's website.
+            $prompt = "Expert mortgage copywriter. Generate complete page copy for an MLO.\nPage: {$page_type}{$city_str}.{$angle_str}\nMLO: {$creds}\n\nReturn JSON: {meta_title,meta_description,h1,subheadline,hero_paragraph,benefit_blocks:[{icon_label,headline,body}],body_sections:[{heading,content}],faqs:[{question,answer}],primary_cta:{button_text,supporting_text},trust_signals:[],url_slug}\n\nRules: Never promise rates. Include NMLS in trust signals. Hyper-local if city given.";
 
-Page type: {$page_type}{$city_str}.{$angle_str}
-MLO credentials: {$credit_str}{$co_str}
+            $r = ypnus_openai( $api_key, $prompt, 0.65, 90 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( ! $result ) return [ 'error' => 'Page build failed.' ];
 
-Return ONLY valid JSON with these exact keys:
-{
-  "meta_title": "60-char max SEO title",
-  "meta_description": "150-char max meta description with CTA verb",
-  "h1": "Main page headline (benefit-focused, location-specific if city provided)",
-  "subheadline": "Supporting sentence under H1",
-  "hero_paragraph": "2-3 sentence intro paragraph",
-  "benefit_blocks": [
-    {"icon_label": "short label", "headline": "benefit headline", "body": "2-sentence description"},
-    {"icon_label": "short label", "headline": "benefit headline", "body": "2-sentence description"},
-    {"icon_label": "short label", "headline": "benefit headline", "body": "2-sentence description"}
-  ],
-  "body_sections": [
-    {"heading": "H2 section heading", "content": "2-3 paragraph section body"},
-    {"heading": "H2 section heading", "content": "2-3 paragraph section body"}
-  ],
-  "faqs": [
-    {"question": "...", "answer": "2-3 sentence answer"},
-    {"question": "...", "answer": "2-3 sentence answer"},
-    {"question": "...", "answer": "2-3 sentence answer"},
-    {"question": "...", "answer": "2-3 sentence answer"},
-    {"question": "...", "answer": "2-3 sentence answer"}
-  ],
-  "primary_cta": {"button_text": "...", "supporting_text": "one line under the button"},
-  "trust_signals": ["signal 1", "signal 2", "signal 3", "signal 4"],
-  "url_slug": "/suggested-url-slug/"
-}
-
-Rules:
-- Never promise specific interest rates or guaranteed approvals.
-- Include NMLS number in trust signals if provided.
-- All FAQs must answer real borrower questions.
-- Body copy must be hyper-local if city is provided.
-- Trust signals: real, specific, no generic fluff.
-PROMPT;
-
-            $r = wp_remote_post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'timeout' => 90,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $api_key,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'body' => json_encode( [
-                        'model'           => 'gpt-4o-mini',
-                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
-                        'temperature'     => 0.65,
-                        'response_format' => [ 'type' => 'json_object' ],
-                    ] ),
-                ]
-            );
-
-            if ( is_wp_error( $r ) ) return [ 'error' => 'Page build failed.' ];
-
-            $result = json_decode(
-                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
-                true
-            );
-
-            if ( ! $result ) return [ 'error' => 'Unexpected page build response.' ];
-
-            // Build HTML page content from the generated fields
-            $html  = '';
-            $html .= '<p class="ypnus-page-subheadline"><em>' . esc_html( $result['subheadline'] ?? '' ) . '</em></p>';
+            $html  = '<p><em>' . esc_html( $result['subheadline'] ?? '' ) . '</em></p>';
             $html .= '<p>' . nl2br( esc_html( $result['hero_paragraph'] ?? '' ) ) . '</p>';
-
-            $benefits = $result['benefit_blocks'] ?? [];
-            if ( $benefits ) {
-                $html .= '<div class="ypnus-benefit-blocks">';
-                foreach ( $benefits as $b ) {
-                    $html .= '<div class="ypnus-benefit"><strong>' . esc_html( $b['headline'] ?? '' ) . '</strong><p>' . esc_html( $b['body'] ?? '' ) . '</p></div>';
-                }
-                $html .= '</div>';
+            foreach ( $result['benefit_blocks'] ?? [] as $b ) {
+                $html .= '<div class="ypnus-benefit"><strong>' . esc_html( $b['headline'] ?? '' ) . '</strong><p>' . esc_html( $b['body'] ?? '' ) . '</p></div>';
             }
-
             foreach ( $result['body_sections'] ?? [] as $s ) {
-                $html .= '<h2>' . esc_html( $s['heading'] ?? '' ) . '</h2>';
-                $html .= '<p>' . nl2br( esc_html( $s['content'] ?? '' ) ) . '</p>';
+                $html .= '<h2>' . esc_html( $s['heading'] ?? '' ) . '</h2><p>' . nl2br( esc_html( $s['content'] ?? '' ) ) . '</p>';
             }
-
-            $faqs = $result['faqs'] ?? [];
-            if ( $faqs ) {
+            if ( $result['faqs'] ?? [] ) {
                 $html .= '<h2>Frequently Asked Questions</h2>';
-                foreach ( $faqs as $f ) {
-                    $html .= '<h3>' . esc_html( $f['question'] ?? '' ) . '</h3>';
-                    $html .= '<p>' . esc_html( $f['answer'] ?? '' ) . '</p>';
-                }
+                foreach ( $result['faqs'] as $f ) $html .= '<h3>' . esc_html( $f['question'] ?? '' ) . '</h3><p>' . esc_html( $f['answer'] ?? '' ) . '</p>';
             }
-
-            $cta = $result['primary_cta'] ?? [];
-            if ( $cta ) {
-                $html .= '<div class="ypnus-cta-block"><p><strong>' . esc_html( $cta['button_text'] ?? '' ) . '</strong></p><p>' . esc_html( $cta['supporting_text'] ?? '' ) . '</p></div>';
+            if ( $cta = $result['primary_cta'] ?? [] ) {
+                $html .= '<div class="ypnus-cta-block"><strong>' . esc_html( $cta['button_text'] ?? '' ) . '</strong><p>' . esc_html( $cta['supporting_text'] ?? '' ) . '</p></div>';
             }
-
-            $trust = $result['trust_signals'] ?? [];
-            if ( $trust ) {
+            if ( $trust = $result['trust_signals'] ?? [] ) {
                 $html .= '<p class="ypnus-trust">' . implode( ' &middot; ', array_map( 'esc_html', $trust ) ) . '</p>';
             }
 
-            // Auto-assign category based on page type
-            $category_id = ypnus_auto_category( $page_type . ' ' . $city . ' ' . $angle );
-
-            // Publish as draft page in WordPress
-            $post_id = wp_insert_post( [
-                'post_title'    => $result['h1'] ?? ( $page_type . ( $city ? " — {$city}" : '' ) ),
-                'post_content'  => $html,
-                'post_status'   => 'draft',
-                'post_type'     => 'page',
-                'post_category' => $category_id ? [ $category_id ] : [],
-            ] );
-
-            if ( $post_id && ! is_wp_error( $post_id ) ) {
-                // Save SEO meta for Rank Math if available
-                if ( ! empty( $result['meta_title'] ) ) {
-                    update_post_meta( $post_id, 'rank_math_title', $result['meta_title'] );
-                }
-                if ( ! empty( $result['meta_description'] ) ) {
-                    update_post_meta( $post_id, 'rank_math_description', $result['meta_description'] );
-                }
-
-                $result['wp_post_id']   = $post_id;
-                $result['wp_edit_url']  = admin_url( "post.php?post={$post_id}&action=edit" );
-                $result['wp_preview_url'] = get_preview_post_link( $post_id );
-            }
-
-            return $result;
+            $wp = ypnus_publish_draft( $result['h1'] ?? $page_type . ( $city ? " — {$city}" : '' ), $html, $page_type . ' ' . $city . ' ' . $angle, '', $result['meta_title'] ?? '', $result['meta_description'] ?? '' );
+            return array_merge( $result, $wp );
         }
 
         case 'plan_website': {
-            $niche  = $args['niche']  ?? 'full service mortgage';
-            $market = $args['market'] ?? '';
-            $goal   = $args['goal']   ?? 'generate leads and rank locally';
-            $nmls   = get_option( 'ypnus_mlo_nmls', '' );
-            $company = get_option( 'ypnus_mlo_company', '' );
-
-            $market_str = $market ? " Target market: {$market}." : '';
-            $credit_str = $nmls   ? "NMLS #{$nmls}"              : '';
-            $co_str     = $company ? " | {$company}"              : '';
-
-            $prompt = <<<PROMPT
-You are a senior mortgage website architect and SEO strategist. Create a complete website plan for a Mortgage Loan Officer.
-
-Niche: {$niche}.{$market_str}
-Goal: {$goal}.
-MLO: {$credit_str}{$co_str}
-
-Return ONLY valid JSON:
-{
-  "site_summary": "2-sentence positioning statement for the site",
-  "pages": [
-    {
-      "title": "Page title",
-      "url": "/url-slug/",
-      "purpose": "one sentence — what this page does for the business",
-      "primary_keyword": "main SEO keyword to target",
-      "secondary_keywords": ["kw1", "kw2", "kw3"],
-      "content_brief": "3-4 sentence description of what content goes on this page",
-      "priority": "high|medium|low",
-      "links_to": ["/other-page/", "/another-page/"]
-    }
-  ],
-  "silo_structure": {
-    "silo_name": ["page-url-1", "page-url-2"]
-  },
-  "launch_order": ["/highest-priority-url/", "/second/"],
-  "quick_wins": ["specific actionable tip 1", "tip 2", "tip 3"]
-}
-
-Include: homepage, about, all relevant loan type pages, local/city pages (at least 3 if market provided), a blog hub, contact, and any niche-specific pages. Minimum 10 pages total. Make URLs, keywords, and content briefs specific — no generic placeholders.
-PROMPT;
-
-            $r = wp_remote_post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'timeout' => 90,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $api_key,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'body' => json_encode( [
-                        'model'           => 'gpt-4o-mini',
-                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
-                        'temperature'     => 0.5,
-                        'response_format' => [ 'type' => 'json_object' ],
-                    ] ),
-                ]
-            );
-
-            if ( is_wp_error( $r ) ) return [ 'error' => 'Website plan generation failed.' ];
-
-            $result = json_decode(
-                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
-                true
-            );
-
-            return $result ?: [ 'error' => 'Unexpected website plan response.' ];
+            $niche   = $args['niche']  ?? 'full service mortgage';
+            $market  = $args['market'] ?? '';
+            $goal    = $args['goal']   ?? 'generate leads and rank locally';
+            $creds   = "NMLS #{$nmls}" . ( $company ? " | {$company}" : '' );
+            $prompt  = "Senior mortgage website architect. Plan a complete MLO website.\nNiche: {$niche}. Market: {$market}. Goal: {$goal}. MLO: {$creds}\n\nReturn JSON: {site_summary,pages:[{title,url,purpose,primary_keyword,content_brief,priority,links_to:[]}],silo_structure:{},launch_order:[],quick_wins:[]}\n\nMinimum 10 pages. Make URLs and keywords specific.";
+            $r = ypnus_openai( $api_key, $prompt, 0.5, 90 );
+            return json_decode( $r['content'] ?? '{}', true ) ?: [ 'error' => 'Website plan failed.' ];
         }
 
         case 'score_gmb': {
-            $business_name      = $args['business_name']      ?? '';
-            $city               = $args['city']               ?? '';
-            $categories         = $args['categories']         ?? '';
-            $review_count       = (int) ( $args['review_count']   ?? 0 );
-            $avg_rating         = (float) ( $args['avg_rating']   ?? 0 );
-            $has_photos         = ! empty( $args['has_photos'] );
-            $posts_per_month    = (int) ( $args['posts_per_month'] ?? 0 );
-            $has_qa             = ! empty( $args['has_qa'] );
-            $services_listed    = ! empty( $args['services_listed'] );
-            $description_filled = ! empty( $args['description_filled'] );
-            $nmls               = get_option( 'ypnus_mlo_nmls', '' );
-            $company            = get_option( 'ypnus_mlo_company', '' );
+            $biz    = $args['business_name']      ?? '';
+            $city   = $args['city']               ?? '';
+            $cats   = $args['categories']         ?? 'not specified';
+            $revs   = (int)   ( $args['review_count']   ?? 0 );
+            $rating = (float) ( $args['avg_rating']      ?? 0 );
+            $photos = ! empty( $args['has_photos'] )         ? 'yes' : 'no';
+            $posts  = (int)   ( $args['posts_per_month']  ?? 0 );
+            $qa     = ! empty( $args['has_qa'] )             ? 'yes' : 'no';
+            $svc    = ! empty( $args['services_listed'] )    ? 'yes' : 'no';
+            $desc   = ! empty( $args['description_filled'] ) ? 'yes' : 'no';
+            $creds  = "NMLS #{$nmls}" . ( $company ? " | {$company}" : '' );
 
-            $prompt = <<<PROMPT
-You are a Google Business Profile (Google My Business) optimization expert specializing in mortgage loan officers and local service businesses.
+            $prompt = "Google Business Profile expert for mortgage loan officers.\n\nPROFILE:\n- Business: {$biz} | City: {$city} | Categories: {$cats}\n- Reviews: {$revs} | Rating: {$rating} | Photos: {$photos}\n- Posts/month: {$posts} | Q&A: {$qa} | Services: {$svc} | Description: {$desc}\n- {$creds}\n\nScore and return JSON:\n{total_score,grade,summary,categories:[{name,score,max,status,why,actions:[{priority,action}]}],quick_wins:[],gmb_guide_html:'<full HTML guide 600-800 words with h2/h3/p/ul — include score in intro>'}\n\nCategories: Profile Completeness (max 20), Category Selection (10), Review Velocity (20), Google Posts (15), Photos (10), Q&A (10), Services (10), NAP/Hours (5).\n\nBe hyper-specific — name exact menu paths in Google Business Profile Manager, exact loan types to list. No generic advice.";
 
-Score this MLO's Google Business Profile and return a complete optimization report.
+            $r = ypnus_openai( $api_key, $prompt, 0.3, 90 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( ! $result ) return [ 'error' => 'GMB score failed.' ];
 
-PROFILE DATA:
-- Business Name: {$business_name}
-- City/Market: {$city}
-- Current Categories: {$categories}
-- Review Count: {$review_count}
-- Average Rating: {$avg_rating}
-- Has Photos Uploaded: {$has_photos}
-- Google Posts Per Month: {$posts_per_month}
-- Q&A Section Filled: {$has_qa}
-- Services Listed: {$services_listed}
-- Business Description Filled: {$description_filled}
-- NMLS: {$nmls}
-- Company: {$company}
-
-Return ONLY valid JSON with this exact structure:
-{
-  "total_score": <integer 0-100>,
-  "grade": "<A|B|C|D|F>",
-  "summary": "<1-2 sentence plain-English verdict>",
-  "categories": [
-    {
-      "name": "Profile Completeness",
-      "score": <0-20>,
-      "max": 20,
-      "status": "<Excellent|Good|Needs Work|Critical>",
-      "why": "<1 sentence explaining the score>",
-      "actions": [
-        {"priority": "high|medium|low", "action": "<specific step to take, e.g. Add business description: Go to Business Profile Manager → Info → Description and write 750 characters about your services in {$city}>"}
-      ]
-    },
-    {
-      "name": "Category Selection",
-      "score": <0-10>,
-      "max": 10,
-      "status": "<Excellent|Good|Needs Work|Critical>",
-      "why": "<why this score>",
-      "actions": [
-        {"priority": "high|medium|low", "action": "<specific GMB category to add or change>"}
-      ]
-    },
-    {
-      "name": "Review Velocity",
-      "score": <0-20>,
-      "max": 20,
-      "status": "<Excellent|Good|Needs Work|Critical>",
-      "why": "<why>",
-      "actions": [
-        {"priority": "high|medium|low", "action": "<specific step, e.g. Create a review request text message template and send to your last 5 closed borrowers>"}
-      ]
-    },
-    {
-      "name": "Google Posts",
-      "score": <0-15>,
-      "max": 15,
-      "status": "<Excellent|Good|Needs Work|Critical>",
-      "why": "<why>",
-      "actions": [
-        {"priority": "high|medium|low", "action": "<specific post type and topic to publish this week>"}
-      ]
-    },
-    {
-      "name": "Photos & Visual Content",
-      "score": <0-10>,
-      "max": 10,
-      "status": "<Excellent|Good|Needs Work|Critical>",
-      "why": "<why>",
-      "actions": [
-        {"priority": "high|medium|low", "action": "<exactly which photos to upload and how many>"}
-      ]
-    },
-    {
-      "name": "Q&A Section",
-      "score": <0-10>,
-      "max": 10,
-      "status": "<Excellent|Good|Needs Work|Critical>",
-      "why": "<why>",
-      "actions": [
-        {"priority": "high|medium|low", "action": "<specific mortgage Q&As to self-post and answer>"}
-      ]
-    },
-    {
-      "name": "Services & Products",
-      "score": <0-10>,
-      "max": 10,
-      "status": "<Excellent|Good|Needs Work|Critical>",
-      "why": "<why>",
-      "actions": [
-        {"priority": "high|medium|low", "action": "<specific loan types to list as services>"}
-      ]
-    },
-    {
-      "name": "NAP Consistency & Hours",
-      "score": <0-5>,
-      "max": 5,
-      "status": "<Excellent|Good|Needs Work|Critical>",
-      "why": "<why>",
-      "actions": [
-        {"priority": "high|medium|low", "action": "<specific fix for hours or address consistency>"}
-      ]
-    }
-  ],
-  "quick_wins": [
-    "<The single highest-impact action they can take today — be specific>",
-    "<Second easiest win — specific>",
-    "<Third — specific>"
-  ],
-  "gmb_guide_html": "<Full HTML guide article (600-800 words) for a WordPress page — use <h2>, <h3>, <p>, <ul>, <ol> tags — explaining the optimization strategy for this MLO in {$city}, their score results, and an action plan. Include the score in the intro. No markdown, only valid HTML elements.>"
-}
-
-Be hyper-specific — name exact menu paths in Google Business Profile Manager, exact loan types to list, exact post topics. Never give generic advice like 'improve your profile'. Every action must tell the MLO exactly what to click or type.
-PROMPT;
-
-            $r = wp_remote_post(
-                'https://api.openai.com/v1/chat/completions',
-                [
-                    'timeout' => 90,
-                    'headers' => [
-                        'Authorization' => 'Bearer ' . $api_key,
-                        'Content-Type'  => 'application/json',
-                    ],
-                    'body' => json_encode( [
-                        'model'           => 'gpt-4o-mini',
-                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
-                        'temperature'     => 0.3,
-                        'response_format' => [ 'type' => 'json_object' ],
-                    ] ),
-                ]
-            );
-
-            if ( is_wp_error( $r ) ) return [ 'error' => 'GMB score generation failed.' ];
-
-            $result = json_decode(
-                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
-                true
-            );
-
-            if ( ! $result ) return [ 'error' => 'Unexpected GMB response.' ];
-
-            // Publish GMB guide as a WordPress draft page
             $guide_html = $result['gmb_guide_html'] ?? '';
-            unset( $result['gmb_guide_html'] ); // don't send giant HTML back to chat output
+            unset( $result['gmb_guide_html'] );
 
             if ( $guide_html ) {
-                $score     = $result['total_score'] ?? 0;
-                $page_title = "Google My Business Optimization Guide — {$business_name} ({$city}) — Score: {$score}/100";
-
-                $post_id = wp_insert_post( [
-                    'post_title'   => $page_title,
-                    'post_content' => $guide_html,
-                    'post_status'  => 'draft',
-                    'post_type'    => 'page',
-                ] );
-
-                // Assign to Mortgage Marketing category
-                if ( $post_id && ! is_wp_error( $post_id ) ) {
-                    $cat = get_term_by( 'slug', 'mortgage-marketing', 'category' );
-                    if ( $cat ) wp_set_post_categories( $post_id, [ $cat->term_id ] );
-
-                    update_post_meta( $post_id, 'rank_math_title', "GMB Optimization for {$business_name} in {$city} | Local SEO Score" );
-                    update_post_meta( $post_id, 'rank_math_description', "See your Google Business Profile score and get a step-by-step optimization checklist for {$business_name} in {$city}." );
-
-                    $result['wp_post_id']     = $post_id;
-                    $result['wp_edit_url']    = admin_url( "post.php?post={$post_id}&action=edit" );
-                    $result['wp_preview_url'] = get_preview_post_link( $post_id );
-                }
+                $score = $result['total_score'] ?? 0;
+                $wp = ypnus_publish_draft(
+                    "GMB Optimization Guide — {$biz} ({$city}) — Score: {$score}/100",
+                    $guide_html,
+                    'google my business marketing',
+                    'mortgage-marketing',
+                    "GMB Optimization for {$biz} in {$city} | Local SEO Score",
+                    "See your Google Business Profile score and get a step-by-step optimization checklist for {$biz} in {$city}."
+                );
+                $result = array_merge( $result, $wp );
             }
 
             return $result;
@@ -1818,13 +857,379 @@ PROMPT;
     }
 }
 
-// ─── Shortcode: Agentic Chat ──────────────────────────────────────────────────
+// ─── Dynamic tool executor ────────────────────────────────────────────────────
+
+function ypnus_run_dynamic_tool( $tool, $args, $api_key, $disclosure, $nmls, $company ) {
+    $prompt = $tool['prompt'] ?? '';
+    // Interpolate placeholders
+    $replacements = [
+        '{nmls}'         => $nmls,
+        '{company}'      => $company,
+        '{disclosure}'   => $disclosure,
+        '{args.topic}'   => $args['topic']   ?? '',
+        '{args.city}'    => $args['city']    ?? '',
+        '{args.content}' => $args['content'] ?? '',
+        '{args.details}' => $args['details'] ?? '',
+    ];
+    $prompt = str_replace( array_keys( $replacements ), array_values( $replacements ), $prompt );
+
+    $format = $tool['format'] ?? 'text';
+    $temp   = in_array( $format, [ 'page', 'social_posts' ] ) ? 0.65 : 0.5;
+
+    // For structured outputs, wrap in JSON instruction
+    $json_formats = [ 'social_posts', 'page', 'keyword_table' ];
+    if ( in_array( $format, $json_formats ) ) {
+        if ( $format === 'social_posts' ) $prompt .= "\n\nReturn ONLY valid JSON: {linkedin, instagram, tiktok}";
+        if ( $format === 'page' )         $prompt .= "\n\nReturn ONLY valid JSON: {meta_title, meta_description, h1, subheadline, hero_paragraph, body_html, url_slug}";
+        if ( $format === 'keyword_table' ) $prompt .= "\n\nReturn ONLY valid JSON: {\"keywords\":[{keyword,intent,difficulty,angle}]}";
+    } else {
+        $prompt .= "\n\nReturn ONLY valid JSON: {\"output\": \"<your full response as a single string, with markdown formatting>\"}";
+    }
+
+    $r = ypnus_openai( $api_key, $prompt, $temp, 90 );
+    $decoded = json_decode( $r['content'] ?? '{}', true );
+
+    if ( $format === 'page' ) {
+        if ( empty( $decoded['h1'] ) ) return [ 'error' => 'Page generation failed.', 'raw' => $decoded ];
+        $html  = '<p><em>' . esc_html( $decoded['subheadline'] ?? '' ) . '</em></p>';
+        $html .= $decoded['body_html'] ?? '';
+        $context  = ( $args['topic'] ?? '' ) . ' ' . ( $args['city'] ?? '' );
+        $cat_slug = $tool['category'] ?? '';
+        $wp = ypnus_publish_draft( $decoded['h1'], $html, $context, $cat_slug, $decoded['meta_title'] ?? '', $decoded['meta_description'] ?? '' );
+        return array_merge( $decoded, $wp );
+    }
+
+    if ( $format === 'social_posts' ) {
+        foreach ( [ 'linkedin', 'instagram', 'tiktok' ] as $p ) {
+            if ( isset( $decoded[$p] ) ) $decoded[$p] .= "\n\n" . $disclosure;
+        }
+        return $decoded;
+    }
+
+    return $decoded ?: [ 'error' => 'Tool returned empty result.' ];
+}
+
+// ─── Tool result formatter ────────────────────────────────────────────────────
+
+function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
+    if ( isset( $result['error'] ) ) return "**Error:** " . esc_html( $result['error'] );
+
+    // Meta tools
+    if ( $fn_name === 'save_memory' ) {
+        return "🧠 **Memory saved:** `{$result['key']}` = {$result['value']}\n\nI'll remember this in every future conversation.";
+    }
+    if ( $fn_name === 'recall_memory' ) {
+        $mem = $result['memory'] ?? [];
+        if ( empty( $mem ) ) return "I don't have anything saved in memory yet. Tell me about your markets, loan niches, or business details and I'll remember them.";
+        $out = "## What I Remember About You\n\n";
+        foreach ( $mem as $m ) $out .= "- **{$m['key']}**: {$m['value']}\n";
+        return $out;
+    }
+    if ( $fn_name === 'create_tool' ) {
+        $slug = $result['slug'] ?? '';
+        $name = $result['name'] ?? $slug;
+        $out  = "## ✅ New Tool Created: {$name}\n\n";
+        $out .= "I've added `{$slug}` to your agent toolset and saved it to your WordPress dashboard.\n\n";
+        $out .= "**You can manage it at:** WordPress Admin → Settings → MLO Toolkit → Agent Tools\n\n";
+        $out .= "Try it now by describing what you want to do.";
+        return $out;
+    }
+    if ( $fn_name === 'update_tool' ) {
+        return "## ✅ Tool Updated\n\n`{$result['slug']}` has been updated. The new behavior is active immediately.";
+    }
+
+    // Custom dynamic tool
+    if ( str_starts_with( $fn_name, 'custom__' ) ) {
+        $format = ypnus_get_tool_by_slug( substr( $fn_name, 8 ) )['format'] ?? 'text';
+        if ( $format === 'social_posts' ) {
+            $fn_name = 'generate_social_posts';
+        } elseif ( $format === 'page' ) {
+            return ypnus_format_page_result( $fn_args, $result );
+        } elseif ( $format === 'keyword_table' ) {
+            $fn_name = 'scout_keywords';
+        } else {
+            return $result['output'] ?? json_encode( $result, JSON_PRETTY_PRINT );
+        }
+    }
+
+    switch ( $fn_name ) {
+
+        case 'generate_social_posts': {
+            $loan = $fn_args['loan_type'] ?? '';
+            $label = $loan ? " ({$loan})" : '';
+            $out  = "## Social Posts{$label}\n\n";
+            $out .= "### LinkedIn\n" . ( $result['linkedin']  ?? '*(none)*' ) . "\n\n";
+            $out .= "### Instagram\n" . ( $result['instagram'] ?? '*(none)*' ) . "\n\n";
+            $out .= "### TikTok Script\n" . ( $result['tiktok'] ?? '*(none)*' );
+            return $out;
+        }
+
+        case 'scout_keywords': {
+            $topic = $fn_args['topic'] ?? '';
+            $out   = "## Keyword Research — {$topic}\n\n";
+            $out  .= "| Keyword | Intent | Difficulty | Content Angle |\n";
+            $out  .= "|---------|--------|------------|---------------|\n";
+            foreach ( (array)( $result['keywords'] ?? $result ) as $kw ) {
+                $out .= sprintf( "| %s | %s | %s | %s |\n", $kw['keyword'] ?? '', $kw['intent'] ?? '', $kw['difficulty'] ?? '', $kw['angle'] ?? '' );
+            }
+            return $out;
+        }
+
+        case 'check_compliance': {
+            $score   = $result['score']   ?? '?';
+            $verdict = $result['verdict'] ?? ( $result['passed'] ? 'Pass' : 'Fail' );
+            $icon    = ( strtolower( $verdict ) === 'pass' || ! empty( $result['passed'] ) ) ? '✅' : '❌';
+            $out     = "## Compliance Check {$icon} — {$verdict} (Score: {$score}/100)\n\n";
+            $out    .= "**Summary:** " . ( $result['summary'] ?? '' ) . "\n\n";
+            foreach ( $result['flags'] ?? [] as $f ) {
+                $sev  = strtoupper( $f['severity'] ?? 'INFO' );
+                $rec  = $f['recommendation'] ?? $f['suggestion'] ?? '';
+                $out .= "- **[{$sev}]** {$f['issue']} — _{$rec}_\n";
+            }
+            return $out;
+        }
+
+        case 'suggest_silo': {
+            $out  = "## Content Silo Recommendation\n\n";
+            $out .= "**Silo:** " . ( $result['silo_name'] ?? $result['silo'] ?? '' ) . "\n\n";
+            $out .= "**URL Slug:** `" . ( $result['url_slug'] ?? '' ) . "`\n\n";
+            $out .= "**Meta Description:** " . ( $result['meta_description'] ?? '' ) . "\n\n";
+            foreach ( $result['internal_links'] ?? [] as $l ) {
+                $out .= "- [{$l['anchor']}]({$l['url']}) — {$l['reason']}\n";
+            }
+            return $out;
+        }
+
+        case 'diagnose_error': {
+            $sev  = strtoupper( $result['severity'] ?? 'medium' );
+            $out  = "## WordPress Error Diagnosis\n\n";
+            $out .= "**Root Cause:** " . ( $result['root_cause'] ?? '' ) . "\n\n";
+            $out .= "**Severity:** {$sev} | **Category:** " . ( $result['category'] ?? '' ) . "\n\n";
+            $steps = $result['steps'] ?? $result['immediate_fix']['steps'] ?? [];
+            if ( $steps ) {
+                $out .= "### Fix Steps\n";
+                foreach ( $steps as $i => $s ) $out .= ( $i + 1 ) . ". {$s}\n";
+                $out .= "\n";
+            }
+            $fix = $result['code_fix']['after'] ?? $result['code_fix'] ?? '';
+            if ( $fix && is_string( $fix ) ) $out .= "### Code Fix\n```php\n{$fix}\n```\n\n";
+            $check = is_array( $result['what_to_check_first'] ?? null ) ? implode( "\n", array_map( fn( $c ) => "- {$c}", $result['what_to_check_first'] ) ) : ( $result['what_to_check'] ?? '' );
+            if ( $check ) $out .= "**What to Check:** {$check}\n\n";
+            if ( $result['warning'] ?? null ) $out .= "> ⚠️ {$result['warning']}";
+            return $out;
+        }
+
+        case 'build_page': {
+            return ypnus_format_page_result( $fn_args, $result );
+        }
+
+        case 'plan_website': {
+            $out  = "## Website Architecture Plan\n\n";
+            $out .= ( $result['site_summary'] ?? $result['summary'] ?? '' ) . "\n\n";
+            $pages = $result['pages'] ?? [];
+            if ( $pages ) {
+                $out .= "### Page Map\n| Page | URL | Priority |\n|------|-----|----------|\n";
+                foreach ( $pages as $p ) {
+                    $out .= sprintf( "| %s | `%s` | %s |\n", $p['title'] ?? '', $p['url'] ?? '', $p['priority'] ?? '' );
+                }
+                $out .= "\n";
+            }
+            $order = $result['launch_order'] ?? [];
+            if ( $order ) {
+                $out .= "### Launch Order\n";
+                foreach ( $order as $i => $s ) $out .= ( $i + 1 ) . ". {$s}\n";
+                $out .= "\n";
+            }
+            foreach ( $result['quick_wins'] ?? [] as $w ) $out .= "- {$w}\n";
+            return $out;
+        }
+
+        case 'score_gmb': {
+            $total   = $result['total_score'] ?? 0;
+            $grade   = $result['grade']       ?? 'N/A';
+            $summary = $result['summary']     ?? '';
+            $bar     = str_repeat( '█', (int) round( $total / 10 ) ) . str_repeat( '░', 10 - (int) round( $total / 10 ) );
+            $color   = $total >= 80 ? '🟢' : ( $total >= 60 ? '🟡' : '🔴' );
+
+            $out = "## Google My Business Score {$color}\n\n# {$total}/100 — Grade: {$grade}\n`{$bar}`\n\n_{$summary}_\n\n";
+
+            $cats = $result['categories'] ?? [];
+            if ( $cats ) {
+                $out .= "### Score Breakdown\n| Category | Score | Max | Status |\n|----------|-------|-----|--------|\n";
+                foreach ( $cats as $c ) {
+                    $icon = ( $c['score'] ?? 0 ) >= ( $c['max'] ?? 10 ) * 0.8 ? '✅' : ( ( $c['score'] ?? 0 ) >= ( $c['max'] ?? 10 ) * 0.5 ? '⚠️' : '❌' );
+                    $out .= sprintf( "| %s | %s | %s | %s |\n", $c['name'] ?? '', $c['score'] ?? 0, $c['max'] ?? 10, $icon . ' ' . ( $c['status'] ?? '' ) );
+                }
+                $out .= "\n### Action Items\n";
+                foreach ( $cats as $c ) {
+                    $actions = $c['actions'] ?? [];
+                    if ( ! $actions ) continue;
+                    $out .= "**" . ( $c['name'] ?? '' ) . "** ({$c['score']}/{$c['max']})\n";
+                    foreach ( $actions as $a ) {
+                        $out .= "- [" . strtoupper( $a['priority'] ?? 'medium' ) . "] " . ( $a['action'] ?? $a ) . "\n";
+                    }
+                    $out .= "\n";
+                }
+            }
+
+            foreach ( $result['quick_wins'] ?? [] as $i => $w ) $out .= ( $i + 1 ) . ". {$w}\n";
+
+            if ( ! empty( $result['wp_post_id'] ) ) {
+                $out .= "\n---\n✅ **Full GMB Guide saved as WordPress draft**\n";
+                $out .= "- [Edit Guide](" . ( $result['wp_edit_url'] ?? '#' ) . ")\n";
+                $out .= "- [Preview Guide](" . ( $result['wp_preview_url'] ?? '#' ) . ")\n";
+            }
+            return $out;
+        }
+
+        default:
+            return "**Tool:** `{$fn_name}`\n\n```json\n" . json_encode( $result, JSON_PRETTY_PRINT ) . "\n```";
+    }
+}
+
+function ypnus_format_page_result( $fn_args, $result ) {
+    $out = "## Page Draft: " . ( $result['h1'] ?? $fn_args['page_type'] ?? 'Page' ) . "\n\n";
+    if ( ! empty( $result['wp_post_id'] ) ) {
+        $out .= "✅ **Draft page created in WordPress!**\n";
+        $out .= "- [Edit in WordPress](" . ( $result['wp_edit_url'] ?? '#' ) . ")\n";
+        $out .= "- [Preview Page](" . ( $result['wp_preview_url'] ?? '#' ) . ")\n\n";
+    }
+    $out .= "**Subheadline:** " . ( $result['subheadline'] ?? '' ) . "\n\n";
+    $out .= "**Hero:** " . ( $result['hero_paragraph'] ?? '' ) . "\n\n";
+    foreach ( $result['benefit_blocks'] ?? [] as $b ) {
+        $out .= "- **" . ( $b['headline'] ?? '' ) . "** — " . ( $b['body'] ?? '' ) . "\n";
+    }
+    $out .= "\n";
+    foreach ( $result['body_sections'] ?? [] as $s ) {
+        $out .= "### " . ( $s['heading'] ?? '' ) . "\n" . ( $s['content'] ?? '' ) . "\n\n";
+    }
+    foreach ( $result['faqs'] ?? [] as $f ) {
+        $out .= "**Q: " . ( $f['question'] ?? '' ) . "**\n" . ( $f['answer'] ?? '' ) . "\n\n";
+    }
+    $out .= "---\n**SEO** | Meta: " . ( $result['meta_title'] ?? '' ) . " | Slug: `" . ( $result['url_slug'] ?? '' ) . "`";
+    return $out;
+}
+
+// ─── Shortcodes ───────────────────────────────────────────────────────────────
+
+add_shortcode( 'ypnus_content_generator', function () {
+    ob_start(); ?>
+    <div class="ypnus-tool" id="ypnus-content-generator" role="main" aria-label="Social Content Generator">
+        <div class="ypnus-tool__header">
+            <span class="ypnus-tool__eyebrow">FINRA / CFPB Compliant</span>
+            <h2 class="ypnus-tool__title">Social Content Generator</h2>
+            <p class="ypnus-tool__desc">Paste any market update, newsletter, or article. Get three platform-ready posts with your compliance disclosure attached.</p>
+        </div>
+        <div class="ypnus-form">
+            <label for="ypnus-article-input" class="ypnus-label">Article or Newsletter Content</label>
+            <textarea id="ypnus-article-input" class="ypnus-textarea" rows="8" placeholder="Paste your article, email newsletter, or market update here..."></textarea>
+            <button class="ypnus-btn ypnus-btn--primary" id="ypnus-generate-btn" onclick="ypnusGenerateContent()">
+                <span class="ypnus-btn__text">Generate 3 Posts</span>
+                <span class="ypnus-btn__loader" aria-hidden="true"></span>
+            </button>
+        </div>
+        <div id="ypnus-content-output" class="ypnus-output" hidden aria-live="polite">
+            <div class="ypnus-output-grid">
+                <?php foreach ( [ 'linkedin' => 'LinkedIn', 'instagram' => 'Instagram', 'tiktok' => 'TikTok / Reel' ] as $id => $label ): ?>
+                <div class="ypnus-post-card">
+                    <div class="ypnus-post-card__header">
+                        <span class="ypnus-platform-badge ypnus-platform-badge--<?php echo $id; ?>"><?php echo $label; ?></span>
+                        <button class="ypnus-copy-btn" onclick="ypnusCopy('ypnus-<?php echo $id; ?>-content', this)">Copy</button>
+                    </div>
+                    <div class="ypnus-post-card__body"><pre id="ypnus-<?php echo $id; ?>-content" class="ypnus-post-text"></pre></div>
+                    <div class="ypnus-disclosure-badge">Disclosure Included</div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <div id="ypnus-content-error" class="ypnus-error" hidden role="alert"></div>
+    </div>
+    <?php return ob_get_clean();
+} );
+
+add_shortcode( 'ypnus_keyword_scout', function () {
+    ob_start(); ?>
+    <div class="ypnus-tool" id="ypnus-keyword-scout" role="main" aria-label="Keyword Scout">
+        <div class="ypnus-tool__header">
+            <span class="ypnus-tool__eyebrow">SEO Research</span>
+            <h2 class="ypnus-tool__title">Keyword Scout</h2>
+            <p class="ypnus-tool__desc">Enter any mortgage topic. Get 10 long-tail keyword ideas with difficulty rating and content angle.</p>
+        </div>
+        <div class="ypnus-form ypnus-form--inline">
+            <div class="ypnus-input-row">
+                <input type="text" id="ypnus-keyword-input" class="ypnus-input" placeholder="e.g. VA home loans, FHA down payment..." />
+                <button class="ypnus-btn ypnus-btn--primary" onclick="ypnusKeywordScout()">
+                    <span class="ypnus-btn__text">Find Keywords</span>
+                    <span class="ypnus-btn__loader" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+        <div id="ypnus-keyword-output" class="ypnus-output" hidden aria-live="polite">
+            <div class="ypnus-table-wrap">
+                <table class="ypnus-keyword-table">
+                    <thead><tr><th>Keyword</th><th>Intent</th><th>Difficulty</th><th>Content Angle</th></tr></thead>
+                    <tbody id="ypnus-keyword-body"></tbody>
+                </table>
+            </div>
+        </div>
+        <div id="ypnus-keyword-error" class="ypnus-error" hidden role="alert"></div>
+    </div>
+    <?php return ob_get_clean();
+} );
+
+add_shortcode( 'ypnus_silo_nav', function () {
+    $silos = json_decode( get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() ), true );
+    if ( ! is_array( $silos ) ) return '';
+    $current_path = parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH );
+    $active_silo = null; $active_key = '';
+    foreach ( $silos as $prefix => $silo ) {
+        if ( str_starts_with( $current_path, $prefix ) ) { $active_silo = $silo; $active_key = $prefix; break; }
+    }
+    if ( ! $active_silo ) return '';
+    ob_start(); ?>
+    <nav class="ypnus-silo-nav" aria-label="<?php echo esc_attr( $active_silo['label'] ); ?> navigation">
+        <div class="ypnus-silo-nav__breadcrumb">
+            <a href="<?php echo esc_url( home_url( '/' ) ); ?>">Home</a>
+            <span>/</span>
+            <a href="<?php echo esc_url( home_url( $active_key . '/' ) ); ?>"><?php echo esc_html( $active_silo['label'] ); ?></a>
+            <?php if ( get_the_title() ): ?><span>/</span><span aria-current="page"><?php echo esc_html( get_the_title() ); ?></span><?php endif; ?>
+        </div>
+        <?php if ( $active_silo['children'] ?? [] ): ?>
+        <div class="ypnus-silo-nav__children">
+            <?php foreach ( $active_silo['children'] as $child ):
+                $is_current = rtrim( $current_path, '/' ) === rtrim( $child['url'], '/' ); ?>
+                <a href="<?php echo esc_url( home_url( $child['url'] ) ); ?>"
+                   class="ypnus-silo-nav__child<?php echo $is_current ? ' ypnus-silo-nav__child--active' : ''; ?>"
+                   <?php echo $is_current ? 'aria-current="page"' : ''; ?>><?php echo esc_html( $child['label'] ); ?></a>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </nav>
+    <?php return ob_get_clean();
+} );
 
 add_shortcode( 'ypnus_agent', function () {
     $nmls    = get_option( 'ypnus_mlo_nmls', '' );
     $company = get_option( 'ypnus_mlo_company', '' );
     $label   = $company ? esc_html( $company ) . ' AI Agent' : 'MLO AI Agent';
     $sub     = $nmls ? 'NMLS #' . esc_html( $nmls ) . ' · Powered by YPNUS' : 'Powered by YPNUS';
+
+    // Build suggestion chips including active custom tools
+    $chips = [
+        [ 'label' => 'Build a page', 'msg' => 'Build me a VA loan page for Fresno CA' ],
+        [ 'label' => 'Plan my website', 'msg' => 'Plan my entire mortgage website — I focus on VA and FHA loans' ],
+        [ 'label' => 'Write social posts', 'msg' => 'Write me 3 VA loan posts for LinkedIn, Instagram, and TikTok' ],
+        [ 'label' => 'Find keywords', 'msg' => 'Find SEO keywords for DSCR investor loans' ],
+        [ 'label' => 'Score my GMB', 'msg' => 'Score my Google My Business — business name: [Your Name] Mortgage, city: [Your City], I have about 10 reviews, 4.8 stars, no posts and no Q&A filled in' ],
+        [ 'label' => 'What do you remember?', 'msg' => 'What do you know about me and my business?' ],
+    ];
+
+    $dtools = array_filter( ypnus_get_tools(), fn( $t ) => ! empty( $t['enabled'] ) );
+    foreach ( $dtools as $t ) {
+        $kw_list = array_map( 'trim', explode( ',', $t['keywords'] ?? '' ) );
+        $first_kw = $kw_list[0] ?? $t['name'];
+        $chips[] = [ 'label' => $t['name'], 'msg' => "Use the {$t['name']} tool — {$first_kw}" ];
+    }
 
     ob_start(); ?>
     <div class="ypnus-agent" id="ypnus-agent" role="main" aria-label="MLO AI Agent">
@@ -1845,32 +1250,25 @@ add_shortcode( 'ypnus_agent', function () {
             </div>
         </div>
 
-        <div class="ypnus-agent__messages" id="ypnus-agent-messages" role="log" aria-live="polite" aria-label="Conversation">
+        <div class="ypnus-agent__messages" id="ypnus-agent-messages" role="log" aria-live="polite">
             <div class="ypnus-agent__message ypnus-agent__message--agent">
                 <div class="ypnus-agent__bubble">
-                    Hi! I'm your MLO AI Agent — part marketer, part senior WordPress developer. I can diagnose and fix WordPress errors, build complete website pages, plan your entire site architecture, write compliant social posts, find SEO keywords, and audit copy for CFPB compliance. Describe any problem — broken page, weird error, something not responding — and I'll diagnose it like a coder and give you the exact fix.
+                    Hi! I'm your MLO AI Agent. I can build pages, plan your site, write compliant social posts, score your Google Business Profile, find keywords, and fix WordPress errors. I also learn — tell me to remember something and I will. Ask me to do something new and I'll build the tool for it on the spot.
                 </div>
             </div>
         </div>
 
         <div class="ypnus-agent__suggestions" id="ypnus-agent-suggestions">
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('My WordPress page is broken and showing text written up and down — what is wrong and how do I fix it?')">Fix a broken page</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Build me a VA loan page for my website')">Build a page</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Plan my entire mortgage website — I focus on VA and FHA loans')">Plan my website</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Write me 3 VA loan posts for LinkedIn, Instagram, and TikTok')">Write social posts</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Find SEO keywords for DSCR investor loans')">Find keywords</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Score my Google My Business profile — my business name is [Your Name] Mortgage, my city is [Your City], I have about 10 reviews, 4.8 stars, no posts, and no Q&A filled in')">Score my GMB listing</button>
+            <?php foreach ( $chips as $chip ): ?>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest(<?php echo json_encode( $chip['msg'] ); ?>)"><?php echo esc_html( $chip['label'] ); ?></button>
+            <?php endforeach; ?>
         </div>
 
         <form class="ypnus-agent__input-row" id="ypnus-agent-form" onsubmit="ypnusAgentSend(event)" novalidate>
-            <textarea
-                id="ypnus-agent-input"
-                class="ypnus-agent__input"
-                placeholder="Ask anything — write posts, find keywords, check compliance, plan content…"
-                rows="1"
-                aria-label="Message the MLO agent"
-            ></textarea>
-            <button type="submit" class="ypnus-agent__send" id="ypnus-agent-send" aria-label="Send message">
+            <textarea id="ypnus-agent-input" class="ypnus-agent__input"
+                placeholder="Ask anything — build pages, remember my market, create a new tool, fix an error…"
+                rows="1" aria-label="Message the MLO agent"></textarea>
+            <button type="submit" class="ypnus-agent__send" id="ypnus-agent-send" aria-label="Send">
                 <span class="ypnus-btn__text">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1885,6 +1283,5 @@ add_shortcode( 'ypnus_agent', function () {
             This AI agent assists with content creation and planning. Always review output before publishing. · <?php echo $sub; ?>
         </div>
     </div>
-    <?php
-    return ob_get_clean();
+    <?php return ob_get_clean();
 } );

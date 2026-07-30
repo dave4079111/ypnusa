@@ -744,81 +744,234 @@ SYSTEM;
         $history
     );
 
-    // Agentic loop — max 5 iterations to prevent runaway calls
-    $max_iterations = 5;
-    $tool_results   = [];
+    // Step 1: Ask OpenAI which tool to call (forced)
+    $response = wp_remote_post(
+        'https://api.openai.com/v1/chat/completions',
+        [
+            'timeout' => 30,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $api_key,
+                'Content-Type'  => 'application/json',
+            ],
+            'body' => json_encode( [
+                'model'       => 'gpt-4o-mini',
+                'messages'    => $messages,
+                'tools'       => $tools,
+                'tool_choice' => 'required',
+                'temperature' => 0.3,
+            ] ),
+        ]
+    );
 
-    for ( $i = 0; $i < $max_iterations; $i++ ) {
-
-        // Inject tool results from previous iteration
-        if ( ! empty( $tool_results ) ) {
-            foreach ( $tool_results as $tr ) {
-                $messages[] = $tr;
-            }
-            $tool_results = [];
-        }
-
-        // Force tool use on first iteration; allow auto on follow-up iterations
-        $body = [
-            'model'       => 'gpt-4o-mini',
-            'messages'    => $messages,
-            'tools'       => $tools,
-            'tool_choice' => ( $i === 0 ) ? 'required' : 'auto',
-            'temperature' => 0.6,
-        ];
-
-        $response = wp_remote_post(
-            'https://api.openai.com/v1/chat/completions',
-            [
-                'timeout' => 90,
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $api_key,
-                    'Content-Type'  => 'application/json',
-                ],
-                'body' => json_encode( $body ),
-            ]
-        );
-
-        if ( is_wp_error( $response ) ) {
-            wp_send_json_error( [ 'message' => 'API connection failed: ' . $response->get_error_message() ] );
-        }
-
-        $data    = json_decode( wp_remote_retrieve_body( $response ), true );
-        $choice  = $data['choices'][0] ?? null;
-        $message = $choice['message'] ?? null;
-
-        if ( ! $message ) {
-            wp_send_json_error( [ 'message' => 'Unexpected API response. Please try again.' ] );
-        }
-
-        // No tool calls — final answer
-        if ( empty( $message['tool_calls'] ) ) {
-            wp_send_json_success( [
-                'reply' => $message['content'] ?? '',
-            ] );
-            return;
-        }
-
-        // Append assistant message with tool_calls to maintain context
-        $messages[] = $message;
-
-        // Execute each tool call
-        foreach ( $message['tool_calls'] as $tc ) {
-            $fn_name = $tc['function']['name'] ?? '';
-            $fn_args = json_decode( $tc['function']['arguments'] ?? '{}', true );
-            $tc_id   = $tc['id'] ?? '';
-
-            $result = ypnus_run_agent_tool( $fn_name, $fn_args, $api_key, $disclosure );
-
-            $tool_results[] = [
-                'role'         => 'tool',
-                'tool_call_id' => $tc_id,
-                'content'      => json_encode( $result ),
-            ];
-        }
+    if ( is_wp_error( $response ) ) {
+        wp_send_json_error( [ 'message' => 'API connection failed: ' . $response->get_error_message() ] );
     }
 
-    wp_send_json_error( [ 'message' => 'The agent took too many steps. Please rephrase your request.' ] );
+    $data    = json_decode( wp_remote_retrieve_body( $response ), true );
+    $message = $data['choices'][0]['message'] ?? null;
+
+    if ( ! $message || empty( $message['tool_calls'] ) ) {
+        wp_send_json_error( [ 'message' => 'Agent could not determine the right action. Please rephrase your request.' ] );
+    }
+
+    // Step 2: Execute each tool call and collect formatted output
+    $output_parts = [];
+
+    foreach ( $message['tool_calls'] as $tc ) {
+        $fn_name = $tc['function']['name'] ?? '';
+        $fn_args = json_decode( $tc['function']['arguments'] ?? '{}', true );
+        $tc_id   = $tc['id'] ?? '';
+
+        $result = ypnus_run_agent_tool( $fn_name, $fn_args, $api_key, $disclosure );
+
+        // Format the result directly in PHP — no second AI call that can summarize
+        $output_parts[] = ypnus_format_tool_result( $fn_name, $fn_args, $result );
+
+        // Keep conversation history accurate (unused for now but available for future multi-turn)
+        $tool_results_placeholder[] = [
+            'role'         => 'tool',
+            'tool_call_id' => $tc_id,
+            'content'      => json_encode( $result ),
+        ];
+    }
+
+    wp_send_json_success( [ 'reply' => implode( "\n\n---\n\n", $output_parts ) ] );
+}
+
+// ── Tool Result Formatter ─────────────────────────────────────────────────────
+// Converts raw JSON tool output into rich markdown the frontend renders.
+
+function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
+    if ( isset( $result['error'] ) ) {
+        return "**Error:** " . esc_html( $result['error'] );
+    }
+
+    switch ( $fn_name ) {
+
+        case 'generate_social_posts': {
+            $loan = $fn_args['loan_type'] ?? '';
+            $label = $loan ? " ({$loan})" : '';
+            $out  = "## Social Posts{$label}\n\n";
+            $out .= "### LinkedIn\n" . ( $result['linkedin']  ?? '*(none)*' ) . "\n\n";
+            $out .= "### Instagram\n" . ( $result['instagram'] ?? '*(none)*' ) . "\n\n";
+            $out .= "### TikTok Script\n" . ( $result['tiktok']    ?? '*(none)*' );
+            return $out;
+        }
+
+        case 'scout_keywords': {
+            $topic = $fn_args['topic'] ?? '';
+            $out   = "## Keyword Research — {$topic}\n\n";
+            $out  .= "| Keyword | Intent | Difficulty | Content Angle |\n";
+            $out  .= "|---------|--------|------------|---------------|\n";
+            $keywords = $result['keywords'] ?? $result ?? [];
+            foreach ( (array) $keywords as $kw ) {
+                $out .= sprintf(
+                    "| %s | %s | %s | %s |\n",
+                    $kw['keyword']    ?? '',
+                    $kw['intent']     ?? '',
+                    $kw['difficulty'] ?? '',
+                    $kw['angle']      ?? ''
+                );
+            }
+            return $out;
+        }
+
+        case 'check_compliance': {
+            $score    = $result['score']   ?? '?';
+            $verdict  = $result['verdict'] ?? 'Unknown';
+            $icon     = ( strtolower($verdict) === 'pass' ) ? '✅' : '❌';
+            $out      = "## Compliance Check {$icon} — {$verdict} (Score: {$score}/100)\n\n";
+            $out     .= "**Summary:** " . ( $result['summary'] ?? '' ) . "\n\n";
+            $flags = $result['flags'] ?? [];
+            if ( $flags ) {
+                $out .= "### Issues Found\n";
+                foreach ( $flags as $f ) {
+                    $sev  = strtoupper( $f['severity'] ?? 'INFO' );
+                    $out .= "- **[{$sev}]** {$f['issue']} — _{$f['recommendation']}_\n";
+                }
+                $out .= "\n";
+            }
+            $out .= "**Required Disclosures:** " . implode( ', ', (array)( $result['required_disclosures'] ?? [] ) );
+            return $out;
+        }
+
+        case 'suggest_silo': {
+            $out  = "## Content Silo Recommendation\n\n";
+            $out .= "**Silo:** " . ( $result['silo_name'] ?? '' ) . "\n\n";
+            $out .= "**URL Slug:** `" . ( $result['url_slug'] ?? '' ) . "`\n\n";
+            $out .= "**Meta Description:** " . ( $result['meta_description'] ?? '' ) . "\n\n";
+            $links = $result['internal_links'] ?? [];
+            if ( $links ) {
+                $out .= "### Suggested Internal Links\n";
+                foreach ( $links as $l ) {
+                    $out .= "- [{$l['anchor']}]({$l['url']}) — {$l['reason']}\n";
+                }
+            }
+            return $out;
+        }
+
+        case 'diagnose_error': {
+            $sev  = strtoupper( $result['severity'] ?? 'medium' );
+            $out  = "## WordPress Error Diagnosis\n\n";
+            $out .= "**Root Cause:** " . ( $result['root_cause'] ?? '' ) . "\n\n";
+            $out .= "**Category:** " . ( $result['category'] ?? '' ) . " | **Severity:** {$sev}\n\n";
+            $steps = $result['steps'] ?? [];
+            if ( $steps ) {
+                $out .= "### Fix Steps\n";
+                foreach ( $steps as $i => $s ) {
+                    $out .= ( $i + 1 ) . ". {$s}\n";
+                }
+                $out .= "\n";
+            }
+            $fix = $result['code_fix'] ?? '';
+            if ( $fix ) {
+                $out .= "### Code Fix\n```php\n{$fix}\n```\n\n";
+            }
+            $check = $result['what_to_check'] ?? '';
+            if ( $check ) $out .= "**What to Check:** {$check}\n\n";
+            $warn  = $result['warning'] ?? '';
+            if ( $warn )  $out .= "> ⚠️ **Warning:** {$warn}";
+            return $out;
+        }
+
+        case 'build_page': {
+            $out  = "## Page Draft: " . ( $result['h1'] ?? $fn_args['page_type'] ?? 'Page' ) . "\n\n";
+            $out .= "**Subheadline:** " . ( $result['subheadline'] ?? '' ) . "\n\n";
+            $out .= "**Hero Paragraph:**\n" . ( $result['hero_paragraph'] ?? '' ) . "\n\n";
+            $benefits = $result['benefit_blocks'] ?? [];
+            if ( $benefits ) {
+                $out .= "### Key Benefits\n";
+                foreach ( $benefits as $b ) {
+                    $out .= "- **{$b['headline']}** — {$b['description']}\n";
+                }
+                $out .= "\n";
+            }
+            $sections = $result['body_sections'] ?? [];
+            foreach ( $sections as $s ) {
+                $out .= "### {$s['heading']}\n{$s['content']}\n\n";
+            }
+            $faqs = $result['faqs'] ?? [];
+            if ( $faqs ) {
+                $out .= "### Frequently Asked Questions\n";
+                foreach ( $faqs as $f ) {
+                    $out .= "**Q: {$f['question']}**\n{$f['answer']}\n\n";
+                }
+            }
+            $out .= "**CTA:** " . ( $result['cta'] ?? '' ) . "\n\n";
+            $out .= "**Trust Signals:** " . implode( ' · ', (array)( $result['trust_signals'] ?? [] ) ) . "\n\n";
+            $out .= "---\n**SEO**\n- Meta Title: " . ( $result['meta_title'] ?? '' ) . "\n";
+            $out .= "- Meta Description: " . ( $result['meta_description'] ?? '' ) . "\n";
+            $out .= "- URL Slug: `" . ( $result['url_slug'] ?? '' ) . "`";
+            return $out;
+        }
+
+        case 'plan_website': {
+            $out  = "## Website Architecture Plan\n\n";
+            $out .= ( $result['summary'] ?? '' ) . "\n\n";
+            $pages = $result['pages'] ?? [];
+            if ( $pages ) {
+                $out .= "### Page Map\n";
+                $out .= "| Page | URL | Silo | Priority |\n";
+                $out .= "|------|-----|------|----------|\n";
+                foreach ( $pages as $p ) {
+                    $out .= sprintf( "| %s | `%s` | %s | %s |\n",
+                        $p['title']    ?? '',
+                        $p['url']      ?? '',
+                        $p['silo']     ?? '',
+                        $p['priority'] ?? ''
+                    );
+                }
+                $out .= "\n";
+            }
+            $silos = $result['silos'] ?? [];
+            if ( $silos ) {
+                $out .= "### Content Silos\n";
+                foreach ( $silos as $s ) {
+                    $out .= "- **{$s['name']}**: {$s['description']}\n";
+                }
+                $out .= "\n";
+            }
+            $order = $result['launch_order'] ?? [];
+            if ( $order ) {
+                $out .= "### Launch Order\n";
+                foreach ( $order as $i => $step ) {
+                    $out .= ( $i + 1 ) . ". {$step}\n";
+                }
+                $out .= "\n";
+            }
+            $wins = $result['quick_wins'] ?? [];
+            if ( $wins ) {
+                $out .= "### Quick Wins\n";
+                foreach ( $wins as $w ) {
+                    $out .= "- {$w}\n";
+                }
+            }
+            return $out;
+        }
+
+        default:
+            return "**Tool:** `{$fn_name}`\n\n```json\n" . json_encode( $result, JSON_PRETTY_PRINT ) . "\n```";
+    }
 }
 
 function ypnus_run_agent_tool( $name, $args, $api_key, $disclosure ) {

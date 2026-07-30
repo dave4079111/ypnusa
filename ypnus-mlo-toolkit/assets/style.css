@@ -361,7 +361,7 @@
 
 .ypnus-keyword-table td:first-child {
   font-weight: 600;
-  color: var(--mlo-navy-mid);
+  color: #1565C0;
 }
 
 :root[data-theme="dark"] .ypnus-keyword-table td:first-child,

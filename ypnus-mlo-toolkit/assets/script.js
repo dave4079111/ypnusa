@@ -155,6 +155,9 @@ function ypnusRenderKeywords(keywords) {
     keywords.forEach(function (kw) {
         const intent     = (kw.intent || 'Informational').toLowerCase().replace(/\s+/g, '-');
         const difficulty = (kw.difficulty || 'Medium').toLowerCase();
+        const fit        = parseInt(kw.website_fit, 10) || 0;
+        const stars      = '⭐'.repeat(fit);
+        const fitTip     = ypnusEsc(kw.fit_reason || '');
 
         const tr = document.createElement('tr');
         tr.innerHTML =
@@ -162,6 +165,7 @@ function ypnusRenderKeywords(keywords) {
             '<td><span class="ypnus-pill ypnus-pill--' + intent + '">' + ypnusEsc(kw.intent || '') + '</span></td>' +
             '<td><span class="ypnus-diff--' + difficulty + '">' + ypnusEsc(kw.difficulty || '') + '</span></td>' +
             '<td>' + ypnusEsc(kw.angle || '') + '</td>' +
+            '<td title="' + fitTip + '" style="white-space:nowrap;cursor:default;">' + stars + '</td>' +
             '<td><button class="ypnus-use-keyword-btn" onclick="ypnusUseKeyword(\'' + ypnusEscAttr(kw.keyword || '') + '\')">Use</button></td>';
 
         tbody.appendChild(tr);

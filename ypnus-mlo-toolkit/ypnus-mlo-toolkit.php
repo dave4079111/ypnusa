@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.1.0
+ * Version:     2.1.1
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '2.1.0' );
+define( 'YPNUS_MLO_VERSION', '2.1.1' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
@@ -413,7 +413,7 @@ function ypnus_handle_keyword_scout() {
     if ( $cached !== false ) wp_send_json_success( $cached );
     $api_key = get_option( 'ypnus_mlo_openai_key', '' );
     if ( empty( $api_key ) ) wp_send_json_error( [ 'message' => 'API key not configured.' ] );
-    $r = ypnus_openai( $api_key, "SEO specialist for mortgage. Generate 10 long-tail keywords for: \"{$topic}\". Return JSON: {\"keywords\":[{keyword,intent,difficulty,angle}]}", 0.4 );
+    $r = ypnus_openai( $api_key, "SEO specialist for mortgage websites. Generate 10 high-intent long-tail keywords for: \"{$topic}\". For each keyword also rate how well it fits a local MLO website (1–5 stars) and give a one-sentence reason. Return JSON: {\"keywords\":[{\"keyword\":\"\",\"intent\":\"Informational|Commercial|Transactional\",\"difficulty\":\"Easy|Medium|Hard\",\"angle\":\"\",\"website_fit\":1,\"fit_reason\":\"\"}]}", 0.4 );
     $decoded = json_decode( $r['content'] ?? '{}', true );
     $keywords = $decoded['keywords'] ?? [];
     if ( $keywords ) set_transient( $cache_key, $keywords, DAY_IN_SECONDS );
@@ -796,7 +796,7 @@ function ypnus_run_agent_tool( $name, $args, $api_key, $disclosure ) {
             $cache_key = 'ypnus_kw_' . md5( strtolower( $topic ) );
             $cached    = get_transient( $cache_key );
             if ( $cached !== false ) return [ 'keywords' => $cached ];
-            $r = ypnus_openai( $api_key, "SEO specialist for mortgage pros. Generate 10 high-intent long-tail keywords for: \"{$topic}\". Return JSON: {\"keywords\":[{keyword,intent,difficulty,angle}]}\nintent: Informational|Commercial|Transactional\ndifficulty: Easy|Medium|Hard", 0.4 );
+            $r = ypnus_openai( $api_key, "SEO specialist for mortgage websites. Generate 10 high-intent long-tail keywords for: \"{$topic}\". For each keyword also rate how well it fits a local MLO website (1–5 stars) and give a one-sentence reason. Return JSON: {\"keywords\":[{\"keyword\":\"\",\"intent\":\"Informational|Commercial|Transactional\",\"difficulty\":\"Easy|Medium|Hard\",\"angle\":\"\",\"website_fit\":1,\"fit_reason\":\"\"}]}", 0.4 );
             $decoded  = json_decode( $r['content'] ?? '{}', true );
             $keywords = $decoded['keywords'] ?? [];
             if ( $keywords ) set_transient( $cache_key, $keywords, DAY_IN_SECONDS );
@@ -1155,10 +1155,13 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
         case 'scout_keywords': {
             $topic = $fn_args['topic'] ?? '';
             $out   = "## Keyword Research — {$topic}\n\n";
-            $out  .= "| Keyword | Intent | Difficulty | Content Angle |\n";
-            $out  .= "|---------|--------|------------|---------------|\n";
+            $out  .= "| Keyword | Intent | Difficulty | Content Angle | Site Fit |\n";
+            $out  .= "|---------|--------|------------|---------------|----------|\n";
             foreach ( (array)( $result['keywords'] ?? $result ) as $kw ) {
-                $out .= sprintf( "| %s | %s | %s | %s |\n", $kw['keyword'] ?? '', $kw['intent'] ?? '', $kw['difficulty'] ?? '', $kw['angle'] ?? '' );
+                $stars   = str_repeat( '⭐', (int)( $kw['website_fit'] ?? 0 ) );
+                $fit_why = $kw['fit_reason'] ?? '';
+                $fit_col = $stars ? "{$stars} {$fit_why}" : $fit_why;
+                $out    .= sprintf( "| %s | %s | %s | %s | %s |\n", $kw['keyword'] ?? '', $kw['intent'] ?? '', $kw['difficulty'] ?? '', $kw['angle'] ?? '', $fit_col );
             }
             return $out;
         }
@@ -1486,7 +1489,7 @@ add_shortcode( 'ypnus_keyword_scout', function () {
         <div id="ypnus-keyword-output" class="ypnus-output" hidden aria-live="polite">
             <div class="ypnus-table-wrap">
                 <table class="ypnus-keyword-table">
-                    <thead><tr><th>Keyword</th><th>Intent</th><th>Difficulty</th><th>Content Angle</th></tr></thead>
+                    <thead><tr><th>Keyword</th><th>Intent</th><th>Difficulty</th><th>Content Angle</th><th>Site Fit</th><th></th></tr></thead>
                     <tbody id="ypnus-keyword-body"></tbody>
                 </table>
             </div>

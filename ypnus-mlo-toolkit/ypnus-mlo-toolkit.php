@@ -902,28 +902,39 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
 
         case 'build_page': {
             $out  = "## Page Draft: " . ( $result['h1'] ?? $fn_args['page_type'] ?? 'Page' ) . "\n\n";
+
+            // Show WordPress links if page was published
+            if ( ! empty( $result['wp_post_id'] ) ) {
+                $out .= "✅ **Draft page created in WordPress!**\n";
+                $out .= "- [Edit in WordPress](" . ( $result['wp_edit_url'] ?? '#' ) . ")\n";
+                $out .= "- [Preview Page](" . ( $result['wp_preview_url'] ?? '#' ) . ")\n\n";
+            }
+
             $out .= "**Subheadline:** " . ( $result['subheadline'] ?? '' ) . "\n\n";
             $out .= "**Hero Paragraph:**\n" . ( $result['hero_paragraph'] ?? '' ) . "\n\n";
             $benefits = $result['benefit_blocks'] ?? [];
             if ( $benefits ) {
                 $out .= "### Key Benefits\n";
                 foreach ( $benefits as $b ) {
-                    $out .= "- **{$b['headline']}** — {$b['description']}\n";
+                    $out .= "- **" . ( $b['headline'] ?? '' ) . "** — " . ( $b['body'] ?? $b['description'] ?? '' ) . "\n";
                 }
                 $out .= "\n";
             }
             $sections = $result['body_sections'] ?? [];
             foreach ( $sections as $s ) {
-                $out .= "### {$s['heading']}\n{$s['content']}\n\n";
+                $out .= "### " . ( $s['heading'] ?? '' ) . "\n" . ( $s['content'] ?? '' ) . "\n\n";
             }
             $faqs = $result['faqs'] ?? [];
             if ( $faqs ) {
                 $out .= "### Frequently Asked Questions\n";
                 foreach ( $faqs as $f ) {
-                    $out .= "**Q: {$f['question']}**\n{$f['answer']}\n\n";
+                    $out .= "**Q: " . ( $f['question'] ?? '' ) . "**\n" . ( $f['answer'] ?? '' ) . "\n\n";
                 }
             }
-            $out .= "**CTA:** " . ( $result['cta'] ?? '' ) . "\n\n";
+            $cta = $result['primary_cta'] ?? [];
+            if ( $cta ) {
+                $out .= "**CTA:** " . ( $cta['button_text'] ?? '' ) . " — " . ( $cta['supporting_text'] ?? '' ) . "\n\n";
+            }
             $out .= "**Trust Signals:** " . implode( ' · ', (array)( $result['trust_signals'] ?? [] ) ) . "\n\n";
             $out .= "---\n**SEO**\n- Meta Title: " . ( $result['meta_title'] ?? '' ) . "\n";
             $out .= "- Meta Description: " . ( $result['meta_description'] ?? '' ) . "\n";
@@ -1332,7 +1343,69 @@ PROMPT;
                 true
             );
 
-            return $result ?: [ 'error' => 'Unexpected page build response.' ];
+            if ( ! $result ) return [ 'error' => 'Unexpected page build response.' ];
+
+            // Build HTML page content from the generated fields
+            $html  = '';
+            $html .= '<p class="ypnus-page-subheadline"><em>' . esc_html( $result['subheadline'] ?? '' ) . '</em></p>';
+            $html .= '<p>' . nl2br( esc_html( $result['hero_paragraph'] ?? '' ) ) . '</p>';
+
+            $benefits = $result['benefit_blocks'] ?? [];
+            if ( $benefits ) {
+                $html .= '<div class="ypnus-benefit-blocks">';
+                foreach ( $benefits as $b ) {
+                    $html .= '<div class="ypnus-benefit"><strong>' . esc_html( $b['headline'] ?? '' ) . '</strong><p>' . esc_html( $b['body'] ?? '' ) . '</p></div>';
+                }
+                $html .= '</div>';
+            }
+
+            foreach ( $result['body_sections'] ?? [] as $s ) {
+                $html .= '<h2>' . esc_html( $s['heading'] ?? '' ) . '</h2>';
+                $html .= '<p>' . nl2br( esc_html( $s['content'] ?? '' ) ) . '</p>';
+            }
+
+            $faqs = $result['faqs'] ?? [];
+            if ( $faqs ) {
+                $html .= '<h2>Frequently Asked Questions</h2>';
+                foreach ( $faqs as $f ) {
+                    $html .= '<h3>' . esc_html( $f['question'] ?? '' ) . '</h3>';
+                    $html .= '<p>' . esc_html( $f['answer'] ?? '' ) . '</p>';
+                }
+            }
+
+            $cta = $result['primary_cta'] ?? [];
+            if ( $cta ) {
+                $html .= '<div class="ypnus-cta-block"><p><strong>' . esc_html( $cta['button_text'] ?? '' ) . '</strong></p><p>' . esc_html( $cta['supporting_text'] ?? '' ) . '</p></div>';
+            }
+
+            $trust = $result['trust_signals'] ?? [];
+            if ( $trust ) {
+                $html .= '<p class="ypnus-trust">' . implode( ' &middot; ', array_map( 'esc_html', $trust ) ) . '</p>';
+            }
+
+            // Publish as draft page in WordPress
+            $post_id = wp_insert_post( [
+                'post_title'   => $result['h1'] ?? ( $page_type . ( $city ? " — {$city}" : '' ) ),
+                'post_content' => $html,
+                'post_status'  => 'draft',
+                'post_type'    => 'page',
+            ] );
+
+            if ( $post_id && ! is_wp_error( $post_id ) ) {
+                // Save SEO meta for Rank Math if available
+                if ( ! empty( $result['meta_title'] ) ) {
+                    update_post_meta( $post_id, 'rank_math_title', $result['meta_title'] );
+                }
+                if ( ! empty( $result['meta_description'] ) ) {
+                    update_post_meta( $post_id, 'rank_math_description', $result['meta_description'] );
+                }
+
+                $result['wp_post_id']   = $post_id;
+                $result['wp_edit_url']  = admin_url( "post.php?post={$post_id}&action=edit" );
+                $result['wp_preview_url'] = get_preview_post_link( $post_id );
+            }
+
+            return $result;
         }
 
         case 'plan_website': {

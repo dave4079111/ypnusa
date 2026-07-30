@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.0.0
+ * Version:     2.1.0
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '2.0.0' );
+define( 'YPNUS_MLO_VERSION', '2.1.0' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
@@ -554,6 +554,8 @@ MANDATORY TOOL ROUTING:
 - User asks what you know, "what do you remember" → recall_memory
 - User asks you to build a new capability, "teach yourself", "add a tool", "you can't do X" → create_tool
 - User wants to change how an existing tool works → update_tool
+- User mentions "plugin", "install", "what plugin", "best plugin", "plugin conflict", "plugin recommendation", "which plugin", "do I need", "plugin for" → recommend_plugins
+- User mentions "marketing", "funnel", "email sequence", "conversion", "optimize my site", "get more leads", "marketing strategy", "grow my business", "maximize", "marketing stack", "CRM", "email marketing", "drip campaign", "follow up", "automate marketing" → marketing_advisor
 {$dtool_hint}
 - When in doubt: call the most relevant tool. NEVER skip.
 
@@ -625,6 +627,60 @@ function ypnus_core_tool_definitions() {
         [ 'type' => 'function', 'function' => [ 'name' => 'recall_memory', 'description' => 'Retrieve everything currently saved in agent memory.', 'parameters' => [ 'type' => 'object', 'properties' => [], 'required' => [] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'create_tool', 'description' => 'Create a new custom agent tool and save it permanently. Use when the user asks for a capability that does not exist yet.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'name' => [ 'type' => 'string', 'description' => 'Human-readable tool name.' ], 'desc' => [ 'type' => 'string', 'description' => 'What this tool does.' ], 'keywords' => [ 'type' => 'string', 'description' => 'Comma-separated trigger keywords.' ], 'prompt' => [ 'type' => 'string', 'description' => 'The AI prompt template. Use {args.field}, {nmls}, {company}, {disclosure} as placeholders.' ], 'format' => [ 'type' => 'string', 'description' => 'Output format: text | social_posts | page | keyword_table' ], 'category' => [ 'type' => 'string', 'description' => 'WordPress category slug for page output.' ] ], 'required' => [ 'name', 'prompt' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'update_tool', 'description' => 'Update the prompt or settings of an existing custom tool.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'slug' => [ 'type' => 'string', 'description' => 'The tool slug to update.' ], 'prompt' => [ 'type' => 'string', 'description' => 'New prompt template.' ], 'keywords' => [ 'type' => 'string', 'description' => 'New trigger keywords.' ], 'desc' => [ 'type' => 'string', 'description' => 'New description.' ] ], 'required' => [ 'slug' ] ] ] ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'recommend_plugins',
+                'description' => 'Recommend the best WordPress plugins for a specific need. Knows the full WordPress plugin ecosystem and gives opinionated, stack-specific advice for Hostinger shared hosting, GeneratePress theme, PHP 8.3, and a mortgage MLO site. Covers SEO, caching, lead capture, email/CRM, payments, security, backups, forms, popups, page builders, and more. Also diagnoses plugin conflicts and bloat.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'need' => [
+                            'type'        => 'string',
+                            'description' => 'What the user needs the plugin(s) to do. Be specific. Examples: "capture leads from my VA loan page", "speed up my site", "send email follow-ups", "collect payments", "rank better on Google", "protect my site from spam".',
+                        ],
+                        'currently_installed' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: plugins currently active on the site. If unknown, leave blank and the advisor will use known site context.',
+                        ],
+                        'concern' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: specific concern like "I don\'t want anything that slows my site" or "it needs to be free" or "is X plugin worth it?".',
+                        ],
+                    ],
+                    'required' => [ 'need' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'marketing_advisor',
+                'description' => 'Comprehensive WordPress marketing strategy advisor for MLOs. Covers the full marketing stack: lead funnels, email sequences, CRM setup, conversion optimization, landing pages, retargeting, social media automation, referral systems, content marketing, local SEO, and more. Gives a complete actionable plan specific to the MLO\'s WordPress setup and business goals. Use when the user asks about marketing strategy, getting more leads, converting website visitors, email automation, or maximizing their WordPress site for business growth.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'goal' => [
+                            'type'        => 'string',
+                            'description' => 'The marketing goal or challenge. Examples: "get more leads from my website", "convert more visitors to applications", "set up email follow-up sequences", "optimize my site for conversions", "build a referral system with realtors", "automate my entire marketing".',
+                        ],
+                        'current_setup' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: what marketing tools or systems are already in place (email service, CRM, forms, etc.).',
+                        ],
+                        'budget' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: monthly budget for marketing tools. Examples: "free only", "under $100/month", "no limit".',
+                        ],
+                        'niche' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: loan niche focus (VA, FHA, DSCR, first-time buyers, etc.).',
+                        ],
+                    ],
+                    'required' => [ 'goal' ],
+                ],
+            ],
+        ],
     ];
 }
 
@@ -850,6 +906,138 @@ function ypnus_run_agent_tool( $name, $args, $api_key, $disclosure ) {
             }
 
             return $result;
+        }
+
+        case 'recommend_plugins': {
+            $need      = $args['need']                ?? '';
+            $installed = $args['currently_installed'] ?? 'Rank Math SEO, CookieYes, Google Site Kit, Stripe, YPNUS MLO Toolkit';
+            $concern   = $args['concern']             ?? '';
+            $concern_str = $concern ? "\nUser concern: {$concern}" : '';
+
+            $prompt = <<<PROMPT
+You are a senior WordPress developer and site architect with 15 years of experience, specializing in mortgage and financial services websites. You have encyclopedic knowledge of the WordPress plugin ecosystem.
+
+SITE CONTEXT (mandatory — all recommendations must account for this):
+- Hosting: Hostinger Cloud Shared Hosting (limited RAM ~512MB per process, no persistent background processes, no Node.js, no Redis)
+- Theme: GeneratePress (lightweight, block-compatible, no page builder)
+- PHP: 8.3.30
+- WordPress: 7.0.x
+- Currently active plugins: {$installed}
+- Site type: Mortgage Loan Officer (MLO) — lead generation, local SEO, compliance-sensitive content
+- Goal of site: Generate mortgage leads, rank locally, build authority
+
+NEED: {$need}{$concern_str}
+
+Return ONLY valid JSON:
+{
+  "primary_recommendation": {
+    "plugin": "Plugin Name",
+    "why": "2-3 sentence explanation of why this is the best fit for this exact stack",
+    "free_version_ok": true,
+    "paid_plan": "plan name and price if paid needed, or null",
+    "install_notes": "exact steps or settings to configure after install",
+    "conflict_risk": "none|low|medium|high",
+    "performance_impact": "none|minimal|moderate|heavy",
+    "compliance_note": "any CFPB/mortgage compliance consideration, or null"
+  },
+  "alternatives": [
+    {
+      "plugin": "Alternative Plugin Name",
+      "why_alternative": "one sentence — when to choose this instead",
+      "tradeoff": "what you give up vs primary recommendation"
+    }
+  ],
+  "avoid": [
+    {
+      "plugin": "Plugin to avoid",
+      "reason": "specific reason why it's wrong for this stack"
+    }
+  ],
+  "stack_conflicts": "Any known conflicts with current installed plugins, or null",
+  "pro_tip": "One expert insight about this category of plugins specific to mortgage sites",
+  "estimated_setup_time": "e.g. 30 minutes",
+  "plugin_category": "e.g. Lead Capture | SEO | Caching | Email/CRM | Security | Forms | Payments | Backup | Analytics | Popup | Page Builder | Other"
+}
+
+Be opinionated. If one plugin is clearly better for this stack, say so directly. Never hedge with "it depends" without a specific explanation. Name exact plugin versions or known issues where relevant.
+PROMPT;
+
+            $r = ypnus_openai( $api_key, $prompt, 0.2, 60 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            return $result ?: [ 'error' => 'Plugin recommendation failed.' ];
+        }
+
+        case 'marketing_advisor': {
+            $goal    = $args['goal']          ?? '';
+            $setup   = $args['current_setup'] ?? 'no existing marketing tools configured';
+            $budget  = $args['budget']        ?? 'flexible';
+            $niche   = $args['niche']         ?? ( get_option( 'ypnus_mlo_nmls' ) ? 'full service mortgage' : 'mortgage' );
+            $nmls_v  = $nmls;
+            $comp_v  = $company;
+            $memory_context = ypnus_format_memory_for_prompt();
+
+            $prompt = <<<PROMPT
+You are the world's most experienced mortgage marketing strategist AND WordPress conversion expert. You've built hundreds of MLO websites that generate consistent lead flow. You know every marketing tool, plugin, funnel strategy, email sequence, CRM workflow, and conversion tactic that works for mortgage loan officers.
+
+MLO CONTEXT:
+- NMLS: {$nmls_v} | Company: {$comp_v}
+- Niche: {$niche}
+- WordPress stack: GeneratePress + Hostinger Shared Hosting + PHP 8.3
+- Current marketing setup: {$setup}
+- Budget: {$budget}
+{$memory_context}
+
+GOAL: {$goal}
+
+Return ONLY valid JSON:
+{
+  "executive_summary": "2-3 sentence plain-English verdict on what this MLO needs to do",
+  "priority_actions": [
+    {
+      "rank": 1,
+      "action": "Specific action title",
+      "what_to_do": "Exact step-by-step instructions — be specific, name the tool/plugin/service",
+      "why_it_matters": "Business impact in plain English",
+      "time_to_implement": "e.g. 2 hours",
+      "cost": "free | $X/month | one-time $X",
+      "expected_result": "What the MLO can realistically expect"
+    }
+  ],
+  "full_marketing_stack": {
+    "lead_capture": {"tool": "...", "why": "...", "wordpress_plugin": "..."},
+    "crm": {"tool": "...", "why": "...", "wordpress_plugin": "..."},
+    "email_automation": {"tool": "...", "why": "...", "setup_notes": "..."},
+    "landing_pages": {"approach": "...", "why": "..."},
+    "seo_local": {"approach": "...", "key_actions": ["..."]},
+    "social_automation": {"tool": "...", "strategy": "..."},
+    "referral_system": {"approach": "...", "realtor_strategy": "..."},
+    "paid_ads": {"recommendation": "...", "budget_guidance": "..."},
+    "analytics": {"tool": "...", "what_to_track": ["..."]}
+  },
+  "email_sequence": {
+    "trigger": "What starts the sequence (e.g. form submission on VA loan page)",
+    "emails": [
+      {"day": 0, "subject": "...", "purpose": "...", "key_content": "..."},
+      {"day": 1, "subject": "...", "purpose": "...", "key_content": "..."},
+      {"day": 3, "subject": "...", "purpose": "...", "key_content": "..."},
+      {"day": 7, "subject": "...", "purpose": "...", "key_content": "..."},
+      {"day": 14, "subject": "...", "purpose": "...", "key_content": "..."}
+    ]
+  },
+  "conversion_quick_wins": [
+    "Specific thing to change on the WordPress site today that increases conversions"
+  ],
+  "biggest_mistake": "The #1 mistake MLOs make with their WordPress marketing and how to avoid it",
+  "month_1_plan": ["Week 1 action", "Week 2 action", "Week 3 action", "Week 4 action"],
+  "kpis_to_track": ["Specific metric with target number"]
+}
+
+Be brutally specific. Name exact tools, plugins, prices, and tactics. Never say "consider using X" — say "use X, here's exactly how." Tailor everything to a mortgage loan officer on Hostinger shared WordPress hosting.
+PROMPT;
+
+            $r = ypnus_openai( $api_key, $prompt, 0.4, 90 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            return $result ?: [ 'error' => 'Marketing advisory failed.' ];
         }
 
         default:
@@ -1082,6 +1270,137 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
             return $out;
         }
 
+        case 'recommend_plugins': {
+            $cat  = $result['plugin_category']    ?? 'Plugin';
+            $prim = $result['primary_recommendation'] ?? [];
+            $name_p = $prim['plugin'] ?? 'Unknown';
+            $impact = $prim['performance_impact'] ?? 'unknown';
+            $conflict = $prim['conflict_risk'] ?? 'unknown';
+            $impact_icon  = $impact  === 'none' || $impact  === 'minimal' ? '🟢' : ( $impact  === 'moderate' ? '🟡' : '🔴' );
+            $conflict_icon = $conflict === 'none' || $conflict === 'low'  ? '🟢' : ( $conflict === 'medium'  ? '🟡' : '🔴' );
+            $free = ! empty( $prim['free_version_ok'] ) ? '✅ Free version works' : '💳 Paid required: ' . ( $prim['paid_plan'] ?? '' );
+
+            $out  = "## Plugin Recommendation — {$cat}\n\n";
+            $out .= "### ✅ Best Choice: {$name_p}\n\n";
+            $out .= ( $prim['why'] ?? '' ) . "\n\n";
+            $out .= "| | |\n|---|---|\n";
+            $out .= "| **Cost** | {$free} |\n";
+            $out .= "| **Performance Impact** | {$impact_icon} " . ucfirst( $impact ) . " |\n";
+            $out .= "| **Conflict Risk** | {$conflict_icon} " . ucfirst( $conflict ) . " |\n";
+            $out .= "| **Setup Time** | " . ( $result['estimated_setup_time'] ?? '—' ) . " |\n\n";
+
+            if ( $prim['install_notes'] ?? '' ) {
+                $out .= "**How to configure:** " . $prim['install_notes'] . "\n\n";
+            }
+            if ( $prim['compliance_note'] ?? '' ) {
+                $out .= "> ⚠️ **Compliance Note:** " . $prim['compliance_note'] . "\n\n";
+            }
+            if ( $result['stack_conflicts'] ?? '' ) {
+                $out .= "> 🔧 **Stack Note:** " . $result['stack_conflicts'] . "\n\n";
+            }
+
+            $alts = $result['alternatives'] ?? [];
+            if ( $alts ) {
+                $out .= "### Alternatives\n";
+                foreach ( $alts as $a ) {
+                    $out .= "- **" . ( $a['plugin'] ?? '' ) . "** — " . ( $a['why_alternative'] ?? '' ) . " *(tradeoff: " . ( $a['tradeoff'] ?? '' ) . ")*\n";
+                }
+                $out .= "\n";
+            }
+
+            $avoid = $result['avoid'] ?? [];
+            if ( $avoid ) {
+                $out .= "### ❌ Avoid\n";
+                foreach ( $avoid as $av ) {
+                    $out .= "- **" . ( $av['plugin'] ?? '' ) . "** — " . ( $av['reason'] ?? '' ) . "\n";
+                }
+                $out .= "\n";
+            }
+
+            if ( $result['pro_tip'] ?? '' ) {
+                $out .= "**Pro tip:** " . $result['pro_tip'];
+            }
+            return $out;
+        }
+
+        case 'marketing_advisor': {
+            $out  = "## Marketing Strategy\n\n";
+            $out .= ( $result['executive_summary'] ?? '' ) . "\n\n";
+
+            $actions = $result['priority_actions'] ?? [];
+            if ( $actions ) {
+                $out .= "### Priority Actions\n\n";
+                foreach ( $actions as $a ) {
+                    $rank = $a['rank'] ?? '•';
+                    $out .= "**{$rank}. " . ( $a['action'] ?? '' ) . "** (" . ( $a['cost'] ?? '' ) . " · " . ( $a['time_to_implement'] ?? '' ) . ")\n";
+                    $out .= ( $a['what_to_do'] ?? '' ) . "\n";
+                    $out .= "_Expected: " . ( $a['expected_result'] ?? '' ) . "_\n\n";
+                }
+            }
+
+            $stack = $result['full_marketing_stack'] ?? [];
+            if ( $stack ) {
+                $out .= "### Your Full Marketing Stack\n\n";
+                $labels = [
+                    'lead_capture'     => 'Lead Capture',
+                    'crm'              => 'CRM',
+                    'email_automation' => 'Email Automation',
+                    'landing_pages'    => 'Landing Pages',
+                    'seo_local'        => 'Local SEO',
+                    'social_automation'=> 'Social Media',
+                    'referral_system'  => 'Referral System',
+                    'paid_ads'         => 'Paid Ads',
+                    'analytics'        => 'Analytics',
+                ];
+                foreach ( $labels as $key => $label ) {
+                    $item = $stack[ $key ] ?? null;
+                    if ( ! $item ) continue;
+                    $tool = $item['tool'] ?? $item['approach'] ?? $item['recommendation'] ?? '';
+                    $why  = $item['why'] ?? $item['strategy'] ?? $item['realtor_strategy'] ?? $item['budget_guidance'] ?? '';
+                    $wp   = $item['wordpress_plugin'] ?? '';
+                    $out .= "**{$label}:** {$tool}";
+                    if ( $wp ) $out .= " (WP Plugin: _{$wp}_)";
+                    $out .= "\n_{$why}_\n\n";
+                }
+            }
+
+            $seq = $result['email_sequence'] ?? [];
+            if ( $seq ) {
+                $out .= "### Email Follow-Up Sequence\n";
+                $out .= "**Trigger:** " . ( $seq['trigger'] ?? '' ) . "\n\n";
+                foreach ( $seq['emails'] ?? [] as $e ) {
+                    $out .= "- **Day " . ( $e['day'] ?? '?' ) . "** — _" . ( $e['subject'] ?? '' ) . "_ — " . ( $e['key_content'] ?? '' ) . "\n";
+                }
+                $out .= "\n";
+            }
+
+            $wins = $result['conversion_quick_wins'] ?? [];
+            if ( $wins ) {
+                $out .= "### Conversion Quick Wins\n";
+                foreach ( $wins as $i => $w ) $out .= ( $i + 1 ) . ". {$w}\n";
+                $out .= "\n";
+            }
+
+            if ( $result['biggest_mistake'] ?? '' ) {
+                $out .= "> ⚠️ **Biggest mistake MLOs make:** " . $result['biggest_mistake'] . "\n\n";
+            }
+
+            $plan = $result['month_1_plan'] ?? [];
+            if ( $plan ) {
+                $out .= "### 30-Day Action Plan\n";
+                foreach ( $plan as $i => $step ) $out .= "Week " . ( $i + 1 ) . ": {$step}\n";
+                $out .= "\n";
+            }
+
+            $kpis = $result['kpis_to_track'] ?? [];
+            if ( $kpis ) {
+                $out .= "### KPIs to Track\n";
+                foreach ( $kpis as $k ) $out .= "- {$k}\n";
+            }
+
+            return $out;
+        }
+
         default:
             return "**Tool:** `{$fn_name}`\n\n```json\n" . json_encode( $result, JSON_PRETTY_PRINT ) . "\n```";
     }
@@ -1222,6 +1541,8 @@ add_shortcode( 'ypnus_agent', function () {
         [ 'label' => 'Find keywords', 'msg' => 'Find SEO keywords for DSCR investor loans' ],
         [ 'label' => 'Score my GMB', 'msg' => 'Score my Google My Business — business name: [Your Name] Mortgage, city: [Your City], I have about 10 reviews, 4.8 stars, no posts and no Q&A filled in' ],
         [ 'label' => 'What do you remember?', 'msg' => 'What do you know about me and my business?' ],
+        [ 'label' => 'Recommend plugins', 'msg' => 'What plugins should I use to capture more leads from my mortgage website? I want something lightweight that works on Hostinger.' ],
+        [ 'label' => 'Full marketing strategy', 'msg' => 'Give me a complete marketing strategy to get more leads from my WordPress site — including email follow-up, CRM, and conversion optimization.' ],
     ];
 
     $dtools = array_filter( ypnus_get_tools(), fn( $t ) => ! empty( $t['enabled'] ) );

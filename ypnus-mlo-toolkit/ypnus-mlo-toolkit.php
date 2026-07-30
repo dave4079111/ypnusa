@@ -2424,7 +2424,7 @@ function ypnus_handle_demo_run() {
     $key   = 'ypnus_demo_' . md5( $ip );
     $count = (int) get_transient( $key );
     if ( $count >= $limit ) {
-        wp_send_json_error( [ 'message' => "You've seen today's {$limit} free previews. Come back tomorrow — or sign up now to unlock your full site immediately." ] );
+        wp_send_json_error( [ 'message' => "You've seen today's {$limit} free previews. Come back tomorrow — or <a href='" . esc_url( home_url( '/pricing/' ) ) . "' style='color:#fff;font-weight:700;'>sign up now</a> to unlock your full site immediately." ] );
     }
 
     $city   = sanitize_text_field( wp_unslash( $_POST['city']   ?? '' ) );
@@ -2580,3 +2580,202 @@ function ypnus_append_demo_cta( string $content ): string {
     <?php
     return $content . ob_get_clean();
 }
+
+// ─── Fix #6: Rate-limit error embeds /pricing/ link ──────────────────────────
+// Applied directly in ypnus_handle_demo_run() above — the error message now
+// includes an anchor. No separate function needed; handled at line 2427.
+
+// ─── Fix #7: Intra-city silo links on loan city pages ────────────────────────
+
+/**
+ * Data map: all city pages by city suffix and their loan types.
+ * Slug pattern: {loan-prefix}{city-suffix}
+ */
+function ypnus_city_loan_map(): array {
+    return [
+        // loan prefix => display label
+        'loan_types' => [
+            'va-loans-'           => 'VA Loans',
+            'fha-loans-'          => 'FHA Loans',
+            'conventional-loans-' => 'Conventional Loans',
+            'dscr-loans-'         => 'DSCR Investor Loans',
+            'jumbo-loans-'        => 'Jumbo Loans',
+        ],
+        // city suffix => display city name
+        'cities' => [
+            'fresno-ca'       => 'Fresno, CA',
+            'visalia-ca'      => 'Visalia, CA',
+            'stockton-ca'     => 'Stockton, CA',
+            'sacramento-ca'   => 'Sacramento, CA',
+            'modesto-ca'      => 'Modesto, CA',
+            'las-vegas-nv'    => 'Las Vegas, NV',
+            'phoenix-az'      => 'Phoenix, AZ',
+            'san-diego-ca'    => 'San Diego, CA',
+            'bakersfield-ca'  => 'Bakersfield, CA',
+            'los-angeles-ca'  => 'Los Angeles, CA',
+        ],
+    ];
+}
+
+add_filter( 'the_content', 'ypnus_append_city_silo_links', 15 );
+
+function ypnus_append_city_silo_links( string $content ): string {
+    if ( is_admin() || ! is_singular( 'page' ) ) return $content;
+
+    global $post;
+    if ( ! $post ) return $content;
+
+    $slug = $post->post_name;
+    $map  = ypnus_city_loan_map();
+
+    // Identify which loan type and city this page belongs to
+    $current_loan_prefix = null;
+    $current_loan_label  = null;
+    $current_city_suffix = null;
+    $current_city_label  = null;
+
+    foreach ( $map['loan_types'] as $prefix => $label ) {
+        if ( str_starts_with( $slug, $prefix ) ) {
+            $current_loan_prefix = $prefix;
+            $current_loan_label  = $label;
+            $rest                = substr( $slug, strlen( $prefix ) );
+            foreach ( $map['cities'] as $suffix => $city_label ) {
+                if ( $rest === $suffix ) {
+                    $current_city_suffix = $suffix;
+                    $current_city_label  = $city_label;
+                    break 2;
+                }
+            }
+        }
+    }
+
+    if ( ! $current_city_suffix ) return $content; // not a recognized city loan page
+
+    // Build links to other loan types in the same city
+    $other_loans = [];
+    foreach ( $map['loan_types'] as $prefix => $label ) {
+        if ( $prefix === $current_loan_prefix ) continue;
+        $other_slug = $prefix . $current_city_suffix;
+        $other_loans[] = [
+            'url'   => home_url( '/' . $other_slug . '/' ),
+            'label' => $label,
+        ];
+    }
+
+    if ( empty( $other_loans ) ) return $content;
+
+    ob_start();
+    ?>
+    <div class="ypnus-city-silo" style="
+        margin: 40px 0 8px;
+        padding: 28px 28px 24px;
+        background: #f4f7fc;
+        border: 1px solid #dde5f0;
+        border-radius: 12px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    ">
+        <p style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#5b6474;margin:0 0 12px;">
+            Other Loan Programs in <?php echo esc_html( $current_city_label ); ?>
+        </p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">
+        <?php foreach ( $other_loans as $loan ) : ?>
+            <a href="<?php echo esc_url( $loan['url'] ); ?>" style="
+                display:inline-block;
+                background:#fff;
+                border:1px solid #c9d5e8;
+                color:#182338;
+                font-size:13px;
+                font-weight:600;
+                padding:8px 16px;
+                border-radius:8px;
+                text-decoration:none;
+            "><?php echo esc_html( $loan['label'] ); ?> →</a>
+        <?php endforeach; ?>
+        </div>
+    </div>
+    <?php
+    // Prepend before the demo CTA (priority 15 runs before CTA at priority 20)
+    return $content . ob_get_clean();
+}
+
+// ─── Fix #8: Blog posts → city market cross-links ────────────────────────────
+
+add_filter( 'the_content', 'ypnus_append_blog_market_links', 18 );
+
+function ypnus_append_blog_market_links( string $content ): string {
+    if ( is_admin() || ! is_singular( 'post' ) ) return $content;
+
+    global $post;
+    if ( ! $post ) return $content;
+
+    $map       = ypnus_city_loan_map();
+    $title_low = strtolower( get_the_title( $post->ID ) . ' ' . $post->post_name );
+
+    // Detect which loan type the post is primarily about
+    $loan_keyword_map = [
+        'va-loans-'           => [ 'va loan', 'va home', 'veteran', 'military', ' va ' ],
+        'fha-loans-'          => [ 'fha loan', 'fha home', 'fha ', 'first-time buyer', 'first time buyer' ],
+        'conventional-loans-' => [ 'conventional', 'conforming' ],
+        'dscr-loans-'         => [ 'dscr', 'investor loan', 'rental property', 'investment property', 'real estate investor' ],
+        'jumbo-loans-'        => [ 'jumbo', 'high-value', 'luxury home' ],
+    ];
+
+    $matched_prefix = null;
+    $matched_label  = null;
+
+    foreach ( $loan_keyword_map as $prefix => $keywords ) {
+        foreach ( $keywords as $kw ) {
+            if ( str_contains( $title_low, $kw ) ) {
+                $matched_prefix = $prefix;
+                $matched_label  = $map['loan_types'][ $prefix ];
+                break 2;
+            }
+        }
+    }
+
+    // Build the market grid — limit to 6 cities for readability
+    $cities       = array_slice( $map['cities'], 0, 6, true );
+    $use_prefix   = $matched_prefix ?? 'fha-loans-'; // default to FHA if no match
+    $section_head = $matched_label
+        ? "MLO {$matched_label} Specialists in These Markets"
+        : 'MLO Specialists in These Markets';
+
+    ob_start();
+    ?>
+    <div class="ypnus-blog-markets" style="
+        margin: 40px 0 8px;
+        padding: 28px 28px 24px;
+        background: #f9f8f5;
+        border: 1px solid #e3ddd0;
+        border-radius: 12px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    ">
+        <p style="font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#8b6f3f;margin:0 0 6px;">
+            Local Expertise
+        </p>
+        <h4 style="font-size:16px;font-weight:700;color:#182338;margin:0 0 14px;">
+            <?php echo esc_html( $section_head ); ?>
+        </h4>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">
+        <?php foreach ( $cities as $suffix => $city_label ) : ?>
+            <a href="<?php echo esc_url( home_url( '/' . $use_prefix . $suffix . '/' ) ); ?>" style="
+                display:block;
+                background:#fff;
+                border:1px solid #d8d0c0;
+                color:#182338;
+                font-size:13px;
+                font-weight:600;
+                padding:10px 14px;
+                border-radius:8px;
+                text-decoration:none;
+            "><?php echo esc_html( $city_label ); ?></a>
+        <?php endforeach; ?>
+        </div>
+        <p style="font-size:12px;color:#8b93a0;margin:14px 0 0;">
+            Don't see your market? <a href="<?php echo esc_url( home_url( '/mlo-site-demo/' ) ); ?>" style="color:#1565C0;font-weight:600;">Try the free site preview →</a>
+        </p>
+    </div>
+    <?php
+    return $content . ob_get_clean();
+}
+

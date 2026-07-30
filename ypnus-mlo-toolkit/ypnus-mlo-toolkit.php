@@ -574,7 +574,9 @@ MLO: {$company} | NMLS #{$nmls}
 Compliance disclosure (append to all generated content): {$disclosure}
 Content silos: {$silo_list}
 
-You have access to four tools. Use them autonomously and in sequence when helpful — never ask the user to go to another page or tool. Always reason about which tool(s) to call before responding. After any tool result, synthesize an actionable reply.
+You have access to six tools. Use them autonomously and in sequence when helpful — never ask the user to go to another page or tool. Always reason about which tool(s) to call before responding. After any tool result, synthesize an actionable reply.
+
+For website building requests: use build_page to generate full page copy, or plan_website to create a complete site architecture. After building a page, offer to also scout keywords for it or check compliance on its copy.
 
 Rules:
 - Never promise specific interest rates or guaranteed loan approvals.
@@ -653,6 +655,56 @@ SYSTEM;
                         ],
                     ],
                     'required' => [ 'topic' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'build_page',
+                'description' => 'Generate complete, conversion-optimized website page copy for a mortgage loan officer. Output includes: H1 headline, subheadline, hero paragraph, 3 benefit/feature blocks, body copy sections, FAQ section (5 Q&As), a primary CTA, trust signals, and SEO meta title/description. Use this when the user asks to build, write, or create a page, landing page, or any website content.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'page_type' => [
+                            'type'        => 'string',
+                            'description' => 'The type of page to build. Examples: VA loan, FHA loan, DSCR loan, first-time homebuyer, jumbo loan, refinance, about, homepage, contact, lead capture.',
+                        ],
+                        'city' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: city or geographic market to localize the page for (e.g. "Phoenix AZ", "Tampa FL").',
+                        ],
+                        'angle' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: a specific selling angle or hook (e.g. "no down payment", "investor focused", "self-employed borrowers").',
+                        ],
+                    ],
+                    'required' => [ 'page_type' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'plan_website',
+                'description' => 'Generate a complete website architecture plan for a mortgage loan officer — page list with URLs, content briefs, primary keywords, and internal linking strategy. Use when the user asks to plan, design, or structure their whole website, or asks what pages they need.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'niche' => [
+                            'type'        => 'string',
+                            'description' => 'The MLO\'s primary loan niche(s) (e.g. "VA and FHA", "DSCR investor loans", "first-time buyers", "full service").',
+                        ],
+                        'market' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: geographic market or state (e.g. "Phoenix AZ", "Texas statewide", "Southeast US").',
+                        ],
+                        'goal' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: primary business goal (e.g. "generate leads", "rank locally", "establish authority", "convert referrals").',
+                        ],
+                    ],
+                    'required' => [ 'niche' ],
                 ],
             ],
         ],
@@ -930,6 +982,156 @@ PROMPT;
             ) ?: [ 'error' => 'Unexpected silo response.' ];
         }
 
+        case 'build_page': {
+            $page_type  = $args['page_type'] ?? 'mortgage';
+            $city       = $args['city']       ?? '';
+            $angle      = $args['angle']      ?? '';
+            $nmls       = get_option( 'ypnus_mlo_nmls', '' );
+            $company    = get_option( 'ypnus_mlo_company', '' );
+            $city_str   = $city   ? " in {$city}"          : '';
+            $angle_str  = $angle  ? " Angle/hook: {$angle}." : '';
+            $credit_str = $nmls   ? "NMLS #{$nmls}"        : '';
+            $co_str     = $company ? " | {$company}"        : '';
+
+            $prompt = <<<PROMPT
+You are an expert mortgage website copywriter. Generate complete, conversion-optimized page copy for a Mortgage Loan Officer's website.
+
+Page type: {$page_type}{$city_str}.{$angle_str}
+MLO credentials: {$credit_str}{$co_str}
+
+Return ONLY valid JSON with these exact keys:
+{
+  "meta_title": "60-char max SEO title",
+  "meta_description": "150-char max meta description with CTA verb",
+  "h1": "Main page headline (benefit-focused, location-specific if city provided)",
+  "subheadline": "Supporting sentence under H1",
+  "hero_paragraph": "2-3 sentence intro paragraph",
+  "benefit_blocks": [
+    {"icon_label": "short label", "headline": "benefit headline", "body": "2-sentence description"},
+    {"icon_label": "short label", "headline": "benefit headline", "body": "2-sentence description"},
+    {"icon_label": "short label", "headline": "benefit headline", "body": "2-sentence description"}
+  ],
+  "body_sections": [
+    {"heading": "H2 section heading", "content": "2-3 paragraph section body"},
+    {"heading": "H2 section heading", "content": "2-3 paragraph section body"}
+  ],
+  "faqs": [
+    {"question": "...", "answer": "2-3 sentence answer"},
+    {"question": "...", "answer": "2-3 sentence answer"},
+    {"question": "...", "answer": "2-3 sentence answer"},
+    {"question": "...", "answer": "2-3 sentence answer"},
+    {"question": "...", "answer": "2-3 sentence answer"}
+  ],
+  "primary_cta": {"button_text": "...", "supporting_text": "one line under the button"},
+  "trust_signals": ["signal 1", "signal 2", "signal 3", "signal 4"],
+  "url_slug": "/suggested-url-slug/"
+}
+
+Rules:
+- Never promise specific interest rates or guaranteed approvals.
+- Include NMLS number in trust signals if provided.
+- All FAQs must answer real borrower questions.
+- Body copy must be hyper-local if city is provided.
+- Trust signals: real, specific, no generic fluff.
+PROMPT;
+
+            $r = wp_remote_post(
+                'https://api.openai.com/v1/chat/completions',
+                [
+                    'timeout' => 90,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'body' => json_encode( [
+                        'model'           => 'gpt-4o-mini',
+                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
+                        'temperature'     => 0.65,
+                        'response_format' => [ 'type' => 'json_object' ],
+                    ] ),
+                ]
+            );
+
+            if ( is_wp_error( $r ) ) return [ 'error' => 'Page build failed.' ];
+
+            $result = json_decode(
+                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
+                true
+            );
+
+            return $result ?: [ 'error' => 'Unexpected page build response.' ];
+        }
+
+        case 'plan_website': {
+            $niche  = $args['niche']  ?? 'full service mortgage';
+            $market = $args['market'] ?? '';
+            $goal   = $args['goal']   ?? 'generate leads and rank locally';
+            $nmls   = get_option( 'ypnus_mlo_nmls', '' );
+            $company = get_option( 'ypnus_mlo_company', '' );
+
+            $market_str = $market ? " Target market: {$market}." : '';
+            $credit_str = $nmls   ? "NMLS #{$nmls}"              : '';
+            $co_str     = $company ? " | {$company}"              : '';
+
+            $prompt = <<<PROMPT
+You are a senior mortgage website architect and SEO strategist. Create a complete website plan for a Mortgage Loan Officer.
+
+Niche: {$niche}.{$market_str}
+Goal: {$goal}.
+MLO: {$credit_str}{$co_str}
+
+Return ONLY valid JSON:
+{
+  "site_summary": "2-sentence positioning statement for the site",
+  "pages": [
+    {
+      "title": "Page title",
+      "url": "/url-slug/",
+      "purpose": "one sentence — what this page does for the business",
+      "primary_keyword": "main SEO keyword to target",
+      "secondary_keywords": ["kw1", "kw2", "kw3"],
+      "content_brief": "3-4 sentence description of what content goes on this page",
+      "priority": "high|medium|low",
+      "links_to": ["/other-page/", "/another-page/"]
+    }
+  ],
+  "silo_structure": {
+    "silo_name": ["page-url-1", "page-url-2"]
+  },
+  "launch_order": ["/highest-priority-url/", "/second/"],
+  "quick_wins": ["specific actionable tip 1", "tip 2", "tip 3"]
+}
+
+Include: homepage, about, all relevant loan type pages, local/city pages (at least 3 if market provided), a blog hub, contact, and any niche-specific pages. Minimum 10 pages total. Make URLs, keywords, and content briefs specific — no generic placeholders.
+PROMPT;
+
+            $r = wp_remote_post(
+                'https://api.openai.com/v1/chat/completions',
+                [
+                    'timeout' => 90,
+                    'headers' => [
+                        'Authorization' => 'Bearer ' . $api_key,
+                        'Content-Type'  => 'application/json',
+                    ],
+                    'body' => json_encode( [
+                        'model'           => 'gpt-4o-mini',
+                        'messages'        => [ [ 'role' => 'user', 'content' => $prompt ] ],
+                        'temperature'     => 0.5,
+                        'response_format' => [ 'type' => 'json_object' ],
+                    ] ),
+                ]
+            );
+
+            if ( is_wp_error( $r ) ) return [ 'error' => 'Website plan generation failed.' ];
+
+            $result = json_decode(
+                json_decode( wp_remote_retrieve_body( $r ), true )['choices'][0]['message']['content'] ?? '{}',
+                true
+            );
+
+            return $result ?: [ 'error' => 'Unexpected website plan response.' ];
+        }
+
         default:
             return [ 'error' => "Unknown tool: {$name}" ];
     }
@@ -965,16 +1167,17 @@ add_shortcode( 'ypnus_agent', function () {
         <div class="ypnus-agent__messages" id="ypnus-agent-messages" role="log" aria-live="polite" aria-label="Conversation">
             <div class="ypnus-agent__message ypnus-agent__message--agent">
                 <div class="ypnus-agent__bubble">
-                    Hi! I'm your MLO AI Agent. I can write compliant social posts, find SEO keywords, audit your copy for CFPB compliance, or suggest how to organize your content silos — all in one conversation. What do you need?
+                    Hi! I'm your MLO AI Agent. I can build complete website pages, plan your entire site architecture, write compliant social posts, find SEO keywords, audit copy for CFPB compliance, and suggest content silo placement — all in one conversation. What do you need?
                 </div>
             </div>
         </div>
 
         <div class="ypnus-agent__suggestions" id="ypnus-agent-suggestions">
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Write me 3 VA loan posts for LinkedIn, Instagram, and TikTok')">Write VA loan posts</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Find SEO keywords for DSCR loans for real estate investors')">DSCR keywords</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Check this for compliance: We offer the best mortgage rates guaranteed!')">Compliance check</button>
-            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Where should I publish a page about FHA down payment assistance?')">Silo placement</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Build me a VA loan page for my website')">Build a page</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Plan my entire mortgage website — I focus on VA and FHA loans')">Plan my website</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Write me 3 VA loan posts for LinkedIn, Instagram, and TikTok')">Write social posts</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Find SEO keywords for DSCR investor loans')">Find keywords</button>
+            <button class="ypnus-agent__chip" onclick="ypnusAgentSuggest('Check this for compliance: We offer the best mortgage rates guaranteed!')">Check compliance</button>
         </div>
 
         <form class="ypnus-agent__input-row" id="ypnus-agent-form" onsubmit="ypnusAgentSend(event)" novalidate>

@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.2.0
+ * Version:     2.3.0
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '2.2.0' );
+define( 'YPNUS_MLO_VERSION', '2.3.0' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
@@ -296,6 +296,7 @@ function ypnus_admin_page() {
             'check_compliance'      => [ 'name' => 'Compliance Checker',      'shortcode' => '',                         'desc' => 'Audit marketing copy for CFPB/FINRA compliance issues.' ],
             'suggest_silo'          => [ 'name' => 'Content Silo Advisor',    'shortcode' => '',                         'desc' => 'Recommends the right silo and URL for any topic.' ],
             'build_page'            => [ 'name' => 'Page Builder',            'shortcode' => '',                         'desc' => 'Generates a full SEO landing page and saves it as a WordPress draft.' ],
+            'write_article'         => [ 'name' => 'Article Writer',          'shortcode' => '',                         'desc' => 'Writes a 1500–2000 word SEO article with internal links, authority backlinks, and optional affiliate products.' ],
             'plan_website'          => [ 'name' => 'Website Planner',         'shortcode' => '',                         'desc' => 'Creates a complete website architecture for an MLO.' ],
             'score_gmb'             => [ 'name' => 'GMB Scorer',              'shortcode' => '',                         'desc' => 'Scores a Google Business Profile 0–100 and gives an optimization guide.' ],
             'recommend_plugins'     => [ 'name' => 'Plugin Advisor',          'shortcode' => '',                         'desc' => 'Recommends the right WordPress plugins for your stack.' ],
@@ -604,7 +605,8 @@ Content silos: {$silo_list}
 {$memory_str}
 
 MANDATORY TOOL ROUTING:
-- "page", "build", "write a page", "landing page", "create a page" → build_page
+- "page", "build", "landing page", "create a page" → build_page
+- "article", "write an article", "blog post", "1500 words", "long form", "write about", "SEO article", "content piece", "affiliate", "backlinks" → write_article
 - "website", "site plan", "what pages", "site structure" → plan_website
 - "post", "social", "LinkedIn", "Instagram", "TikTok", "write me" → generate_social_posts
 - "keyword", "SEO", "rank", "search" → scout_keywords
@@ -687,6 +689,7 @@ function ypnus_core_tool_definitions() {
         [ 'type' => 'function', 'function' => [ 'name' => 'suggest_silo', 'description' => 'Recommend the best content silo and URL for a topic.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'topic' => [ 'type' => 'string', 'description' => 'Topic to place.' ] ], 'required' => [ 'topic' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'build_page', 'description' => 'Generate complete conversion-optimized page copy and publish as WordPress draft.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'page_type' => [ 'type' => 'string', 'description' => 'Type of page (VA loan, FHA, DSCR, about, etc).' ], 'city' => [ 'type' => 'string', 'description' => 'Optional city/state.' ], 'angle' => [ 'type' => 'string', 'description' => 'Optional selling angle.' ] ], 'required' => [ 'page_type' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'diagnose_error', 'description' => 'Diagnose any WordPress error, broken behavior, plugin conflict, white screen, or site problem.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'symptom' => [ 'type' => 'string', 'description' => 'Full description of the problem.' ], 'context' => [ 'type' => 'string', 'description' => 'Optional: theme, plugins, hosting.' ] ], 'required' => [ 'symptom' ] ] ] ],
+        [ 'type' => 'function', 'function' => [ 'name' => 'write_article', 'description' => 'Write a full 1500–2000 word SEO article with internal links, authority backlinks, and optional affiliate product mentions. Saves as WordPress draft.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'topic' => [ 'type' => 'string', 'description' => 'Article topic (e.g. "FHA loans for first-time buyers").' ], 'city' => [ 'type' => 'string', 'description' => 'Optional city/market for local SEO.' ], 'loan_type' => [ 'type' => 'string', 'description' => 'Optional loan type focus (FHA, VA, USDA, Conventional, Jumbo).' ], 'include_affiliates' => [ 'type' => 'boolean', 'description' => 'Set true to include relevant affiliate product links (credit monitoring, insurance, etc).' ] ], 'required' => [ 'topic' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'plan_website', 'description' => 'Generate a complete website architecture for an MLO.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'niche' => [ 'type' => 'string', 'description' => 'Loan niche(s).' ], 'market' => [ 'type' => 'string', 'description' => 'Optional geographic market.' ], 'goal' => [ 'type' => 'string', 'description' => 'Optional business goal.' ] ], 'required' => [ 'niche' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'score_gmb', 'description' => 'Score and optimize a Google Business Profile for an MLO. Returns 0-100 score with action items.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'business_name' => [ 'type' => 'string', 'description' => 'Business name on Google.' ], 'city' => [ 'type' => 'string', 'description' => 'City and state.' ], 'categories' => [ 'type' => 'string', 'description' => 'Current GMB categories.' ], 'review_count' => [ 'type' => 'integer', 'description' => 'Number of reviews.' ], 'avg_rating' => [ 'type' => 'number', 'description' => 'Average star rating.' ], 'has_photos' => [ 'type' => 'boolean', 'description' => 'Photos uploaded?' ], 'posts_per_month' => [ 'type' => 'integer', 'description' => 'Posts per month.' ], 'has_qa' => [ 'type' => 'boolean', 'description' => 'Q&A filled in?' ], 'services_listed' => [ 'type' => 'boolean', 'description' => 'Services listed?' ], 'description_filled' => [ 'type' => 'boolean', 'description' => 'Description filled?' ] ], 'required' => [ 'business_name', 'city' ] ] ] ],
         [ 'type' => 'function', 'function' => [ 'name' => 'save_memory', 'description' => 'Save a fact about this MLO to long-term memory so it persists across all future conversations.', 'parameters' => [ 'type' => 'object', 'properties' => [ 'key' => [ 'type' => 'string', 'description' => 'Short key (e.g. primary_market, loan_niche, top_realtor_partner).' ], 'value' => [ 'type' => 'string', 'description' => 'The value to remember.' ] ], 'required' => [ 'key', 'value' ] ] ] ],
@@ -923,6 +926,68 @@ function ypnus_run_agent_tool( $name, $args, $api_key, $disclosure ) {
             }
 
             $wp = ypnus_publish_draft( $result['h1'] ?? $page_type . ( $city ? " — {$city}" : '' ), $html, $page_type . ' ' . $city . ' ' . $angle, '', $result['meta_title'] ?? '', $result['meta_description'] ?? '' );
+            return array_merge( $result, $wp );
+        }
+
+        case 'write_article': {
+            $topic      = $args['topic']      ?? '';
+            $city       = $args['city']       ?? '';
+            $loan_type  = $args['loan_type']  ?? '';
+            $affiliates = ! empty( $args['include_affiliates'] ) ? 'yes' : 'no';
+            $city_str   = $city ? " in {$city}" : '';
+            $loan_str   = $loan_type ? " (loan type: {$loan_type})" : '';
+            $creds      = "NMLS #{$nmls}" . ( $company ? " | {$company}" : '' );
+            $disc_line  = $disclosure ? "\n\nDISCLOSURE (append verbatim at bottom): {$disclosure}" : '';
+
+            $aff_instruction = $affiliates === 'yes'
+                ? 'Include 2–3 natural affiliate product mentions (e.g. credit monitoring: Credit Karma / MyFICO; homeowners insurance comparison: Policygenius; title/closing: Doma or Qualia; down payment assistance tools: Down Payment Resource). Frame them as helpful resources, not ads. Add rel="nofollow sponsored" to those links.'
+                : 'Do not include affiliate products.';
+
+            $prompt = <<<PROMPT
+You are a senior mortgage content strategist and SEO copywriter. Write a high-quality, fully formatted 1500–2000 word article for a Mortgage Loan Officer website.
+
+TOPIC: {$topic}{$city_str}{$loan_str}
+MLO: {$creds}
+
+REQUIREMENTS:
+- Target word count: 1500–2000 words (body_html must contain the full article, not a summary)
+- Write in a helpful, authoritative tone — like a local expert guiding a first-time buyer
+- H2 and H3 subheadings throughout for scannability
+- At least 3 internal link placeholders using this format: <a href="/[relevant-slug]">[anchor text]</a> — use realistic slugs that would exist on a mortgage site (e.g. /va-loans-[city], /fha-loan-requirements, /mortgage-calculator)
+- At least 2 outbound authority links to real, reputable sources (HUD.gov, CFPB.gov, VA.gov, FHA.gov, Freddie Mac, Fannie Mae, NAR, Census Bureau) — open in new tab
+- {$aff_instruction}
+- Include a strong FAQ section (4–6 questions) near the bottom
+- End with a clear call-to-action paragraph mentioning the MLO by NMLS and inviting the reader to apply or get a free consultation
+- CFPB/FINRA compliant — no rate promises, no misleading claims{$disc_line}
+
+Return ONLY valid JSON:
+{{
+  "meta_title": "",
+  "meta_description": "",
+  "h1": "",
+  "url_slug": "",
+  "primary_keyword": "",
+  "secondary_keywords": [],
+  "word_count_estimate": 0,
+  "internal_links": ["{anchor}→{slug}"],
+  "external_links": ["{anchor}→{url}"],
+  "affiliate_links": [],
+  "body_html": "<full article HTML here — all sections, FAQs, CTA, disclosure>"
+}}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.65, 120 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['body_html'] ) ) return [ 'error' => 'Article generation failed.' ];
+
+            $wp = ypnus_publish_draft(
+                $result['h1'] ?? $topic,
+                $result['body_html'],
+                'article ' . $topic . ' ' . $city . ' ' . $loan_type,
+                '',
+                $result['meta_title'] ?? '',
+                $result['meta_description'] ?? ''
+            );
             return array_merge( $result, $wp );
         }
 
@@ -1280,6 +1345,39 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
             return ypnus_format_page_result( $fn_args, $result );
         }
 
+        case 'write_article': {
+            $out  = "## Article Draft: " . ( $result['h1'] ?? $fn_args['topic'] ?? 'Article' ) . "\n\n";
+            if ( ! empty( $result['wp_post_id'] ) ) {
+                $out .= "✅ **Draft saved to WordPress!**\n";
+                $out .= "- Edit URL: " . ( $result['wp_edit_url'] ?? '' ) . "\n";
+                $out .= "- Preview: " . ( $result['wp_preview_url'] ?? '' ) . "\n\n";
+            }
+            $out .= "**Primary keyword:** " . ( $result['primary_keyword'] ?? '' ) . "\n";
+            $out .= "**Estimated word count:** ~" . ( $result['word_count_estimate'] ?? '1500–2000' ) . " words\n";
+            $out .= "**URL slug:** `/" . ( $result['url_slug'] ?? '' ) . "`\n\n";
+            if ( ! empty( $result['secondary_keywords'] ) ) {
+                $out .= "**Secondary keywords:** " . implode( ', ', $result['secondary_keywords'] ) . "\n\n";
+            }
+            if ( ! empty( $result['internal_links'] ) ) {
+                $out .= "**Internal links included:**\n";
+                foreach ( $result['internal_links'] as $l ) $out .= "- {$l}\n";
+                $out .= "\n";
+            }
+            if ( ! empty( $result['external_links'] ) ) {
+                $out .= "**Authority backlinks included:**\n";
+                foreach ( $result['external_links'] as $l ) $out .= "- {$l}\n";
+                $out .= "\n";
+            }
+            if ( ! empty( $result['affiliate_links'] ) ) {
+                $out .= "**Affiliate links included:**\n";
+                foreach ( $result['affiliate_links'] as $l ) $out .= "- {$l}\n";
+                $out .= "\n";
+            }
+            $out .= "**Meta title:** " . ( $result['meta_title'] ?? '' ) . "\n";
+            $out .= "**Meta description:** " . ( $result['meta_description'] ?? '' ) . "\n";
+            return $out;
+        }
+
         case 'plan_website': {
             $out  = "## Website Architecture Plan\n\n";
             $out .= ( $result['site_summary'] ?? $result['summary'] ?? '' ) . "\n\n";
@@ -1605,6 +1703,7 @@ add_shortcode( 'ypnus_agent', function () {
     // Build suggestion chips including active custom tools
     $chips = [
         [ 'label' => 'Build a page', 'msg' => 'Build me a VA loan page for Fresno CA' ],
+        [ 'label' => 'Write an article', 'msg' => 'Write a 1500 word SEO article about FHA loans for first-time buyers in [Your City] — include affiliate links' ],
         [ 'label' => 'Plan my website', 'msg' => 'Plan my entire mortgage website — I focus on VA and FHA loans' ],
         [ 'label' => 'Write social posts', 'msg' => 'Write me 3 VA loan posts for LinkedIn, Instagram, and TikTok' ],
         [ 'label' => 'Find keywords', 'msg' => 'Find SEO keywords for DSCR investor loans' ],

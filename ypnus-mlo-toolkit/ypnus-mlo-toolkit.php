@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.4.0
+ * Version:     2.5.0
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '2.4.0' );
+define( 'YPNUS_MLO_VERSION', '2.5.0' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 
@@ -110,11 +110,15 @@ function ypnus_admin_memory_redirect() {
 }
 
 add_action( 'admin_init', function () {
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_openai_key',  [ 'sanitize_callback' => 'sanitize_text_field' ] );
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_nmls',        [ 'sanitize_callback' => 'sanitize_text_field' ] );
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_company',     [ 'sanitize_callback' => 'sanitize_text_field' ] );
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_disclosure',  [ 'sanitize_callback' => 'sanitize_textarea_field' ] );
-    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_silos',       [ 'sanitize_callback' => 'sanitize_textarea_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_openai_key',   [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_nmls',         [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_company',      [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_disclosure',   [ 'sanitize_callback' => 'sanitize_textarea_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_mlo_silos',        [ 'sanitize_callback' => 'sanitize_textarea_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_demo_signup_url',  [ 'sanitize_callback' => 'esc_url_raw' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_demo_cta_text',    [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_demo_price_label', [ 'sanitize_callback' => 'sanitize_text_field' ] );
+    register_setting( 'ypnus_mlo_group', 'ypnus_demo_daily_limit', [ 'sanitize_callback' => 'absint' ] );
 } );
 
 function ypnus_admin_page() {
@@ -210,6 +214,38 @@ function ypnus_admin_page() {
                     <th><label for="ypnus_mlo_silos">Silo Structure (JSON)</label></th>
                     <td>
                         <textarea id="ypnus_mlo_silos" name="ypnus_mlo_silos" rows="8" class="large-text code"><?php echo esc_textarea( get_option( 'ypnus_mlo_silos', ypnus_mlo_default_silos() ) ); ?></textarea>
+                    </td>
+                </tr>
+            </table>
+
+            <h2 style="margin-top:32px;">Demo Mode Settings <small style="font-size:13px;color:#999;">for [ypnus_mlo_demo] on your sales page</small></h2>
+            <p style="color:#666;">Place <code>[ypnus_mlo_demo]</code> on any page on ypnus.com to show prospects a live preview of their site before they sign up.</p>
+            <table class="form-table">
+                <tr>
+                    <th><label for="ypnus_demo_signup_url">Signup / Checkout URL</label></th>
+                    <td>
+                        <input type="url" id="ypnus_demo_signup_url" name="ypnus_demo_signup_url" value="<?php echo esc_attr( get_option( 'ypnus_demo_signup_url', '' ) ); ?>" class="regular-text" placeholder="https://ypnus.com/checkout" />
+                        <p class="description">Where to send MLOs after they see the demo. Your Stripe/PayPal checkout or signup page.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="ypnus_demo_cta_text">CTA Button Text</label></th>
+                    <td>
+                        <input type="text" id="ypnus_demo_cta_text" name="ypnus_demo_cta_text" value="<?php echo esc_attr( get_option( 'ypnus_demo_cta_text', 'Get My Full Website — Sign Up Now' ) ); ?>" class="regular-text" />
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="ypnus_demo_price_label">Price / Offer Label</label></th>
+                    <td>
+                        <input type="text" id="ypnus_demo_price_label" name="ypnus_demo_price_label" value="<?php echo esc_attr( get_option( 'ypnus_demo_price_label', 'Starting at $97/month — Cancel anytime' ) ); ?>" class="regular-text" />
+                        <p class="description">Shown under the signup button in the demo paywall.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label for="ypnus_demo_daily_limit">Demo Limit (per IP/day)</label></th>
+                    <td>
+                        <input type="number" id="ypnus_demo_daily_limit" name="ypnus_demo_daily_limit" value="<?php echo esc_attr( get_option( 'ypnus_demo_daily_limit', 3 ) ); ?>" class="small-text" min="1" max="20" />
+                        <p class="description">Max demo runs per visitor per day. Prevents API cost abuse.</p>
                     </td>
                 </tr>
             </table>
@@ -447,7 +483,7 @@ add_action( 'wp_enqueue_scripts', 'ypnus_mlo_enqueue_assets' );
 function ypnus_mlo_enqueue_assets() {
     global $post;
     if ( ! is_a( $post, 'WP_Post' ) ) return;
-    $sc = [ 'ypnus_content_generator', 'ypnus_keyword_scout', 'ypnus_silo_nav', 'ypnus_agent' ];
+    $sc = [ 'ypnus_content_generator', 'ypnus_keyword_scout', 'ypnus_silo_nav', 'ypnus_agent', 'ypnus_mlo_demo' ];
     $has = false;
     foreach ( $sc as $s ) { if ( has_shortcode( $post->post_content, $s ) ) { $has = true; break; } }
     if ( ! $has ) return;
@@ -2016,3 +2052,446 @@ add_shortcode( 'ypnus_agent', function () {
     </div>
     <?php return ob_get_clean();
 } );
+
+// ─── Demo Shortcode ───────────────────────────────────────────────────────────
+
+add_shortcode( 'ypnus_mlo_demo', function () {
+    $cta_text    = get_option( 'ypnus_demo_cta_text',    'Get My Full Website — Sign Up Now' );
+    $price_label = get_option( 'ypnus_demo_price_label', 'Starting at $97/month — Cancel anytime' );
+    $signup_url  = get_option( 'ypnus_demo_signup_url',  '#' );
+
+    ob_start(); ?>
+    <div class="ypnus-demo" id="ypnus-demo-wrap">
+
+        <!-- ── Step 1: The 3-question form ── -->
+        <div class="ypnus-demo__form-wrap" id="ypnus-demo-form-wrap">
+            <div class="ypnus-demo__intro">
+                <span class="ypnus-demo__badge">Live Preview — No Credit Card Required</span>
+                <h2 class="ypnus-demo__headline">See Your MLO Website Before You Buy It</h2>
+                <p class="ypnus-demo__sub">Answer 3 quick questions and watch the AI build your personalized mortgage website plan in seconds.</p>
+            </div>
+
+            <form class="ypnus-demo__form" id="ypnus-demo-form" onsubmit="ypnusDemoSubmit(event)">
+                <div class="ypnus-demo__fields">
+                    <div class="ypnus-demo__field">
+                        <label class="ypnus-demo__label" for="ypnus-demo-city">
+                            <span class="ypnus-demo__step-num">1</span>
+                            What city or market do you serve?
+                        </label>
+                        <input type="text" id="ypnus-demo-city" class="ypnus-demo__input" placeholder="e.g. Phoenix AZ, Dallas TX, Denver CO" autocomplete="off" />
+                    </div>
+                    <div class="ypnus-demo__field">
+                        <label class="ypnus-demo__label" for="ypnus-demo-niches">
+                            <span class="ypnus-demo__step-num">2</span>
+                            What type of loans do you specialize in?
+                        </label>
+                        <div class="ypnus-demo__chips" id="ypnus-demo-niche-chips">
+                            <?php foreach ( [ 'VA Loans', 'FHA Loans', 'Conventional', 'DSCR / Investor', 'Jumbo', 'First-Time Buyers', 'Refinance', 'USDA' ] as $n ): ?>
+                            <button type="button" class="ypnus-demo__chip-btn" onclick="ypnusToggleNiche(this)"><?php echo esc_html( $n ); ?></button>
+                            <?php endforeach; ?>
+                        </div>
+                        <input type="hidden" id="ypnus-demo-niches" value="" />
+                    </div>
+                    <div class="ypnus-demo__field">
+                        <label class="ypnus-demo__label" for="ypnus-demo-name">
+                            <span class="ypnus-demo__step-num">3</span>
+                            What's your first name?
+                        </label>
+                        <input type="text" id="ypnus-demo-name" class="ypnus-demo__input" placeholder="e.g. David" autocomplete="given-name" />
+                    </div>
+                </div>
+
+                <div id="ypnus-demo-error" class="ypnus-error" hidden></div>
+
+                <button type="submit" class="ypnus-demo__submit" id="ypnus-demo-btn">
+                    <span class="ypnus-btn__text">Build My Site Preview →</span>
+                    <span class="ypnus-btn__loader" aria-hidden="true"></span>
+                </button>
+                <p class="ypnus-demo__privacy">No email required. No credit card. Just your personalized plan.</p>
+            </form>
+        </div>
+
+        <!-- ── Step 2: Generating state ── -->
+        <div class="ypnus-demo__generating" id="ypnus-demo-generating" hidden>
+            <div class="ypnus-demo__gen-inner">
+                <div class="ypnus-demo__gen-spinner"></div>
+                <div class="ypnus-demo__gen-title">Building Your Personalized Website Plan…</div>
+                <div class="ypnus-demo__gen-steps" id="ypnus-demo-gen-steps">
+                    <div class="ypnus-demo__gen-step" id="ypnus-demo-gstep-1">Analyzing your market…</div>
+                    <div class="ypnus-demo__gen-step" id="ypnus-demo-gstep-2">Mapping your loan niches to page types…</div>
+                    <div class="ypnus-demo__gen-step" id="ypnus-demo-gstep-3">Building your conversion strategy…</div>
+                    <div class="ypnus-demo__gen-step" id="ypnus-demo-gstep-4">Generating keywords for your market…</div>
+                    <div class="ypnus-demo__gen-step" id="ypnus-demo-gstep-5">Finalizing your website blueprint…</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Step 3: Results ── -->
+        <div class="ypnus-demo__results" id="ypnus-demo-results" hidden>
+
+            <div class="ypnus-demo__results-header">
+                <div class="ypnus-demo__results-badge">✅ Your Website Plan Is Ready</div>
+                <h2 class="ypnus-demo__results-headline" id="ypnus-demo-headline">Here's What We'd Build For You</h2>
+                <p class="ypnus-demo__results-sub" id="ypnus-demo-summary"></p>
+            </div>
+
+            <!-- Page map preview (blurred after first 4) -->
+            <div class="ypnus-demo__section">
+                <h3 class="ypnus-demo__section-title">Pages Your Site Would Include</h3>
+                <div class="ypnus-demo__pages" id="ypnus-demo-pages"></div>
+                <div class="ypnus-demo__blur-gate">
+                    <div class="ypnus-demo__blur-overlay"></div>
+                    <div class="ypnus-demo__blur-cta">
+                        <p>🔒 <strong>4 more pages</strong> in your full plan — unlock with a free account</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Keywords preview -->
+            <div class="ypnus-demo__section">
+                <h3 class="ypnus-demo__section-title">Top Keywords for Your Market</h3>
+                <div class="ypnus-demo__kw-list" id="ypnus-demo-keywords"></div>
+            </div>
+
+            <!-- Sample page teaser -->
+            <div class="ypnus-demo__section ypnus-demo__section--teaser">
+                <h3 class="ypnus-demo__section-title">Sample Page Outline</h3>
+                <div class="ypnus-demo__teaser-card" id="ypnus-demo-teaser"></div>
+            </div>
+
+            <!-- Paywall -->
+            <div class="ypnus-demo__paywall">
+                <div class="ypnus-demo__paywall-inner">
+                    <div class="ypnus-demo__paywall-icon">🏠</div>
+                    <h3 class="ypnus-demo__paywall-headline">Your Full Website Is One Click Away</h3>
+                    <p class="ypnus-demo__paywall-body">When you sign up, the AI agent builds every one of these pages as live WordPress drafts — ready to review, customize, and publish. No agency. No delays. Just your complete mortgage site, done.</p>
+                    <ul class="ypnus-demo__paywall-features">
+                        <li>✅ All pages built as WordPress drafts automatically</li>
+                        <li>✅ AI agent available 24/7 — build anything, fix anything</li>
+                        <li>✅ Keyword research, compliance checker, social post generator</li>
+                        <li>✅ Article writer with SEO + authority backlinks</li>
+                        <li>✅ Google My Business scoring &amp; optimization guide</li>
+                        <li>✅ Agent remembers your market, niche, and preferences</li>
+                    </ul>
+                    <a class="ypnus-demo__paywall-btn" href="<?php echo esc_url( $signup_url ); ?>"><?php echo esc_html( $cta_text ); ?></a>
+                    <p class="ypnus-demo__paywall-price"><?php echo esc_html( $price_label ); ?></p>
+                </div>
+            </div>
+
+            <div class="ypnus-demo__restart">
+                <button type="button" onclick="ypnusDemoRestart()">← Try a Different Market</button>
+            </div>
+        </div>
+
+    </div>
+
+    <style>
+    .ypnus-demo { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 860px; margin: 0 auto; color: #1a2744; }
+    .ypnus-demo__intro { text-align: center; margin-bottom: 36px; }
+    .ypnus-demo__badge { display: inline-block; background: #e8f4fd; color: #1565C0; font-size: 12px; font-weight: 700; letter-spacing: .05em; padding: 5px 14px; border-radius: 20px; margin-bottom: 16px; text-transform: uppercase; }
+    .ypnus-demo__headline { font-size: clamp(24px, 4vw, 38px); font-weight: 800; margin: 0 0 12px; line-height: 1.15; color: #0D1B3E; }
+    .ypnus-demo__sub { font-size: 17px; color: #4a5d80; max-width: 560px; margin: 0 auto; }
+    .ypnus-demo__form { background: #fff; border: 1.5px solid #dce6f5; border-radius: 16px; padding: 36px; box-shadow: 0 4px 24px rgba(0,0,0,.06); }
+    .ypnus-demo__fields { display: flex; flex-direction: column; gap: 28px; }
+    .ypnus-demo__label { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; color: #0D1B3E; margin-bottom: 10px; }
+    .ypnus-demo__step-num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; background: #1565C0; color: #fff; font-size: 13px; font-weight: 800; flex-shrink: 0; }
+    .ypnus-demo__input { width: 100%; box-sizing: border-box; padding: 13px 16px; border: 1.5px solid #cdd9ef; border-radius: 10px; font-size: 15px; color: #1a2744; outline: none; transition: border-color .2s; }
+    .ypnus-demo__input:focus { border-color: #1565C0; box-shadow: 0 0 0 3px rgba(21,101,192,.12); }
+    .ypnus-demo__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .ypnus-demo__chip-btn { padding: 8px 16px; border-radius: 22px; border: 1.5px solid #cdd9ef; background: #f5f8ff; color: #1a2744; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .18s; }
+    .ypnus-demo__chip-btn.is-selected { background: #1565C0; border-color: #1565C0; color: #fff; }
+    .ypnus-demo__submit { display: block; width: 100%; margin-top: 28px; padding: 16px; background: #1565C0; color: #fff; border: none; border-radius: 10px; font-size: 17px; font-weight: 800; cursor: pointer; transition: background .2s, transform .1s; position: relative; }
+    .ypnus-demo__submit:hover { background: #0D47A1; }
+    .ypnus-demo__submit:active { transform: scale(.98); }
+    .ypnus-demo__submit.is-loading .ypnus-btn__text { opacity: 0; }
+    .ypnus-demo__submit.is-loading .ypnus-btn__loader { display: block; }
+    .ypnus-btn__loader { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 22px; height: 22px; border: 3px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: ypnus-spin 0.7s linear infinite; }
+    @keyframes ypnus-spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+    .ypnus-demo__privacy { text-align: center; font-size: 12px; color: #8a9bc0; margin-top: 10px; }
+    .ypnus-demo__generating { text-align: center; padding: 60px 24px; }
+    .ypnus-demo__gen-spinner { width: 52px; height: 52px; border: 5px solid #dce6f5; border-top-color: #1565C0; border-radius: 50%; animation: ypnus-spin 0.8s linear infinite; margin: 0 auto 24px; }
+    .ypnus-demo__gen-title { font-size: 20px; font-weight: 700; color: #0D1B3E; margin-bottom: 20px; }
+    .ypnus-demo__gen-steps { display: flex; flex-direction: column; gap: 8px; max-width: 380px; margin: 0 auto; text-align: left; }
+    .ypnus-demo__gen-step { font-size: 14px; color: #8a9bc0; padding: 6px 12px; border-radius: 8px; transition: all .3s; }
+    .ypnus-demo__gen-step.is-active { color: #1565C0; font-weight: 700; background: #e8f4fd; }
+    .ypnus-demo__gen-step.is-done { color: #2e7d32; }
+    .ypnus-demo__gen-step.is-done::before { content: '✓ '; }
+    .ypnus-demo__results-header { text-align: center; margin-bottom: 36px; }
+    .ypnus-demo__results-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; font-size: 13px; font-weight: 700; padding: 5px 14px; border-radius: 20px; margin-bottom: 14px; }
+    .ypnus-demo__results-headline { font-size: clamp(22px, 3.5vw, 32px); font-weight: 800; color: #0D1B3E; margin: 0 0 10px; }
+    .ypnus-demo__results-sub { font-size: 16px; color: #4a5d80; max-width: 600px; margin: 0 auto; }
+    .ypnus-demo__section { background: #fff; border: 1.5px solid #dce6f5; border-radius: 14px; padding: 28px; margin-bottom: 20px; position: relative; overflow: hidden; }
+    .ypnus-demo__section-title { font-size: 17px; font-weight: 700; color: #0D1B3E; margin: 0 0 16px; }
+    .ypnus-demo__section--teaser { background: #f5f8ff; }
+    .ypnus-demo__pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+    .ypnus-demo__page-card { border: 1.5px solid #dce6f5; border-radius: 10px; padding: 14px 16px; background: #f9fbff; }
+    .ypnus-demo__page-num { font-size: 11px; font-weight: 700; color: #1565C0; text-transform: uppercase; letter-spacing: .04em; }
+    .ypnus-demo__page-title { font-size: 14px; font-weight: 700; color: #0D1B3E; margin: 4px 0 4px; }
+    .ypnus-demo__page-kw { font-size: 12px; color: #6b7da6; }
+    .ypnus-demo__blur-gate { position: relative; height: 80px; margin-top: -40px; }
+    .ypnus-demo__blur-overlay { position: absolute; bottom: 0; left: 0; right: 0; top: 0; background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,.96) 100%); }
+    .ypnus-demo__blur-cta { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-size: 14px; color: #4a5d80; }
+    .ypnus-demo__blur-cta strong { color: #1565C0; }
+    .ypnus-demo__kw-list { display: flex; flex-direction: column; gap: 10px; }
+    .ypnus-demo__kw-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #f5f8ff; border-radius: 8px; font-size: 14px; }
+    .ypnus-demo__kw-word { font-weight: 700; color: #0D1B3E; flex: 1; }
+    .ypnus-demo__kw-diff { font-size: 12px; padding: 2px 10px; border-radius: 12px; font-weight: 600; }
+    .ypnus-demo__kw-diff--easy   { background: #e8f5e9; color: #2e7d32; }
+    .ypnus-demo__kw-diff--medium { background: #fff8e1; color: #f57f17; }
+    .ypnus-demo__kw-diff--hard   { background: #fce4ec; color: #c62828; }
+    .ypnus-demo__kw-intent { font-size: 12px; color: #6b7da6; }
+    .ypnus-demo__teaser-card { font-size: 14px; color: #4a5d80; line-height: 1.7; }
+    .ypnus-demo__teaser-card h4 { color: #0D1B3E; font-weight: 700; margin: 0 0 8px; font-size: 16px; }
+    .ypnus-demo__teaser-card ul { margin: 0; padding-left: 20px; }
+    .ypnus-demo__teaser-card li { margin-bottom: 4px; }
+    .ypnus-demo__paywall { background: linear-gradient(135deg, #0D1B3E 0%, #1565C0 100%); border-radius: 16px; padding: 48px 40px; text-align: center; margin-top: 24px; color: #fff; }
+    .ypnus-demo__paywall-inner { max-width: 600px; margin: 0 auto; }
+    .ypnus-demo__paywall-icon { font-size: 48px; margin-bottom: 16px; }
+    .ypnus-demo__paywall-headline { font-size: clamp(20px, 3vw, 28px); font-weight: 800; margin: 0 0 14px; }
+    .ypnus-demo__paywall-body { font-size: 15px; opacity: .88; margin-bottom: 24px; line-height: 1.65; }
+    .ypnus-demo__paywall-features { list-style: none; margin: 0 0 28px; padding: 0; text-align: left; display: inline-block; }
+    .ypnus-demo__paywall-features li { font-size: 14px; padding: 4px 0; opacity: .92; }
+    .ypnus-demo__paywall-btn { display: inline-block; background: #fff; color: #1565C0; font-size: 17px; font-weight: 800; padding: 16px 36px; border-radius: 10px; text-decoration: none; transition: transform .15s, box-shadow .15s; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+    .ypnus-demo__paywall-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+    .ypnus-demo__paywall-price { font-size: 13px; opacity: .7; margin-top: 12px; }
+    .ypnus-demo__restart { text-align: center; margin-top: 20px; }
+    .ypnus-demo__restart button { background: none; border: none; color: #6b7da6; font-size: 13px; cursor: pointer; text-decoration: underline; }
+    @media (max-width: 600px) {
+        .ypnus-demo__form { padding: 24px 18px; }
+        .ypnus-demo__paywall { padding: 32px 20px; }
+    }
+    </style>
+
+    <script>
+    (function () {
+        'use strict';
+        var selectedNiches = [];
+
+        window.ypnusToggleNiche = function (btn) {
+            var val = btn.textContent.trim();
+            var idx = selectedNiches.indexOf(val);
+            if (idx === -1) { selectedNiches.push(val); btn.classList.add('is-selected'); }
+            else            { selectedNiches.splice(idx, 1); btn.classList.remove('is-selected'); }
+            document.getElementById('ypnus-demo-niches').value = selectedNiches.join(', ');
+        };
+
+        window.ypnusDemoSubmit = function (e) {
+            e.preventDefault();
+            var city   = ((document.getElementById('ypnus-demo-city')   || {}).value || '').trim();
+            var niches = ((document.getElementById('ypnus-demo-niches') || {}).value || '').trim();
+            var name   = ((document.getElementById('ypnus-demo-name')   || {}).value || '').trim();
+            var errEl  = document.getElementById('ypnus-demo-error');
+
+            if (!city)   { errEl.textContent = 'Please enter your city or market.';        errEl.hidden = false; return; }
+            if (!niches) { errEl.textContent = 'Please select at least one loan type.';    errEl.hidden = false; return; }
+            errEl.hidden = true;
+
+            var btn = document.getElementById('ypnus-demo-btn');
+            if (btn) { btn.classList.add('is-loading'); btn.disabled = true; }
+
+            document.getElementById('ypnus-demo-form-wrap').hidden  = true;
+            document.getElementById('ypnus-demo-generating').hidden = false;
+            ypnusDemoAnimate();
+
+            var fd = new FormData();
+            fd.append('action', 'ypnus_demo_run');
+            fd.append('nonce',  ypnusMLO.nonce);
+            fd.append('city',   city);
+            fd.append('niches', niches);
+            fd.append('name',   name || 'there');
+
+            fetch(ypnusMLO.ajaxUrl, { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.success) {
+                        ypnusDemoShowError(data.data && data.data.message ? data.data.message : 'Something went wrong. Please try again.');
+                        return;
+                    }
+                    ypnusDemoRender(data.data, name, city);
+                })
+                .catch(function () { ypnusDemoShowError('Connection error. Please check your internet and try again.'); });
+        };
+
+        function ypnusDemoAnimate() {
+            var steps  = ['ypnus-demo-gstep-1','ypnus-demo-gstep-2','ypnus-demo-gstep-3','ypnus-demo-gstep-4','ypnus-demo-gstep-5'];
+            var delays = [0, 1000, 2200, 3600, 5200];
+            steps.forEach(function (id, i) {
+                setTimeout(function () {
+                    var el = document.getElementById(id);
+                    if (!el) return;
+                    if (i > 0) {
+                        var prev = document.getElementById(steps[i - 1]);
+                        if (prev) { prev.classList.remove('is-active'); prev.classList.add('is-done'); }
+                    }
+                    el.classList.add('is-active');
+                }, delays[i]);
+            });
+        }
+
+        function ypnusDemoShowError(msg) {
+            document.getElementById('ypnus-demo-generating').hidden = true;
+            document.getElementById('ypnus-demo-form-wrap').hidden  = false;
+            var errEl = document.getElementById('ypnus-demo-error');
+            if (errEl) { errEl.textContent = msg; errEl.hidden = false; }
+            var btn = document.getElementById('ypnus-demo-btn');
+            if (btn) { btn.classList.remove('is-loading'); btn.disabled = false; }
+        }
+
+        function esc(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function ypnusDemoRender(data, name, city) {
+            document.getElementById('ypnus-demo-generating').hidden = true;
+            document.getElementById('ypnus-demo-results').hidden    = false;
+
+            var greeting = name && name !== 'there' ? name + ', here' : 'Here';
+            document.getElementById('ypnus-demo-headline').textContent = greeting + "'s What We'd Build For You in " + city;
+            document.getElementById('ypnus-demo-summary').textContent  = data.site_summary || '';
+
+            // Pages (show first 4)
+            var pagesEl = document.getElementById('ypnus-demo-pages');
+            pagesEl.innerHTML = '';
+            (data.pages || []).slice(0, 4).forEach(function (p, i) {
+                var card = document.createElement('div');
+                card.className = 'ypnus-demo__page-card';
+                card.innerHTML =
+                    '<div class="ypnus-demo__page-num">Page ' + (i + 1) + '</div>' +
+                    '<div class="ypnus-demo__page-title">' + esc(p.title || '') + '</div>' +
+                    '<div class="ypnus-demo__page-kw">' + esc(p.primary_keyword || '') + '</div>';
+                pagesEl.appendChild(card);
+            });
+
+            // Keywords (show 5)
+            var kwEl = document.getElementById('ypnus-demo-keywords');
+            kwEl.innerHTML = '';
+            (data.keywords || []).slice(0, 5).forEach(function (kw) {
+                var diff = (kw.difficulty || 'medium').toLowerCase();
+                var item = document.createElement('div');
+                item.className = 'ypnus-demo__kw-item';
+                item.innerHTML =
+                    '<span class="ypnus-demo__kw-word">' + esc(kw.keyword || '') + '</span>' +
+                    '<span class="ypnus-demo__kw-diff ypnus-demo__kw-diff--' + diff + '">' + esc(kw.difficulty || '') + '</span>' +
+                    '<span class="ypnus-demo__kw-intent">' + esc(kw.intent || '') + '</span>';
+                kwEl.appendChild(item);
+            });
+
+            // Sample page teaser
+            var teaser   = data.sample_page || {};
+            var teaserEl = document.getElementById('ypnus-demo-teaser');
+            if (teaser.title) {
+                var sections = (teaser.sections || []).map(function (s) { return '<li>' + esc(s) + '</li>'; }).join('');
+                teaserEl.innerHTML =
+                    '<h4>' + esc(teaser.title) + '</h4>' +
+                    '<p>' + esc(teaser.description || '') + '</p>' +
+                    (sections ? '<ul>' + sections + '</ul>' : '');
+            } else {
+                teaserEl.innerHTML = '<p>Your homepage would include a hero section, lead capture form, loan type overview, trust signals, and local SEO content for ' + esc(city) + '.</p>';
+            }
+
+            var resultsEl = document.getElementById('ypnus-demo-results');
+            if (resultsEl) resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        window.ypnusDemoRestart = function () {
+            document.getElementById('ypnus-demo-results').hidden   = true;
+            document.getElementById('ypnus-demo-form-wrap').hidden = false;
+            for (var i = 1; i <= 5; i++) {
+                var el = document.getElementById('ypnus-demo-gstep-' + i);
+                if (el) el.className = 'ypnus-demo__gen-step';
+            }
+            var btn = document.getElementById('ypnus-demo-btn');
+            if (btn) { btn.classList.remove('is-loading'); btn.disabled = false; }
+            window.scrollTo({ top: document.getElementById('ypnus-demo-wrap').offsetTop - 40, behavior: 'smooth' });
+        };
+    })();
+    </script>
+
+    <?php return ob_get_clean();
+} );
+
+// ─── AJAX: Demo Run (unauthenticated) ─────────────────────────────────────────
+
+add_action( 'wp_ajax_nopriv_ypnus_demo_run', 'ypnus_handle_demo_run' );
+add_action( 'wp_ajax_ypnus_demo_run',        'ypnus_handle_demo_run' );
+
+function ypnus_handle_demo_run() {
+    check_ajax_referer( 'ypnus_mlo_nonce', 'nonce' );
+
+    // Rate limit by IP
+    $limit = max( 1, (int) get_option( 'ypnus_demo_daily_limit', 3 ) );
+    $ip    = sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ?? '' ) );
+    $key   = 'ypnus_demo_' . md5( $ip );
+    $count = (int) get_transient( $key );
+    if ( $count >= $limit ) {
+        wp_send_json_error( [ 'message' => "You've seen today's {$limit} free previews. Come back tomorrow — or sign up now to unlock your full site immediately." ] );
+    }
+
+    $city   = sanitize_text_field( wp_unslash( $_POST['city']   ?? '' ) );
+    $niches = sanitize_text_field( wp_unslash( $_POST['niches'] ?? '' ) );
+    $name   = sanitize_text_field( wp_unslash( $_POST['name']   ?? 'there' ) );
+
+    if ( ! $city || ! $niches ) {
+        wp_send_json_error( [ 'message' => 'Please fill in all fields.' ] );
+    }
+
+    $api_key = get_option( 'ypnus_mlo_openai_key', '' );
+    if ( ! $api_key ) {
+        wp_send_json_error( [ 'message' => 'Demo is temporarily unavailable. Please try again later.' ] );
+    }
+
+    $prompt = <<<PROMPT
+You are a senior mortgage website strategist. A Mortgage Loan Officer named "{$name}" wants to preview their website. Generate a personalized website preview plan.
+
+Market: {$city}
+Loan specialties: {$niches}
+
+Return ONLY valid JSON:
+{
+  "site_summary": "2-3 sentence motivating overview of what their site would accomplish (mention the city, loan types, and lead generation potential)",
+  "pages": [
+    {
+      "title": "Page title",
+      "url_slug": "/slug",
+      "purpose": "One sentence on what this page does for leads",
+      "primary_keyword": "exact long-tail keyword this page would rank for",
+      "priority": 1
+    }
+  ],
+  "keywords": [
+    {
+      "keyword": "long-tail keyword specific to {$city} and their niches",
+      "intent": "Informational|Commercial|Transactional",
+      "difficulty": "Easy|Medium|Hard"
+    }
+  ],
+  "sample_page": {
+    "title": "Sample homepage headline for {$name} in {$city}",
+    "description": "One sentence describing what this page would accomplish for lead generation",
+    "sections": [
+      "Hero section with phone CTA button and lead capture form",
+      "Loan type overview (specific to their niches)",
+      "Trust signals: NMLS number, years experience, reviews badge",
+      "Local area section mentioning {$city} neighborhoods and market data",
+      "Client testimonial with star rating",
+      "FAQ about the mortgage process in {$city}"
+    ]
+  }
+}
+
+Include exactly 8 pages in priority order: Homepage, About/Bio, primary loan type hub (their top niche), second loan type page, local market page for {$city}, Contact/Apply Now, Mortgage Calculator, Blog/Resources hub. Make every title and keyword SPECIFIC to {$city} and their exact loan niches. Include exactly 5 keywords.
+PROMPT;
+
+    $r      = ypnus_openai( $api_key, $prompt, 0.5, 60 );
+    $result = json_decode( $r['content'] ?? '{}', true );
+
+    if ( empty( $result['pages'] ) ) {
+        wp_send_json_error( [ 'message' => 'Unable to generate your preview right now. Please try again in a moment.' ] );
+    }
+
+    // Increment rate limit (resets at midnight)
+    $seconds_until_midnight = strtotime( 'tomorrow midnight' ) - time();
+    set_transient( $key, $count + 1, $seconds_until_midnight );
+
+    wp_send_json_success( $result );
+}

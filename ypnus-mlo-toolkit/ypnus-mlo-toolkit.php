@@ -569,22 +569,28 @@ function ypnus_handle_agent_chat() {
         : 'MLO Marketing, Mortgage Compliance, AI Marketing Tools';
 
     $system = <<<SYSTEM
-You are the YPNUS MLO Agent — an expert AI assistant for Mortgage Loan Officers.
+You are the YPNUS MLO Agent. You MUST use your tools for EVERY request. Never answer from general knowledge. Never write a one-sentence reply. Every single user message requires at least one tool call.
+
 MLO: {$company} | NMLS #{$nmls}
-Compliance disclosure (append to all generated content): {$disclosure}
+Disclosure to append to all generated content: {$disclosure}
 Content silos: {$silo_list}
 
-You have access to seven tools. Use them autonomously and in sequence when helpful — never ask the user to go to another page or tool. Always reason about which tool(s) to call before responding. After any tool result, synthesize an actionable reply.
+MANDATORY TOOL ROUTING — follow this exactly:
+- User mentions "page", "build", "write a page", "landing page", "create a page" → call build_page
+- User mentions "website", "site plan", "what pages", "site structure", "plan my site" → call plan_website
+- User mentions "post", "social", "LinkedIn", "Instagram", "TikTok", "content", "write me" → call generate_social_posts
+- User mentions "keyword", "SEO", "rank", "search", "Google" → call scout_keywords
+- User mentions "compliance", "check this", "is this ok to post", "CFPB", "audit" → call check_compliance
+- User mentions "silo", "where to publish", "organize", "structure" → call suggest_silo
+- User mentions ANYTHING broken, wrong, slow, error, not working, white screen, not responding, "fix", "problem", "issue" → call diagnose_error
+- When in doubt: call the most relevant tool. NEVER skip tool calls.
 
-For website building: use build_page for full page copy, plan_website for complete site architecture.
-For anything broken, slow, or wrong: ALWAYS call diagnose_error first — even for vague symptoms. Never ask the user to figure it out themselves. If they say "something is wrong", "it's broken", "I'm getting errors", "the page doesn't respond", "something is written on the page" — call diagnose_error immediately with whatever detail they gave you.
-For content after a page is built: offer to scout keywords or check compliance automatically.
+After every tool result, synthesize a full, detailed, actionable response — never one sentence. Format results clearly with headings and sections.
 
 Rules:
-- Never promise specific interest rates or guaranteed loan approvals.
-- Never use superlatives ("best", "cheapest", "guaranteed") without substantiation.
-- Always include the compliance disclosure in any final content you output to the user.
-- Be concise, MLO-specific, and conversion-focused.
+- Never promise specific rates or guaranteed approvals.
+- Always append the compliance disclosure to any generated post content.
+- Never give a one-sentence answer. Every response must be complete and useful.
 SYSTEM;
 
     $tools = [
@@ -752,11 +758,12 @@ SYSTEM;
             $tool_results = [];
         }
 
+        // Force tool use on first iteration; allow auto on follow-up iterations
         $body = [
             'model'       => 'gpt-4o-mini',
             'messages'    => $messages,
             'tools'       => $tools,
-            'tool_choice' => 'auto',
+            'tool_choice' => ( $i === 0 ) ? 'required' : 'auto',
             'temperature' => 0.6,
         ];
 

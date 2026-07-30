@@ -2495,3 +2495,88 @@ PROMPT;
 
     wp_send_json_success( $result );
 }
+
+// ─── Customer Flow: Auto CTA on Posts & City Pages ───────────────────────────
+
+/**
+ * Appends a demo CTA block to the content of blog posts and local city loan pages.
+ * Fires on single views only — no archives, feeds, or admin.
+ */
+add_filter( 'the_content', 'ypnus_append_demo_cta', 20 );
+
+function ypnus_append_demo_cta( string $content ): string {
+    if ( is_admin() || ! is_singular() ) return $content;
+
+    global $post;
+    if ( ! $post ) return $content;
+
+    // Skip the demo page and pricing pages themselves
+    $skip_slugs = [ 'mlo-site-demo', 'pricing', 'pricing-plans', 'free-trial', 'checkout-cancel' ];
+    if ( in_array( $post->post_name, $skip_slugs, true ) ) return $content;
+
+    $show_cta = false;
+
+    // Show on all blog posts
+    if ( get_post_type( $post ) === 'post' ) {
+        $show_cta = true;
+    }
+
+    // Show on local city loan pages (slug contains a loan keyword + city pattern)
+    if ( get_post_type( $post ) === 'page' ) {
+        $loan_slugs = [ 'va-loans-', 'fha-loans-', 'conventional-loans-', 'dscr-loans-', 'jumbo-loans-',
+                        'first-time-', 'refinance-', 'usda-loans-', 'heloc-', 'reverse-' ];
+        foreach ( $loan_slugs as $prefix ) {
+            if ( str_starts_with( $post->post_name, $prefix ) ) {
+                $show_cta = true;
+                break;
+            }
+        }
+    }
+
+    if ( ! $show_cta ) return $content;
+
+    $demo_url   = esc_url( home_url( '/mlo-site-demo/' ) );
+    $city_hint  = '';
+    if ( function_exists( 'get_post_meta' ) ) {
+        // Try to pull a city name from the page title for the CTA headline
+        $title = get_the_title( $post->ID );
+        if ( preg_match( '/\bin\s+([A-Z][a-z]+(?:\s[A-Z][A-Z])?)/u', $title, $m ) ) {
+            $city_hint = ' for ' . esc_html( $m[1] );
+        }
+    }
+
+    ob_start();
+    ?>
+    <div class="ypnus-flow-cta" style="
+        margin: 48px 0 16px;
+        background: linear-gradient(135deg, #0D1B3E 0%, #1565C0 100%);
+        border-radius: 16px;
+        padding: 40px 36px;
+        text-align: center;
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    ">
+        <p style="font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.7;margin:0 0 10px;">FREE — No Account Required</p>
+        <h3 style="font-size:clamp(20px,3.5vw,28px);font-weight:800;margin:0 0 12px;line-height:1.2;">
+            See Your MLO Website Plan<?php echo $city_hint; ?> in 30 Seconds
+        </h3>
+        <p style="font-size:15px;opacity:.88;max-width:520px;margin:0 auto 24px;line-height:1.6;">
+            Enter your market and loan niche. The AI builds a personalized page map, keyword list, and sample outline — instantly.
+        </p>
+        <a href="<?php echo $demo_url; ?>" style="
+            display:inline-block;
+            background:#fff;
+            color:#1565C0;
+            font-size:16px;
+            font-weight:800;
+            padding:14px 32px;
+            border-radius:10px;
+            text-decoration:none;
+            box-shadow:0 4px 16px rgba(0,0,0,.2);
+            transition:transform .15s;
+        ">Build My Free Site Preview →</a>
+        <p style="font-size:12px;opacity:.65;margin:10px 0 0;">No email. No credit card. Just your personalized plan.</p>
+    </div>
+    <?php
+    return $content . ob_get_clean();
+}

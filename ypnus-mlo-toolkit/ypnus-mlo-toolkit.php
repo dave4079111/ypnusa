@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Mortgage Compliance Social-Content Generator, Keyword Scout, and Programmatic Silo Navigation for Loan Officers.
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -11,7 +11,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'YPNUS_MLO_VERSION', '1.0.0' );
+define( 'YPNUS_MLO_VERSION', '1.1.0' );
 define( 'YPNUS_MLO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'YPNUS_MLO_URL', plugin_dir_url( __FILE__ ) );
 

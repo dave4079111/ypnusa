@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.5.6
+ * Version:     2.5.7
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -683,6 +683,9 @@ MANDATORY TOOL ROUTING:
 - User mentions "code", "php", "function", "snippet", "plugin", "hook", "filter", "action", "custom post type", "CPT", "meta box", "REST API", "endpoint", "ajax", "database", "SQL", "query", "cron", "wp-cli", "child theme", "functions.php", "shortcode", "widget", "admin page", "build me a", "write me a", "create a script", "backend", "developer", "debug this code", "error in my code", "PHP error", "fatal error" → backend_developer
 - User mentions "menu", "nav", "navigation", "remove from menu", "add to menu", "menu item", "header link", "show me the menu", "take out", "delete from nav" → manage_nav_menu
 - User mentions "marketing", "funnel", "email sequence", "conversion", "optimize my site", "get more leads", "marketing strategy", "grow my business", "maximize", "marketing stack", "CRM", "email marketing", "drip campaign", "follow up", "automate marketing" → marketing_advisor
+- User mentions "CRO", "conversion rate", "A/B test", "heatmap", "button color", "headline test", "form conversion", "landing page test", "bounce rate", "exit intent", "above the fold", "split test", "persuasion", "trust signal", "social proof", "urgency", "scarcity", "improve my page", "why aren't people converting", "increase sign-ups" → cro_specialist
+- User mentions "email sequence", "drip sequence", "follow-up emails", "nurture sequence", "welcome series", "email funnel", "email automation", "write me emails", "email campaign", "lead magnet follow up", "onboarding emails", "borrower email", "realtor email sequence" → email_sequence_writer
+- User mentions "content strategy", "what should I write", "content plan", "editorial calendar", "content calendar", "content ideas", "blog strategy", "content roadmap", "pillar page", "cluster", "topic authority", "content gap", "what topics", "content for MLO", "content marketing plan" → content_strategist
 {$dtool_hint}
 - When in doubt: call the most relevant tool. NEVER skip.
 
@@ -925,6 +928,97 @@ function ypnus_core_tool_definitions() {
                         ],
                     ],
                     'required' => [ 'task' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'cro_specialist',
+                'description' => 'Conversion Rate Optimization specialist for MLO websites. Audits landing pages, hero sections, CTAs, forms, trust signals, headline copy, button placement, above-the-fold layout, and mobile UX. Recommends specific copy changes, element repositioning, color/contrast fixes, urgency/social-proof additions, and A/B test hypotheses — all with reasoning. Knows mortgage borrower psychology and what makes MLO prospects convert. Returns a prioritized list of changes ranked by expected impact. Use when the user asks why visitors aren\'t converting, wants to improve a page, asks about A/B testing, bounce rate, form optimization, CTA optimization, trust signals, or conversion rate.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'page_or_section' => [
+                            'type'        => 'string',
+                            'description' => 'Which page or section to audit. E.g. "homepage hero", "FHA loans page", "pricing page", "demo signup form", "about page".',
+                        ],
+                        'current_copy'    => [
+                            'type'        => 'string',
+                            'description' => 'Optional: paste the current headline, subheading, CTA text, or full section HTML to get specific rewrites.',
+                        ],
+                        'goal'            => [
+                            'type'        => 'string',
+                            'description' => 'Optional: what conversion action you want visitors to take. Defaults to booking a demo or starting an application.',
+                        ],
+                    ],
+                    'required' => [ 'page_or_section' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'email_sequence_writer',
+                'description' => 'Writes complete RESPA-compliant email nurture sequences for MLOs. Generates welcome series, post-inquiry drip campaigns, pre-approval follow-ups, realtor partner outreach sequences, rate-alert drips, borrower educational series, and re-engagement campaigns. Each email includes subject line, preview text, full body copy, and a CTA. Calibrated for mortgage compliance — no rate guarantees, no fee promises, no discriminatory language, no trigger words. Use when the user wants to write email sequences, follow-up emails, a nurture campaign, borrower emails, realtor emails, or any email marketing content.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'sequence_type' => [
+                            'type'        => 'string',
+                            'enum'        => [ 'welcome_series', 'post_inquiry_drip', 'pre_approval_followup', 'realtor_partner_outreach', 'rate_alert', 'educational_series', 're_engagement', 'custom' ],
+                            'description' => 'Type of email sequence to write.',
+                        ],
+                        'audience'      => [
+                            'type'        => 'string',
+                            'description' => 'Who the emails are for. E.g. "first-time homebuyers in Fresno CA", "real estate agents in Las Vegas", "investors interested in DSCR loans".',
+                        ],
+                        'loan_focus'    => [
+                            'type'        => 'string',
+                            'description' => 'Optional: loan type to center the sequence around. E.g. "VA loans", "FHA", "DSCR investor loans", "jumbo".',
+                        ],
+                        'num_emails'    => [
+                            'type'        => 'integer',
+                            'description' => 'How many emails in the sequence. Defaults to 5.',
+                        ],
+                        'tone'          => [
+                            'type'        => 'string',
+                            'enum'        => [ 'professional', 'friendly', 'educational', 'urgent' ],
+                            'description' => 'Voice and tone for the sequence. Defaults to friendly.',
+                        ],
+                    ],
+                    'required' => [ 'sequence_type', 'audience' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'content_strategist',
+                'description' => 'Senior content strategist for MLO websites. Builds full content plans: pillar pages, topic clusters, blog editorial calendars, lead magnet ideas, video topics, content repurposing plans, and keyword-to-content mapping. Identifies content gaps vs. competitors, suggests high-intent topics, and maps each piece of content to a funnel stage (awareness/consideration/decision). Knows local mortgage SEO and what MLO prospects actually search for. Use when the user asks what to write, wants a content plan, content calendar, blog strategy, topic ideas, pillar page strategy, or wants to understand their content gaps.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'focus'          => [
+                            'type'        => 'string',
+                            'description' => 'The content focus area. E.g. "VA loans in Fresno CA", "DSCR investor loans", "first-time homebuyer education", "refinance content", "realtor partnership content".',
+                        ],
+                        'output_type'    => [
+                            'type'        => 'string',
+                            'enum'        => [ 'editorial_calendar', 'pillar_cluster_map', 'blog_topic_list', 'lead_magnet_ideas', 'content_gap_analysis', 'full_strategy' ],
+                            'description' => 'What kind of content plan to produce. Use full_strategy for a comprehensive deliverable.',
+                        ],
+                        'time_horizon'   => [
+                            'type'        => 'string',
+                            'enum'        => [ '30_days', '90_days', '6_months', '12_months' ],
+                            'description' => 'Planning horizon. Defaults to 90_days.',
+                        ],
+                        'current_content' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: list of existing pages or posts so the strategist can avoid duplicates and find gaps.',
+                        ],
+                    ],
+                    'required' => [ 'focus' ],
                 ],
             ],
         ],
@@ -1667,6 +1761,147 @@ PROMPT;
             return $result;
         }
 
+        case 'cro_specialist': {
+            $page    = $args['page_or_section'] ?? '';
+            $copy    = $args['current_copy']    ?? '';
+            $goal    = $args['goal']            ?? 'book a free demo or start a loan application';
+            $copy_block = $copy ? "\n\nCurrent copy/HTML provided:\n{$copy}" : '';
+
+            $prompt = <<<PROMPT
+You are a senior Conversion Rate Optimization specialist with deep expertise in mortgage websites and MLO lead generation.
+
+PAGE / SECTION TO AUDIT: {$page}
+CONVERSION GOAL: {$goal}{$copy_block}
+
+Perform a comprehensive CRO audit. Return a JSON object with:
+{
+  "headline_score": integer 1-10,
+  "overall_assessment": "2-3 sentence summary of conversion strength",
+  "priority_fixes": [
+    {
+      "rank": 1,
+      "element": "what element (headline, CTA button, hero image, form, trust badge, etc.)",
+      "issue": "specific problem",
+      "fix": "exact recommended change",
+      "expected_lift": "estimated % improvement in conversions",
+      "effort": "low|medium|high"
+    }
+  ],
+  "copy_rewrites": {
+    "headline": "new headline if applicable",
+    "subheadline": "new subheadline",
+    "cta_button": "new CTA text",
+    "supporting_copy": "any other copy improvements"
+  },
+  "trust_signals_to_add": ["list of specific trust elements to add"],
+  "ab_test_hypotheses": [
+    {"hypothesis": "if we change X to Y, conversions will increase because Z", "priority": "high|medium|low"}
+  ],
+  "quick_wins": ["list of changes that take under 30 minutes and have high impact"]
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.4, 90 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['priority_fixes'] ) ) {
+                $result = [ 'overall_assessment' => $r['content'] ?? '', 'priority_fixes' => [], 'copy_rewrites' => [], 'trust_signals_to_add' => [], 'ab_test_hypotheses' => [], 'quick_wins' => [] ];
+            }
+            return $result;
+        }
+
+        case 'email_sequence_writer': {
+            $seq_type   = $args['sequence_type'] ?? 'welcome_series';
+            $audience   = $args['audience']      ?? 'mortgage borrowers';
+            $loan_focus = $args['loan_focus']    ?? '';
+            $num_emails = max( 1, min( 10, (int)( $args['num_emails'] ?? 5 ) ) );
+            $tone       = $args['tone']          ?? 'friendly';
+            $loan_block = $loan_focus ? "\nLoan type focus: {$loan_focus}" : '';
+
+            $prompt = <<<PROMPT
+You are a senior email copywriter specializing in RESPA-compliant mortgage marketing. You write high-converting email sequences for MLOs that build trust, educate prospects, and drive loan applications.
+
+SEQUENCE TYPE: {$seq_type}
+AUDIENCE: {$audience}{$loan_block}
+NUMBER OF EMAILS: {$num_emails}
+TONE: {$tone}
+
+COMPLIANCE RULES — every email must follow these without exception:
+- No specific interest rate promises or guarantees
+- No guarantee of loan approval
+- No discriminatory language (no references to race, religion, national origin, etc.)
+- No pressure tactics that violate fair lending
+- Include "Equal Housing Lender" reminder in at least the first email
+- Avoid trigger words: "guaranteed", "lowest rate", "best rate", "no money down" (unless VA/USDA specific)
+- Keep educational — inform, don't mislead
+
+Return a JSON object:
+{
+  "sequence_name": "descriptive name",
+  "audience_summary": "who this is for",
+  "emails": [
+    {
+      "email_number": 1,
+      "send_timing": "immediately / day 2 / day 5 / etc.",
+      "subject_line": "subject here",
+      "preview_text": "preview text here (50 chars max)",
+      "body": "full email body with line breaks. Use [MLO_NAME], [BORROWER_NAME] placeholders.",
+      "cta_text": "CTA button label",
+      "cta_url_placeholder": "[DEMO_URL] or [APPLICATION_URL] or [PHONE_NUMBER]",
+      "compliance_note": "any compliance consideration for this specific email"
+    }
+  ],
+  "setup_notes": "how to configure this in an email platform like Mailchimp, ActiveCampaign, or FluentCRM"
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.6, 120 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['emails'] ) ) {
+                $result = [ 'sequence_name' => 'Email Sequence', 'emails' => [], 'raw' => $r['content'] ?? '' ];
+            }
+            return $result;
+        }
+
+        case 'content_strategist': {
+            $focus    = $args['focus']           ?? '';
+            $out_type = $args['output_type']     ?? 'full_strategy';
+            $horizon  = $args['time_horizon']    ?? '90_days';
+            $existing = $args['current_content'] ?? '';
+            $exist_block = $existing ? "\n\nExisting content (avoid duplicating):\n{$existing}" : '';
+
+            $prompt = <<<PROMPT
+You are a senior content strategist specializing in mortgage loan officer websites and local SEO. You build content architectures that drive organic traffic, capture leads, and establish topical authority for MLOs.
+
+CONTENT FOCUS: {$focus}
+OUTPUT TYPE: {$out_type}
+PLANNING HORIZON: {$horizon}{$exist_block}
+
+Return a JSON object:
+{
+  "strategy_summary": "2-3 sentences on the overall approach",
+  "pillar_pages": [
+    {"title": "page title", "slug": "/url-slug/", "primary_keyword": "keyword", "funnel_stage": "awareness|consideration|decision", "word_count_target": 2000, "content_brief": "what this page covers"}
+  ],
+  "cluster_posts": [
+    {"title": "blog post title", "slug": "/url-slug/", "primary_keyword": "keyword", "funnel_stage": "awareness|consideration|decision", "links_to_pillar": "/pillar-slug/", "publish_week": 1}
+  ],
+  "lead_magnets": [
+    {"title": "lead magnet name", "format": "checklist|guide|calculator|video", "topic": "what it covers", "cta_placement": "where to promote it"}
+  ],
+  "content_gaps": ["topic or keyword not yet covered that competitors rank for"],
+  "quick_publish_wins": ["pieces that are fast to write and high-intent"],
+  "editorial_calendar_summary": "plain English week-by-week plan for the horizon"
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.5, 120 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['pillar_pages'] ) && empty( $result['cluster_posts'] ) ) {
+                $result = [ 'strategy_summary' => $r['content'] ?? '', 'pillar_pages' => [], 'cluster_posts' => [], 'lead_magnets' => [], 'content_gaps' => [], 'quick_publish_wins' => [], 'editorial_calendar_summary' => '' ];
+            }
+            return $result;
+        }
+
         case 'backend_developer': {
             $task          = $args['task']          ?? '';
             $context       = $args['context']       ?? '';
@@ -1966,6 +2201,112 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
         if ( $where ) $out .= "**Where to add:** {$where}\n\n";
         if ( $eligibility ) $out .= "**Rich result eligibility:** {$eligibility}\n\n";
         $out .= "**Validate at:** [{$val_url}]({$val_url})";
+        return $out;
+    }
+    if ( $fn_name === 'cro_specialist' ) {
+        $assessment = $result['overall_assessment'] ?? '';
+        $fixes      = $result['priority_fixes']     ?? [];
+        $rewrites   = $result['copy_rewrites']      ?? [];
+        $trust      = $result['trust_signals_to_add'] ?? [];
+        $ab_tests   = $result['ab_test_hypotheses'] ?? [];
+        $quick_wins = $result['quick_wins']         ?? [];
+
+        $out = "## 🎯 CRO Audit Results\n\n";
+        if ( $assessment ) $out .= "**Assessment:** {$assessment}\n\n";
+
+        if ( $fixes ) {
+            $out .= "### Priority Fixes\n";
+            foreach ( $fixes as $f ) {
+                $rank   = $f['rank']           ?? '';
+                $elem   = $f['element']        ?? '';
+                $issue  = $f['issue']          ?? '';
+                $fix    = $f['fix']            ?? '';
+                $lift   = $f['expected_lift']  ?? '';
+                $effort = $f['effort']         ?? '';
+                $out .= "**#{$rank} — {$elem}** `[{$effort} effort | +{$lift}]`\n";
+                $out .= "_Problem:_ {$issue}\n_Fix:_ {$fix}\n\n";
+            }
+        }
+        if ( $rewrites ) {
+            $out .= "### Suggested Copy Rewrites\n";
+            foreach ( $rewrites as $k => $v ) {
+                if ( $v ) $out .= "- **" . ucfirst( str_replace( '_', ' ', $k ) ) . ":** {$v}\n";
+            }
+            $out .= "\n";
+        }
+        if ( $trust )      $out .= "### Trust Signals to Add\n" . implode( "\n", array_map( fn($t) => "- {$t}", $trust ) ) . "\n\n";
+        if ( $ab_tests ) {
+            $out .= "### A/B Test Hypotheses\n";
+            foreach ( $ab_tests as $t ) $out .= "- [{$t['priority']}] {$t['hypothesis']}\n";
+            $out .= "\n";
+        }
+        if ( $quick_wins ) $out .= "### Quick Wins (< 30 min)\n" . implode( "\n", array_map( fn($q) => "- {$q}", $quick_wins ) );
+        return $out;
+    }
+    if ( $fn_name === 'email_sequence_writer' ) {
+        $name   = $result['sequence_name']    ?? 'Email Sequence';
+        $emails = $result['emails']           ?? [];
+        $setup  = $result['setup_notes']      ?? '';
+        $raw    = $result['raw']              ?? '';
+
+        if ( $raw && empty( $emails ) ) return "## 📧 {$name}\n\n{$raw}";
+
+        $out = "## 📧 {$name}\n\n";
+        foreach ( $emails as $e ) {
+            $num     = $e['email_number']        ?? '';
+            $timing  = $e['send_timing']         ?? '';
+            $subject = $e['subject_line']        ?? '';
+            $preview = $e['preview_text']        ?? '';
+            $body    = $e['body']                ?? '';
+            $cta     = $e['cta_text']            ?? '';
+            $note    = $e['compliance_note']     ?? '';
+
+            $out .= "---\n### Email {$num} — Send: {$timing}\n";
+            $out .= "**Subject:** {$subject}\n**Preview:** _{$preview}_\n\n";
+            $out .= $body . "\n\n";
+            if ( $cta )  $out .= "**CTA:** [{$cta}]\n";
+            if ( $note ) $out .= "> ⚖️ _Compliance note: {$note}_\n";
+            $out .= "\n";
+        }
+        if ( $setup ) $out .= "---\n### Setup Notes\n{$setup}";
+        return $out;
+    }
+    if ( $fn_name === 'content_strategist' ) {
+        $summary   = $result['strategy_summary']         ?? '';
+        $pillars   = $result['pillar_pages']             ?? [];
+        $clusters  = $result['cluster_posts']            ?? [];
+        $magnets   = $result['lead_magnets']             ?? [];
+        $gaps      = $result['content_gaps']             ?? [];
+        $quick     = $result['quick_publish_wins']       ?? [];
+        $calendar  = $result['editorial_calendar_summary'] ?? '';
+
+        $out = "## 📋 Content Strategy\n\n";
+        if ( $summary ) $out .= "**Strategy:** {$summary}\n\n";
+
+        if ( $pillars ) {
+            $out .= "### Pillar Pages\n";
+            foreach ( $pillars as $p ) {
+                $out .= "- **{$p['title']}** — `{$p['slug']}` _{$p['funnel_stage']}_ | {$p['word_count_target']} words\n";
+                if ( ! empty( $p['content_brief'] ) ) $out .= "  {$p['content_brief']}\n";
+            }
+            $out .= "\n";
+        }
+        if ( $clusters ) {
+            $out .= "### Cluster Blog Posts\n";
+            foreach ( $clusters as $c ) {
+                $week = isset( $c['publish_week'] ) ? " (Week {$c['publish_week']})" : '';
+                $out .= "- **{$c['title']}** — `{$c['slug']}`{$week} → links to `{$c['links_to_pillar']}`\n";
+            }
+            $out .= "\n";
+        }
+        if ( $magnets ) {
+            $out .= "### Lead Magnets\n";
+            foreach ( $magnets as $m ) $out .= "- **{$m['title']}** ({$m['format']}) — {$m['topic']} | Promote: {$m['cta_placement']}\n";
+            $out .= "\n";
+        }
+        if ( $gaps )   $out .= "### Content Gaps\n" . implode( "\n", array_map( fn($g) => "- {$g}", $gaps ) ) . "\n\n";
+        if ( $quick )  $out .= "### Quick Publish Wins\n" . implode( "\n", array_map( fn($q) => "- {$q}", $quick ) ) . "\n\n";
+        if ( $calendar ) $out .= "### Editorial Calendar\n{$calendar}";
         return $out;
     }
     if ( $fn_name === 'create_tool' ) {

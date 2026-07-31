@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.5.0
+ * Version:     2.5.6
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -677,6 +677,9 @@ MANDATORY TOOL ROUTING:
 - User asks you to build a new capability, "teach yourself", "add a tool", "you can't do X" → create_tool
 - User wants to change how an existing tool works → update_tool
 - User mentions "plugin", "install", "what plugin", "best plugin", "plugin conflict", "plugin recommendation", "which plugin", "do I need", "plugin for" → recommend_plugins
+- User mentions "html", "css", "javascript", "js", "frontend", "front end", "design", "layout", "hero section", "banner", "card", "grid", "animation", "slider", "accordion", "FAQ", "modal", "tab", "responsive", "mobile", "button style", "color scheme", "landing page design", "page section", "UI", "user interface", "Tailwind", "flex", "flexbox", "component", "pricing table design", "testimonial section", "CTA block", "sticky header" → frontend_developer
+- User mentions "speed", "slow", "fast", "performance", "Core Web Vitals", "CWV", "LCP", "CLS", "INP", "TTFB", "PageSpeed", "Lighthouse", "caching", "cache", "minif", "lazy load", "CDN", "image optim", "compress", "defer", "render block", "database slow", "query slow", "OPcache", "LiteSpeed", "WP Rocket", "W3TC", "optimize", "Google score" → performance_engineer
+- User mentions "schema", "structured data", "JSON-LD", "rich result", "rich snippet", "local business markup", "FAQ schema", "review stars", "star rating Google", "breadcrumb schema", "LocalBusiness", "MortgageLender", "markup" → schema_markup_builder
 - User mentions "code", "php", "function", "snippet", "plugin", "hook", "filter", "action", "custom post type", "CPT", "meta box", "REST API", "endpoint", "ajax", "database", "SQL", "query", "cron", "wp-cli", "child theme", "functions.php", "shortcode", "widget", "admin page", "build me a", "write me a", "create a script", "backend", "developer", "debug this code", "error in my code", "PHP error", "fatal error" → backend_developer
 - User mentions "menu", "nav", "navigation", "remove from menu", "add to menu", "menu item", "header link", "show me the menu", "take out", "delete from nav" → manage_nav_menu
 - User mentions "marketing", "funnel", "email sequence", "conversion", "optimize my site", "get more leads", "marketing strategy", "grow my business", "maximize", "marketing stack", "CRM", "email marketing", "drip campaign", "follow up", "automate marketing" → marketing_advisor
@@ -811,6 +814,87 @@ function ypnus_core_tool_definitions() {
                         ],
                     ],
                     'required' => [ 'action' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'frontend_developer',
+                'description' => 'Senior frontend developer specialist. Writes production-ready HTML, CSS, and JavaScript for WordPress pages, custom sections, hero blocks, animated components, responsive layouts, and interactive UI elements. Knows GeneratePress theme structure, Gutenberg block HTML output, CSS custom properties, Flexbox/Grid, vanilla JS (no jQuery dependency), and Hostinger-compatible inline/enqueued assets. Also handles Tailwind utility classes if requested. Outputs complete copy-paste code — never pseudo-code. Use when the user needs a page section, custom hero, pricing table, card grid, testimonial slider, FAQ accordion, sticky nav, animated CTA, modal, tab component, or any HTML/CSS/JS UI work.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'task' => [
+                            'type'        => 'string',
+                            'description' => 'What to build. Describe the UI component, layout, or page section in plain English.',
+                        ],
+                        'context' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: existing HTML to modify, brand colors, font names, or design constraints.',
+                        ],
+                        'output_type' => [
+                            'type'        => 'string',
+                            'enum'        => [ 'html_css_js', 'gutenberg_block_html', 'wp_shortcode', 'css_only', 'js_only', 'full_page_section' ],
+                            'description' => 'Format of the output. Defaults to html_css_js.',
+                        ],
+                        'save_as_draft' => [
+                            'type'        => 'boolean',
+                            'description' => 'Save the output as a WordPress draft post for easy access later.',
+                        ],
+                    ],
+                    'required' => [ 'task' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'performance_engineer',
+                'description' => 'WordPress performance and Core Web Vitals specialist. Audits and fixes LCP, CLS, INP, FID, TTFB on Hostinger shared hosting. Configures caching (LiteSpeed, WP Rocket, W3TC), image optimization, lazy loading, critical CSS, font loading, JS/CSS minification and deferral, database cleanup, slow query identification, and CDN setup. Knows Hostinger LiteSpeed server specifics, PHP 8.3 OPcache, and GeneratePress performance settings. Returns a prioritized action plan with exact settings and code changes — not generic advice. Use when the user asks about site speed, slow loading, Core Web Vitals scores, Google PageSpeed, caching, or optimization.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'symptom' => [
+                            'type'        => 'string',
+                            'description' => 'What is slow or what score/metric needs improving. E.g. "LCP is 4.2s on mobile", "PageSpeed score is 54", "site feels slow on 3G", "TTFB is 800ms".',
+                        ],
+                        'current_setup' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: active caching plugin, image plugin, CDN, page builder, known heavy plugins.',
+                        ],
+                        'page_url' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: specific page URL to diagnose.',
+                        ],
+                    ],
+                    'required' => [ 'symptom' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'schema_markup_builder',
+                'description' => 'Builds complete JSON-LD schema markup for WordPress pages. Generates LocalBusiness, MortgageLender, LoanOrFund, FAQPage, HowTo, Review, AggregateRating, BreadcrumbList, WebPage, and Person schemas. Outputs ready-to-paste script blocks and explains which pages to add them to for maximum Google rich result eligibility. Use when the user asks about schema, structured data, rich results, JSON-LD, local business markup, FAQ schema, or review stars in Google.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'schema_type' => [
+                            'type'        => 'string',
+                            'enum'        => [ 'local_business', 'mortgage_lender', 'faq', 'how_to', 'review', 'breadcrumb', 'person', 'webpage', 'auto' ],
+                            'description' => 'Type of schema to generate. Use auto to let the agent decide based on the page description.',
+                        ],
+                        'page_description' => [
+                            'type'        => 'string',
+                            'description' => 'Describe the page this schema is for. E.g. "VA loans page for Fresno CA", "homepage", "about page for MLO named Dave", "FAQ page about FHA loans".',
+                        ],
+                        'business_details' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: business name, address, phone, hours, NMLS number, review count, rating. Leave blank to use plugin settings.',
+                        ],
+                    ],
+                    'required' => [ 'page_description' ],
                 ],
             ],
         ],
@@ -1432,6 +1516,157 @@ PROMPT;
             return $result ?: [ 'error' => 'Marketing advisory failed.' ];
         }
 
+        case 'frontend_developer': {
+            $task        = $args['task']        ?? '';
+            $context     = $args['context']     ?? '';
+            $output_type = $args['output_type'] ?? 'html_css_js';
+            $save_draft  = ! empty( $args['save_as_draft'] );
+            $ctx_block   = $context ? "\nContext/constraints:\n{$context}" : '';
+
+            $prompt = <<<PROMPT
+You are a senior frontend developer specializing in WordPress and mortgage marketing websites.
+
+Site context:
+- WordPress with GeneratePress theme (no page builder)
+- Hosted on Hostinger shared hosting (LiteSpeed)
+- Brand: dark navy (#0D1B3E), gold (#C9A15F), white — clean, professional, trust-building
+- Output type requested: {$output_type}
+
+TASK: {$task}{$ctx_block}
+
+RULES:
+1. Write complete, production-ready code — no placeholders
+2. Self-contained: inline the CSS in a <style> block and JS in a <script> block unless told otherwise
+3. Responsive by default: mobile-first, test at 375px and 1200px
+4. No jQuery — use vanilla JS only
+5. CSS: use custom properties (--var) for colors and spacing, BEM-adjacent class names
+6. Accessibility: semantic HTML, aria labels where needed, focus states
+7. If generating a WordPress shortcode, wrap in add_shortcode() PHP
+8. Keep animations subtle — this is a professional finance site
+
+Return JSON:
+{
+  "title": "Short component name",
+  "files": [
+    {"path": "paste location or file path", "language": "html|css|js|php", "code": "full code here"}
+  ],
+  "how_to_use": "Exact steps to add this to WordPress",
+  "preview_description": "One sentence describing what the user will see"
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.3, 90 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['files'] ) ) {
+                $result = [ 'title' => 'Frontend Output', 'files' => [ [ 'path' => 'See below', 'language' => 'html', 'code' => $r['content'] ?? '' ] ], 'how_to_use' => '', 'preview_description' => '' ];
+            }
+
+            if ( $save_draft ) {
+                $combined = '';
+                foreach ( $result['files'] as $f ) $combined .= "/* {$f['path']} */\n{$f['code']}\n\n";
+                $did = wp_insert_post( [ 'post_title' => 'Frontend: ' . ( $result['title'] ?? $task ), 'post_content' => '<pre>' . esc_html( $combined ) . '</pre>', 'post_status' => 'draft', 'post_type' => 'post' ] );
+                $result['draft_edit_url'] = is_wp_error( $did ) ? '' : get_edit_post_link( $did, 'raw' );
+            }
+            return $result;
+        }
+
+        case 'performance_engineer': {
+            $symptom = $args['symptom']      ?? '';
+            $setup   = $args['current_setup'] ?? '';
+            $page    = $args['page_url']      ?? '';
+
+            $nmls_val    = get_option( 'ypnus_mlo_nmls', '' );
+            $company_val = get_option( 'ypnus_mlo_company', '' );
+
+            $prompt = <<<PROMPT
+You are a WordPress performance engineer specializing in Hostinger shared hosting optimization.
+
+Site context:
+- Hosting: Hostinger Cloud shared (LiteSpeed web server, PHP 8.3, MySQL 8, OPcache enabled)
+- WordPress theme: GeneratePress (lightweight, no page builder)
+- NMLS-regulated mortgage site — must stay live, no risky experiments
+- Active plugins include: YPNUS MLO Toolkit (custom), WPForms Lite
+
+Symptom / goal: {$symptom}
+Current setup: {$setup}
+Page in question: {$page}
+
+Produce a complete performance optimization plan. Return JSON:
+{
+  "diagnosis": "Root cause analysis in 2-3 sentences",
+  "priority_fixes": [
+    {
+      "fix": "Action title",
+      "impact": "High|Medium|Low",
+      "effort": "5min|30min|1hr|1day",
+      "how": "Exact steps — plugin settings, code snippet, or server config to change",
+      "expected_gain": "What metric improves and by how much"
+    }
+  ],
+  "hostinger_specific": "LiteSpeed/Hostinger-specific settings to enable (LiteSpeed Cache config, OPcache settings, etc.)",
+  "code_snippet": "Any functions.php or plugin code to add (empty string if none)",
+  "tools_to_use": ["List of free tools to measure results"],
+  "do_not_do": ["Common mistakes to avoid on this stack"]
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.2, 60 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['priority_fixes'] ) ) {
+                $result = [ 'diagnosis' => $r['content'] ?? 'Analysis unavailable.', 'priority_fixes' => [], 'hostinger_specific' => '', 'code_snippet' => '', 'tools_to_use' => [], 'do_not_do' => [] ];
+            }
+            return $result;
+        }
+
+        case 'schema_markup_builder': {
+            $schema_type = $args['schema_type']       ?? 'auto';
+            $page_desc   = $args['page_description']  ?? '';
+            $biz_details = $args['business_details']  ?? '';
+
+            $nmls_val    = get_option( 'ypnus_mlo_nmls', '' );
+            $company_val = get_option( 'ypnus_mlo_company', '' );
+            $site_url    = get_site_url();
+
+            $auto_biz = $biz_details ?: "Business: {$company_val}, NMLS: {$nmls_val}, Site: {$site_url}";
+
+            $prompt = <<<PROMPT
+You are a structured data and schema markup expert for mortgage websites.
+
+Site context:
+- {$auto_biz}
+- Mortgage Loan Officer / MLO marketing platform
+- WordPress site on {$site_url}
+
+Page description: {$page_desc}
+Schema type requested: {$schema_type}
+
+Generate complete, valid JSON-LD schema markup. Rules:
+1. Output valid JSON-LD that passes Google Rich Results Test
+2. Include @context, @type, and all required fields for the schema type
+3. For local_business/mortgage_lender: include geo, openingHours, areaServed, hasCredential for NMLS
+4. For faq: include minimum 4 realistic Q&A pairs relevant to the page topic
+5. For person: include MLO-specific credential fields
+6. Always include a sameAs array with NMLS Consumer Access URL if NMLS number is known
+7. Stack multiple schema types in a @graph array when appropriate
+
+Return JSON:
+{
+  "schema_types_used": ["list of @types in the output"],
+  "script_block": "The complete <script type='application/ld+json'>...</script> block ready to paste",
+  "where_to_add": "Exact WordPress instructions for adding this (plugin, theme, specific page)",
+  "rich_result_eligibility": "Which Google rich results this qualifies for",
+  "validation_url": "https://search.google.com/test/rich-results"
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.1, 60 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['script_block'] ) ) {
+                $result = [ 'schema_types_used' => [], 'script_block' => $r['content'] ?? '', 'where_to_add' => '', 'rich_result_eligibility' => '', 'validation_url' => 'https://search.google.com/test/rich-results' ];
+            }
+            return $result;
+        }
+
         case 'backend_developer': {
             $task          = $args['task']          ?? '';
             $context       = $args['context']       ?? '';
@@ -1674,6 +1909,63 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
         if ( $draft ) {
             $out .= "📋 **[View saved draft in WordPress admin]({$draft})**\n";
         }
+        return $out;
+    }
+    if ( $fn_name === 'frontend_developer' ) {
+        $title   = $result['title']               ?? 'Frontend Output';
+        $files   = $result['files']               ?? [];
+        $howto   = $result['how_to_use']          ?? '';
+        $preview = $result['preview_description'] ?? '';
+
+        $out = "## 🎨 Frontend Dev: {$title}\n\n";
+        if ( $preview ) $out .= "_Preview:_ {$preview}\n\n";
+
+        foreach ( $files as $f ) {
+            $path = $f['path']     ?? '';
+            $lang = $f['language'] ?? 'html';
+            $code = $f['code']     ?? '';
+            if ( $path ) $out .= "**File:** `{$path}`\n\n";
+            $out .= "```{$lang}\n{$code}\n```\n\n";
+        }
+
+        if ( $howto ) $out .= "### How to Use\n{$howto}\n";
+        return $out;
+    }
+    if ( $fn_name === 'performance_engineer' ) {
+        $diagnosis = $result['diagnosis']         ?? '';
+        $fixes     = $result['priority_fixes']    ?? [];
+        $hostinger = $result['hostinger_specific'] ?? '';
+        $snippet   = $result['code_snippet']      ?? '';
+        $tools     = $result['tools_to_use']      ?? [];
+        $avoid     = $result['do_not_do']         ?? [];
+
+        $out = "## ⚡ Performance Audit\n\n";
+        if ( $diagnosis ) $out .= "**Diagnosis:** {$diagnosis}\n\n";
+
+        if ( $fixes ) {
+            $out .= "### Priority Fixes\n";
+            foreach ( $fixes as $i => $f ) $out .= ( $i + 1 ) . ". {$f}\n";
+            $out .= "\n";
+        }
+        if ( $hostinger ) $out .= "**Hostinger-Specific:** {$hostinger}\n\n";
+        if ( $snippet )   $out .= "### Code / Config\n```\n{$snippet}\n```\n\n";
+        if ( $tools )     $out .= "**Tools to use:** " . implode( ', ', $tools ) . "\n\n";
+        if ( $avoid )     $out .= "**Avoid:** " . implode( ', ', $avoid ) . "\n";
+        return $out;
+    }
+    if ( $fn_name === 'schema_markup_builder' ) {
+        $types      = $result['schema_types_used']       ?? [];
+        $script     = $result['script_block']            ?? '';
+        $where      = $result['where_to_add']            ?? '';
+        $eligibility = $result['rich_result_eligibility'] ?? '';
+        $val_url    = $result['validation_url']          ?? 'https://search.google.com/test/rich-results';
+
+        $out = "## 🏷 Schema Markup\n\n";
+        if ( $types ) $out .= "**Types:** " . implode( ', ', $types ) . "\n\n";
+        if ( $script ) $out .= "### JSON-LD Script Block\n```json\n{$script}\n```\n\n";
+        if ( $where ) $out .= "**Where to add:** {$where}\n\n";
+        if ( $eligibility ) $out .= "**Rich result eligibility:** {$eligibility}\n\n";
+        $out .= "**Validate at:** [{$val_url}]({$val_url})";
         return $out;
     }
     if ( $fn_name === 'create_tool' ) {

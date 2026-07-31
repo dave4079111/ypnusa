@@ -3,7 +3,7 @@
  * Plugin Name: YPNUS MLO Toolkit
  * Plugin URI:  https://ypnus.com
  * Description: Self-learning agentic AI for Mortgage Loan Officers — builds pages, writes compliant content, scores GMB, scouts keywords, and grows its own toolset from the WordPress dashboard.
- * Version:     2.5.7
+ * Version:     2.5.8
  * Author:      YPNUS
  * License:     GPL-2.0+
  * Text Domain: ypnus-mlo
@@ -686,6 +686,9 @@ MANDATORY TOOL ROUTING:
 - User mentions "CRO", "conversion rate", "A/B test", "heatmap", "button color", "headline test", "form conversion", "landing page test", "bounce rate", "exit intent", "above the fold", "split test", "persuasion", "trust signal", "social proof", "urgency", "scarcity", "improve my page", "why aren't people converting", "increase sign-ups" → cro_specialist
 - User mentions "email sequence", "drip sequence", "follow-up emails", "nurture sequence", "welcome series", "email funnel", "email automation", "write me emails", "email campaign", "lead magnet follow up", "onboarding emails", "borrower email", "realtor email sequence" → email_sequence_writer
 - User mentions "content strategy", "what should I write", "content plan", "editorial calendar", "content calendar", "content ideas", "blog strategy", "content roadmap", "pillar page", "cluster", "topic authority", "content gap", "what topics", "content for MLO", "content marketing plan" → content_strategist
+- User mentions "video", "YouTube", "reel", "short video", "TikTok video", "script", "talking head", "video script", "record a video", "explainer video", "mortgage video", "video content", "video for MLO", "video idea" → video_script_writer
+- User mentions "realtor", "real estate agent", "referral partner", "builder partner", "partnership", "co-marketing", "referral system", "agent outreach", "build realtor relationships", "agent pipeline", "real estate partnerships", "referral network" → realtor_partner_system
+- User mentions "analytics", "Google Analytics", "GA4", "stats", "traffic data", "which pages", "what's working", "bounce rate data", "conversion data", "interpret my data", "read my analytics", "what do my numbers mean", "site performance data", "sessions", "pageviews", "funnel drop-off" → analytics_interpreter
 {$dtool_hint}
 - When in doubt: call the most relevant tool. NEVER skip.
 
@@ -928,6 +931,91 @@ function ypnus_core_tool_definitions() {
                         ],
                     ],
                     'required' => [ 'task' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'video_script_writer',
+                'description' => 'Writes complete, ready-to-record video scripts for MLOs. Produces YouTube explainer videos, short-form Reels/TikToks, talking-head introductions, loan product explainers, FAQ videos, local market updates, realtor co-marketing videos, and testimonial prompts. Each script includes a hook, talking points, B-roll cues, on-screen text suggestions, and a CTA. All content is RESPA-compliant — no rate promises, no approval guarantees. Use when the user asks to write a video script, create video content, record a YouTube video, make a reel, or produce any mortgage video.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'topic'       => [
+                            'type'        => 'string',
+                            'description' => 'What the video is about. E.g. "How VA loans work in Fresno CA", "5 mistakes first-time buyers make", "What is a DSCR loan", "Why work with an MLO".',
+                        ],
+                        'format'      => [
+                            'type'        => 'string',
+                            'enum'        => [ 'youtube_long', 'short_reel', 'talking_head_intro', 'loan_explainer', 'faq_video', 'local_market_update', 'realtor_collab', 'testimonial_prompt' ],
+                            'description' => 'Video format. youtube_long = 5-10 min; short_reel = 30-60 sec; others are 1-3 min.',
+                        ],
+                        'target_audience' => [
+                            'type'        => 'string',
+                            'description' => 'Who will watch. E.g. "first-time buyers in Fresno CA", "real estate investors", "military veterans", "real estate agents".',
+                        ],
+                        'include_broll' => [
+                            'type'        => 'boolean',
+                            'description' => 'Set true to include B-roll shot suggestions and on-screen text overlays.',
+                        ],
+                    ],
+                    'required' => [ 'topic' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'realtor_partner_system',
+                'description' => 'Builds complete realtor referral partnership systems for MLOs. Creates outreach scripts (email, phone, text, LinkedIn), co-marketing content plans, joint webinar frameworks, open house flyer copy, value proposition messaging for realtors, partner onboarding sequences, and CRM tagging strategies for agent partners. Also generates a partnership tier structure (active / preferred / elite) with benefits for each level. Use when the user asks about building realtor relationships, agent partnerships, referral systems, co-marketing, or growing their referral network.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'output_type' => [
+                            'type'        => 'string',
+                            'enum'        => [ 'outreach_scripts', 'co_marketing_plan', 'partnership_tiers', 'onboarding_sequence', 'value_prop_messaging', 'full_system' ],
+                            'description' => 'What part of the realtor partner system to build. Use full_system for a complete package.',
+                        ],
+                        'market'      => [
+                            'type'        => 'string',
+                            'description' => 'Geographic market to target. E.g. "Fresno CA", "Las Vegas NV and Phoenix AZ", "Central Valley California".',
+                        ],
+                        'loan_specialty' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: loan type(s) the MLO specializes in that realtors should know about. E.g. "VA loans and FHA", "jumbo and conventional", "DSCR investor loans".',
+                        ],
+                        'agent_count_goal' => [
+                            'type'        => 'integer',
+                            'description' => 'Optional: how many active referral agents the MLO wants to build relationships with. Used to size the system.',
+                        ],
+                    ],
+                    'required' => [ 'output_type', 'market' ],
+                ],
+            ],
+        ],
+        [
+            'type'     => 'function',
+            'function' => [
+                'name'        => 'analytics_interpreter',
+                'description' => 'Interprets website analytics data for MLOs and turns raw numbers into clear business decisions. Reads GA4 reports, traffic breakdowns, page performance data, funnel drop-off points, keyword rankings, and conversion data — then explains in plain English what is working, what is broken, and exactly what to do next. Identifies top-performing pages to double down on, weak pages to fix or retire, traffic sources to invest in, and funnel leaks to plug. Use when the user shares analytics data, asks what their numbers mean, wants to understand their traffic, or asks which pages are performing.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'data_snapshot' => [
+                            'type'        => 'string',
+                            'description' => 'Paste the raw analytics data here — GA4 export, table of pages/sessions/bounce rates, keyword rankings, or any traffic numbers you want interpreted.',
+                        ],
+                        'question'      => [
+                            'type'        => 'string',
+                            'description' => 'Optional: specific question about the data. E.g. "Why is my bounce rate so high?", "Which pages should I improve first?", "Where am I losing leads in the funnel?".',
+                        ],
+                        'business_context' => [
+                            'type'        => 'string',
+                            'description' => 'Optional: what the site is trying to do. Defaults to "convert mortgage prospects into demo sign-ups and loan applications".',
+                        ],
+                    ],
+                    'required' => [ 'data_snapshot' ],
                 ],
             ],
         ],
@@ -1761,6 +1849,156 @@ PROMPT;
             return $result;
         }
 
+        case 'video_script_writer': {
+            $topic    = $args['topic']            ?? '';
+            $format   = $args['format']           ?? 'talking_head_intro';
+            $audience = $args['target_audience']  ?? 'mortgage borrowers';
+            $broll    = ! empty( $args['include_broll'] );
+            $broll_hint = $broll ? 'Include B-roll shot suggestions and on-screen text overlay cues in square brackets.' : '';
+
+            $length_map = [
+                'youtube_long'       => '5–8 minutes (750–1200 words of spoken content)',
+                'short_reel'         => '30–60 seconds (75–150 words of spoken content)',
+                'talking_head_intro' => '60–90 seconds (150–225 words of spoken content)',
+                'loan_explainer'     => '2–3 minutes (300–450 words of spoken content)',
+                'faq_video'          => '2–4 minutes, cover 3–5 questions',
+                'local_market_update' => '2–3 minutes focusing on local data and trends',
+                'realtor_collab'     => '60–90 seconds, joint value proposition',
+                'testimonial_prompt' => 'A list of 5–7 prompt questions to guide a borrower testimonial recording',
+            ];
+            $length = $length_map[ $format ] ?? '2–3 minutes';
+
+            $prompt = <<<PROMPT
+You are a professional video scriptwriter specializing in mortgage content for MLOs. You write engaging, compliant scripts that educate and convert without triggering RESPA or CFPB concerns.
+
+TOPIC: {$topic}
+FORMAT: {$format} — Target length: {$length}
+TARGET AUDIENCE: {$audience}
+{$broll_hint}
+
+COMPLIANCE RULES:
+- No guaranteed interest rates or APR quotes
+- No promise of loan approval
+- Avoid "best rate", "lowest rate", "guaranteed", "no money down" (unless specifically VA/USDA context)
+- Educational tone — inform and build trust, do not make financial promises
+
+Return a JSON object:
+{
+  "title": "video title (also usable as YouTube title)",
+  "hook": "opening 5-10 seconds — the attention grabber",
+  "script": "full word-for-word script with [B-ROLL: description] and [ON SCREEN: text] cues where applicable",
+  "cta": "closing call to action (15-20 seconds)",
+  "description_template": "YouTube/social media description with hashtags",
+  "thumbnail_text_suggestions": ["3 short text options for the thumbnail overlay"],
+  "chapters": [
+    {"timestamp": "0:00", "label": "section name"}
+  ],
+  "compliance_notes": "any compliance considerations for this specific script"
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.7, 120 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['script'] ) ) {
+                $result = [ 'title' => $topic, 'script' => $r['content'] ?? '', 'hook' => '', 'cta' => '', 'chapters' => [] ];
+            }
+            return $result;
+        }
+
+        case 'realtor_partner_system': {
+            $out_type    = $args['output_type']     ?? 'full_system';
+            $market      = $args['market']          ?? '';
+            $specialty   = $args['loan_specialty']  ?? 'VA, FHA, Conventional, DSCR, and Jumbo loans';
+            $agent_goal  = (int)( $args['agent_count_goal'] ?? 20 );
+
+            $prompt = <<<PROMPT
+You are a senior mortgage business development consultant specializing in MLO-to-realtor partnership systems. You build referral networks that generate consistent, high-quality purchase loan referrals.
+
+OUTPUT TYPE: {$out_type}
+MARKET: {$market}
+LOAN SPECIALTY: {$specialty}
+AGENT RELATIONSHIP GOAL: {$agent_goal} active referral partners
+
+Return a JSON object:
+{
+  "system_summary": "2-3 sentence overview of the strategy for this market",
+  "value_proposition": "The 2-3 sentence pitch MLO uses to explain their value to realtors",
+  "partnership_tiers": [
+    {
+      "tier_name": "Active|Preferred|Elite",
+      "criteria": "what qualifies an agent for this tier",
+      "benefits": ["benefit 1", "benefit 2"],
+      "co_marketing_assets": ["what the MLO provides at this tier"]
+    }
+  ],
+  "outreach_scripts": {
+    "cold_email": "full email template",
+    "linkedin_dm": "short LinkedIn message",
+    "phone_voicemail": "30-second voicemail script",
+    "text_message": "follow-up text (under 160 chars)"
+  },
+  "onboarding_sequence": [
+    {"step": 1, "timing": "Day 1", "action": "what to do", "template": "message or content"}
+  ],
+  "co_marketing_ideas": ["list of specific co-marketing activities with realtors"],
+  "crm_tagging_strategy": "how to tag and segment realtor partners in a CRM",
+  "90_day_action_plan": "plain English week-by-week plan to reach the agent goal"
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.5, 120 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['outreach_scripts'] ) && empty( $result['partnership_tiers'] ) ) {
+                $result = [ 'system_summary' => $r['content'] ?? '', 'outreach_scripts' => [], 'partnership_tiers' => [], 'onboarding_sequence' => [] ];
+            }
+            return $result;
+        }
+
+        case 'analytics_interpreter': {
+            $data    = $args['data_snapshot']    ?? '';
+            $question = $args['question']        ?? '';
+            $context = $args['business_context'] ?? 'convert mortgage prospects into demo sign-ups and loan applications';
+            $q_block = $question ? "\n\nSpecific question: {$question}" : '';
+
+            $prompt = <<<PROMPT
+You are a senior digital analytics consultant specializing in mortgage websites and MLO lead generation funnels. You translate raw analytics data into clear, prioritized actions.
+
+BUSINESS GOAL: {$context}
+
+ANALYTICS DATA:
+{$data}{$q_block}
+
+Analyze the data and return a JSON object:
+{
+  "tldr": "3-sentence plain-English summary of what the data is saying overall",
+  "top_performing_pages": [
+    {"page": "page name or URL", "why_it_works": "reason", "action": "how to capitalize on this"}
+  ],
+  "underperforming_pages": [
+    {"page": "page name or URL", "problem": "what the metric reveals", "fix": "specific action to take"}
+  ],
+  "traffic_source_insights": [
+    {"source": "organic|direct|referral|social|paid", "assessment": "what's working or not", "recommendation": "action"}
+  ],
+  "funnel_leaks": [
+    {"stage": "where in the funnel", "drop_off_signal": "what metric shows the leak", "fix": "how to plug it"}
+  ],
+  "quick_wins": ["actions that can be taken in under a week with high impact"],
+  "priority_actions": [
+    {"rank": 1, "action": "specific thing to do", "expected_impact": "what improvement to expect", "effort": "low|medium|high"}
+  ],
+  "what_to_track_next": ["metrics or experiments to set up based on these findings"]
+}
+PROMPT;
+
+            $r      = ypnus_openai( $api_key, $prompt, 0.3, 90 );
+            $result = json_decode( $r['content'] ?? '{}', true );
+            if ( empty( $result['priority_actions'] ) ) {
+                $result = [ 'tldr' => $r['content'] ?? '', 'top_performing_pages' => [], 'underperforming_pages' => [], 'priority_actions' => [], 'quick_wins' => [] ];
+            }
+            return $result;
+        }
+
         case 'cro_specialist': {
             $page    = $args['page_or_section'] ?? '';
             $copy    = $args['current_copy']    ?? '';
@@ -2201,6 +2439,119 @@ function ypnus_format_tool_result( $fn_name, $fn_args, $result ) {
         if ( $where ) $out .= "**Where to add:** {$where}\n\n";
         if ( $eligibility ) $out .= "**Rich result eligibility:** {$eligibility}\n\n";
         $out .= "**Validate at:** [{$val_url}]({$val_url})";
+        return $out;
+    }
+    if ( $fn_name === 'video_script_writer' ) {
+        $title      = $result['title']                    ?? 'Video Script';
+        $hook       = $result['hook']                     ?? '';
+        $script     = $result['script']                   ?? '';
+        $cta        = $result['cta']                      ?? '';
+        $chapters   = $result['chapters']                 ?? [];
+        $desc       = $result['description_template']     ?? '';
+        $thumbnails = $result['thumbnail_text_suggestions'] ?? [];
+        $note       = $result['compliance_notes']         ?? '';
+
+        $out = "## 🎬 Video Script: {$title}\n\n";
+        if ( $hook )   $out .= "**Hook (first 5–10 sec):** {$hook}\n\n";
+        if ( $script ) $out .= "---\n### Script\n\n{$script}\n\n";
+        if ( $cta )    $out .= "---\n### Closing CTA\n{$cta}\n\n";
+
+        if ( $chapters ) {
+            $out .= "### Chapters\n";
+            foreach ( $chapters as $c ) $out .= "- `{$c['timestamp']}` {$c['label']}\n";
+            $out .= "\n";
+        }
+        if ( $thumbnails ) {
+            $out .= "### Thumbnail Text Options\n";
+            foreach ( $thumbnails as $t ) $out .= "- {$t}\n";
+            $out .= "\n";
+        }
+        if ( $desc ) $out .= "### Description / Caption\n{$desc}\n\n";
+        if ( $note ) $out .= "> ⚖️ _Compliance note: {$note}_";
+        return $out;
+    }
+    if ( $fn_name === 'realtor_partner_system' ) {
+        $summary   = $result['system_summary']    ?? '';
+        $vp        = $result['value_proposition'] ?? '';
+        $tiers     = $result['partnership_tiers'] ?? [];
+        $scripts   = $result['outreach_scripts']  ?? [];
+        $onboard   = $result['onboarding_sequence'] ?? [];
+        $comarket  = $result['co_marketing_ideas']  ?? [];
+        $crm       = $result['crm_tagging_strategy'] ?? '';
+        $plan90    = $result['90_day_action_plan']   ?? '';
+
+        $out = "## 🤝 Realtor Partner System\n\n";
+        if ( $summary ) $out .= "**Strategy:** {$summary}\n\n";
+        if ( $vp )      $out .= "**Your Value Proposition to Realtors:** _{$vp}_\n\n";
+
+        if ( $tiers ) {
+            $out .= "### Partnership Tiers\n";
+            foreach ( $tiers as $t ) {
+                $out .= "#### {$t['tier_name']} Tier\n";
+                $out .= "_Criteria:_ {$t['criteria']}\n";
+                if ( ! empty( $t['benefits'] ) )        $out .= "_Benefits:_ " . implode( ', ', $t['benefits'] ) . "\n";
+                if ( ! empty( $t['co_marketing_assets'] ) ) $out .= "_Co-marketing assets:_ " . implode( ', ', $t['co_marketing_assets'] ) . "\n";
+                $out .= "\n";
+            }
+        }
+        if ( $scripts ) {
+            $out .= "### Outreach Scripts\n";
+            foreach ( $scripts as $channel => $text ) {
+                $label = ucwords( str_replace( '_', ' ', $channel ) );
+                $out .= "**{$label}:**\n{$text}\n\n";
+            }
+        }
+        if ( $onboard ) {
+            $out .= "### Onboarding Sequence\n";
+            foreach ( $onboard as $s ) $out .= "**Step {$s['step']} — {$s['timing']}:** {$s['action']}\n_{$s['template']}_\n\n";
+        }
+        if ( $comarket ) $out .= "### Co-Marketing Ideas\n" . implode( "\n", array_map( fn($c) => "- {$c}", $comarket ) ) . "\n\n";
+        if ( $crm )      $out .= "### CRM Tagging Strategy\n{$crm}\n\n";
+        if ( $plan90 )   $out .= "### 90-Day Action Plan\n{$plan90}";
+        return $out;
+    }
+    if ( $fn_name === 'analytics_interpreter' ) {
+        $tldr       = $result['tldr']                   ?? '';
+        $top        = $result['top_performing_pages']   ?? [];
+        $under      = $result['underperforming_pages']  ?? [];
+        $sources    = $result['traffic_source_insights'] ?? [];
+        $leaks      = $result['funnel_leaks']           ?? [];
+        $quick      = $result['quick_wins']             ?? [];
+        $priorities = $result['priority_actions']       ?? [];
+        $track_next = $result['what_to_track_next']     ?? [];
+
+        $out = "## 📊 Analytics Interpretation\n\n";
+        if ( $tldr ) $out .= "**Summary:** {$tldr}\n\n";
+
+        if ( $priorities ) {
+            $out .= "### Priority Actions\n";
+            foreach ( $priorities as $p ) {
+                $out .= "**#{$p['rank']} [{$p['effort']} effort]** {$p['action']}\n";
+                $out .= "_Expected impact:_ {$p['expected_impact']}\n\n";
+            }
+        }
+        if ( $top ) {
+            $out .= "### Top-Performing Pages — Double Down\n";
+            foreach ( $top as $p ) $out .= "- **{$p['page']}** — {$p['why_it_works']} → _{$p['action']}_\n";
+            $out .= "\n";
+        }
+        if ( $under ) {
+            $out .= "### Underperforming Pages — Fix or Cut\n";
+            foreach ( $under as $p ) $out .= "- **{$p['page']}** — {$p['problem']} → _{$p['fix']}_\n";
+            $out .= "\n";
+        }
+        if ( $sources ) {
+            $out .= "### Traffic Source Insights\n";
+            foreach ( $sources as $s ) $out .= "- **{$s['source']}:** {$s['assessment']} → _{$s['recommendation']}_\n";
+            $out .= "\n";
+        }
+        if ( $leaks ) {
+            $out .= "### Funnel Leaks\n";
+            foreach ( $leaks as $l ) $out .= "- **{$l['stage']}:** {$l['drop_off_signal']} → _{$l['fix']}_\n";
+            $out .= "\n";
+        }
+        if ( $quick )      $out .= "### Quick Wins\n" . implode( "\n", array_map( fn($q) => "- {$q}", $quick ) ) . "\n\n";
+        if ( $track_next ) $out .= "### What to Track Next\n" . implode( "\n", array_map( fn($t) => "- {$t}", $track_next ) );
         return $out;
     }
     if ( $fn_name === 'cro_specialist' ) {

@@ -1,4 +1,5 @@
-import { readDb } from "./db";
+import { readDb, writeDb } from "./db";
+import type { DemoRequestRecord } from "./types";
 
 /**
  * Exclusive ZIP-code territory logic.
@@ -61,8 +62,14 @@ export function isValidZip(zip: string): boolean {
 
 function liveClaimedZips(): Set<string> {
   const db = readDb();
+  return liveClaimedZipsFromRequests(db.demoRequests);
+}
+
+function liveClaimedZipsFromRequests(
+  demoRequests: DemoRequestRecord[],
+): Set<string> {
   const claimed = new Set<string>();
-  db.demoRequests.forEach((request) => {
+  demoRequests.forEach((request) => {
     const zip = normalizeZip(request.zip);
     if (isValidZip(zip)) claimed.add(zip);
   });
@@ -101,4 +108,57 @@ export function checkTerritory(rawZip: unknown): TerritoryCheckResult {
       ? `Territory ${zip} is already owned. Join the waitlist and we'll alert you the moment it reopens.`
       : `Territory ${zip} is available — reserve it before another officer does.`,
   };
+}
+
+export function appendDemoRequestWithTerritoryCheck(
+  record: DemoRequestRecord,
+): TerritoryCheckResult | null {
+  const zip = normalizeZip(record.zip);
+  if (!zip) {
+    writeDb((db) => db.demoRequests.push(record));
+    return null;
+  }
+
+  let territory: TerritoryCheckResult = {
+    ok: true,
+    zip,
+    valid: false,
+    available: false,
+    totalClaimed: 0,
+    message: "Enter a valid 5-digit ZIP code to check territory availability.",
+  };
+
+  writeDb((db) => {
+    const claimedZips = liveClaimedZipsFromRequests(db.demoRequests);
+    const totalClaimed = new Set<string>([...SEED_CLAIMED, ...claimedZips]).size;
+
+    if (!isValidZip(zip)) {
+      territory = {
+        ok: true,
+        zip,
+        valid: false,
+        available: false,
+        totalClaimed,
+        message: "Enter a valid 5-digit ZIP code to check territory availability.",
+      };
+      db.demoRequests.push(record);
+      return;
+    }
+
+    const claimed = SEED_CLAIMED.has(zip) || claimedZips.has(zip);
+    territory = {
+      ok: true,
+      zip,
+      valid: true,
+      available: !claimed,
+      totalClaimed,
+      message: claimed
+        ? `Territory ${zip} is already owned. Join the waitlist and we'll alert you the moment it reopens.`
+        : `Territory ${zip} is available — reserve it before another officer does.`,
+    };
+
+    db.demoRequests.push(record);
+  });
+
+  return territory;
 }

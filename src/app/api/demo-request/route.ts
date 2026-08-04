@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { appendAnalytics, appendDemoRequest } from "@/lib/db";
+import { appendAnalytics } from "@/lib/db";
 import { generateId } from "@/lib/id";
-import { checkTerritory, normalizeZip } from "@/lib/territory";
+import { appendDemoRequestWithTerritoryCheck, normalizeZip } from "@/lib/territory";
 import type { DemoRequestRecord } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -43,7 +43,6 @@ export async function POST(request: Request) {
   }
 
   const zip = normalizeZip(body.zip);
-  const territory = zip ? checkTerritory(zip) : null;
 
   const record: DemoRequestRecord = {
     id: generateId("demo"),
@@ -60,7 +59,7 @@ export async function POST(request: Request) {
     status: "new",
   };
 
-  appendDemoRequest(record);
+  const territory = appendDemoRequestWithTerritoryCheck(record);
 
   appendAnalytics({
     type: "demo_requested",

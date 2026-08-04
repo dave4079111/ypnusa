@@ -6,14 +6,43 @@ import type {
   AnalyticsEventRecord,
   BorrowerLeadRecord,
   CrmLeadRecord,
+  DemoRequestRecord,
   IntakeSessionRecord,
   LoanOfficerRecord,
   LoAlertRecord,
   ScheduledFollowUpRecord,
 } from "./types";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "store.json");
+/**
+ * Storage layer.
+ *
+ * The source of truth is an in-memory store held on the module scope. It is
+ * hydrated once from disk (if a snapshot exists) and written through to disk on
+ * every mutation on a best-effort basis.
+ *
+ * Why in-memory-first: on serverless hosts (e.g. Vercel) the application
+ * directory is read-only, so file writes throw. Keeping state in memory means
+ * multi-step flows (the intake chat posting several `tick`s) still work within a
+ * warm instance even when disk persistence is unavailable. On a persistent Node
+ * host (`next start`, a VPS, Docker) the disk snapshot additionally survives
+ * restarts. Set `LOANPILOT_DATA_DIR` to a writable path to control where the
+ * snapshot lives.
+ */
+
+/**
+ * Resolve the data directory lazily (not at module scope) so bundlers don't
+ * trace `process.cwd()` as a build-time filesystem dependency.
+ */
+let cachedDataDir: string | null = null;
+function dataDir(): string {
+  if (cachedDataDir) return cachedDataDir;
+  cachedDataDir =
+    process.env.LOANPILOT_DATA_DIR?.trim() || path.join(process.cwd(), "data");
+  return cachedDataDir;
+}
+function dbPath(): string {
+  return path.join(dataDir(), "store.json");
+}
 
 const defaultLoanOfficers: LoanOfficerRecord[] = [
   {
@@ -66,63 +95,93 @@ const emptyDb = (): DbShape => ({
   followUps: [],
   appointments: [],
   analyticsEvents: [],
+  demoRequests: [],
 });
 
-export function ensureDataDir(): void {
+/** Fill in any missing collections so older snapshots stay forward-compatible. */
+function normalize(parsed: DbShape): DbShape {
+  parsed.loanOfficers =
+    parsed.loanOfficers && parsed.loanOfficers.length > 0
+      ? parsed.loanOfficers
+      : defaultLoanOfficers;
+
+  parsed.sessions ??= [];
+  parsed.borrowerLeads ??= [];
+  parsed.crmLeads ??= [];
+  parsed.loAlerts ??= [];
+  parsed.followUps ??= [];
+  parsed.appointments ??= [];
+  parsed.analyticsEvents ??= [];
+  parsed.demoRequests ??= [];
+
+  parsed.sessions = parsed.sessions.map((session) => ({
+    ...session,
+    status: session.status ?? "collecting",
+  }));
+
+  return parsed;
+}
+
+/** Process-scoped source of truth. */
+let memoryDb: DbShape | null = null;
+let diskWritable = true;
+
+function ensureDataDir(): boolean {
   try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(dataDir())) {
+      fs.mkdirSync(dataDir(), { recursive: true });
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function flushToDisk(db: DbShape): void {
+  if (!diskWritable) return;
+  if (!ensureDataDir()) {
+    diskWritable = false;
+    return;
+  }
+  try {
+    fs.writeFileSync(dbPath(), JSON.stringify(db, null, 2));
+  } catch {
+    // Read-only/serverless filesystem: keep serving from memory. Stop retrying
+    // so we don't throw on every request.
+    diskWritable = false;
+  }
+}
+
+/** Hydrate the in-memory store from disk exactly once per process. */
+function hydrate(): DbShape {
+  if (memoryDb) return memoryDb;
+
+  try {
+    if (fs.existsSync(dbPath())) {
+      const parsed = JSON.parse(fs.readFileSync(dbPath(), "utf8")) as DbShape;
+      memoryDb = normalize(parsed);
+      return memoryDb;
     }
   } catch {
-    // ignore mkdir errors in ephemeral environments without write access
+    // corrupt or unreadable snapshot — fall back to a fresh store
   }
+
+  memoryDb = emptyDb();
+  flushToDisk(memoryDb);
+  return memoryDb;
+}
+
+export function ensureDataDirExists(): void {
+  ensureDataDir();
 }
 
 export function readDb(): DbShape {
-  ensureDataDir();
-  if (!fs.existsSync(DB_PATH)) {
-    const fresh = emptyDb();
-    writeDbMutable(fresh);
-    return structuredClone(fresh);
-  }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(DB_PATH, "utf8")) as DbShape;
-
-    parsed.loanOfficers =
-      parsed.loanOfficers && parsed.loanOfficers.length > 0
-        ? parsed.loanOfficers
-        : defaultLoanOfficers;
-
-    parsed.sessions ??= [];
-    parsed.borrowerLeads ??= [];
-    parsed.crmLeads ??= [];
-    parsed.loAlerts ??= [];
-    parsed.followUps ??= [];
-    parsed.appointments ??= [];
-    parsed.analyticsEvents ??= [];
-
-    parsed.sessions = parsed.sessions.map((session) => ({
-      ...session,
-      status: session.status ?? "collecting",
-    }));
-
-    return structuredClone(parsed);
-  } catch {
-    const fresh = emptyDb();
-    writeDbMutable(fresh);
-    return structuredClone(fresh);
-  }
+  return structuredClone(hydrate());
 }
 
 function writeDbMutable(db: DbShape): void {
-  ensureDataDir();
-  try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-  } catch {
-    // allow read-only deployments to keep in-memory clones per request unreliable
-    // callers should tolerate missing persistence
-  }
+  memoryDb = structuredClone(db);
+  flushToDisk(memoryDb);
 }
 
 export function writeDb(mutator: (db: DbShape) => void): DbShape {
@@ -166,6 +225,10 @@ export function appendAppointment(record: AppointmentRecord): void {
   writeDb((db) => db.appointments.push(record));
 }
 
+export function appendDemoRequest(record: DemoRequestRecord): void {
+  writeDb((db) => db.demoRequests.push(record));
+}
+
 export function appendAnalytics(event: Omit<AnalyticsEventRecord, "id" | "createdAt">): void {
   writeDb((db) => {
     db.analyticsEvents.push({
@@ -174,4 +237,13 @@ export function appendAnalytics(event: Omit<AnalyticsEventRecord, "id" | "create
       createdAt: new Date().toISOString(),
     });
   });
+}
+
+/** Exposed for diagnostics/health checks. */
+export function storageMode(): { persistent: boolean; dir: string } {
+  hydrate();
+  return {
+    persistent: diskWritable,
+    dir: dataDir(),
+  };
 }

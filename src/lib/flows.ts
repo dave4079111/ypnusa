@@ -109,7 +109,7 @@ const baseFlow: FlowStepDescriptor[] = [
   {
     id: "timeline",
     prompt:
-      "What timing best matches where you’re at? This fuels urgency cues for your LoanPilot routing team.",
+      "What timing best matches where you’re at? This fuels urgency cues for your YPN USA routing team.",
     fieldPath: "timeline",
     kind: "select",
     chips: timelineChips,
@@ -341,5 +341,5 @@ export function greetingForProgram(program: LoanProgram): string {
       "White-glove jumbo strategist online—capturing supersized loan structuring + liquidity nuance.",
   };
 
-  return `Hi there, I am the LoanPilot ${program} autonomous intake concierge. ${flavor[program]} Ready when you are.`;
+  return `Hi there, I am the YPN USA ${program} intake assistant. ${flavor[program]} Ready when you are.`;
 }

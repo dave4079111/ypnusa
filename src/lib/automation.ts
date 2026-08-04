@@ -41,7 +41,7 @@ function offsetSinceNow(plan: FollowUpPlan): number {
 
 const nurtureCopy: Record<FollowUpPlan, string> = {
   immediate_confirmation_email:
-    "Thanks for trusting LoanPilot AI—disclosures are staged and your loan officer inbox just lit up.",
+    "Thanks for trusting YPN USA—disclosures are staged and your loan officer inbox just lit up.",
   immediate_sms_ack:
     "SMS handshake fired (Twilio-compatible placeholder)—borrower can reply STOP any time.",
   day_1_educational_email:

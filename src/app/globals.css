@@ -22,15 +22,17 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, Arial, Helvetica, sans-serif;
 }
 
-.loanpilot-aurora {
+/* YPN USA brand aurora — violet + amber over near-black ink. */
+.ypn-aurora {
   background:
-    radial-gradient(circle at 12% 20%, rgba(34, 211, 238, 0.35), transparent 48%),
-    radial-gradient(circle at 88% 10%, rgba(45, 212, 191, 0.28), transparent 48%),
-    radial-gradient(circle at 50% 78%, rgba(14, 116, 144, 0.45), transparent 48%),
-    linear-gradient(135deg, #031525 0%, #042f3a 45%, #012f3c 100%);
+    radial-gradient(circle at 14% 18%, rgba(100, 49, 246, 0.45), transparent 46%),
+    radial-gradient(circle at 86% 8%, rgba(139, 92, 246, 0.32), transparent 46%),
+    radial-gradient(circle at 78% 82%, rgba(245, 158, 11, 0.22), transparent 44%),
+    radial-gradient(circle at 30% 88%, rgba(100, 49, 246, 0.35), transparent 50%),
+    linear-gradient(150deg, #09081b 0%, #14122e 48%, #1b1c2e 100%);
 }
 
 .thin-scroll {

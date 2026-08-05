@@ -144,7 +144,12 @@ function flushToDisk(db: DbShape): void {
     return;
   }
   try {
-    fs.writeFileSync(dbPath(), JSON.stringify(db, null, 2));
+    // Write to a temp file and rename so a crash mid-write can't truncate the
+    // snapshot (rename is atomic on the same filesystem).
+    const target = dbPath();
+    const tmp = `${target}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
+    fs.renameSync(tmp, target);
   } catch {
     // Read-only/serverless filesystem: keep serving from memory. Stop retrying
     // so we don't throw on every request.
@@ -156,18 +161,22 @@ function flushToDisk(db: DbShape): void {
 function hydrate(): DbShape {
   if (memoryDb) return memoryDb;
 
+  let snapshotUnreadable = false;
   try {
     if (fs.existsSync(dbPath())) {
       const parsed = JSON.parse(fs.readFileSync(dbPath(), "utf8")) as DbShape;
       memoryDb = normalize(parsed);
       return memoryDb;
     }
-  } catch {
-    // corrupt or unreadable snapshot — fall back to a fresh store
+  } catch (error) {
+    // Corrupt/unreadable snapshot: serve from memory but DO NOT overwrite the
+    // file — preserve it for manual recovery.
+    snapshotUnreadable = true;
+    console.error(`[db] unreadable snapshot at ${dbPath()} — serving fresh store`, error);
   }
 
   memoryDb = emptyDb();
-  flushToDisk(memoryDb);
+  if (!snapshotUnreadable) flushToDisk(memoryDb);
   return memoryDb;
 }
 
@@ -229,6 +238,9 @@ export function appendDemoRequest(record: DemoRequestRecord): void {
   writeDb((db) => db.demoRequests.push(record));
 }
 
+/** Keep the analytics log bounded so it can't grow (and slow disk writes) forever. */
+const MAX_ANALYTICS_EVENTS = 2000;
+
 export function appendAnalytics(event: Omit<AnalyticsEventRecord, "id" | "createdAt">): void {
   writeDb((db) => {
     db.analyticsEvents.push({
@@ -236,6 +248,9 @@ export function appendAnalytics(event: Omit<AnalyticsEventRecord, "id" | "create
       id: `evt_${Date.now()}_${db.analyticsEvents.length}`,
       createdAt: new Date().toISOString(),
     });
+    if (db.analyticsEvents.length > MAX_ANALYTICS_EVENTS) {
+      db.analyticsEvents.splice(0, db.analyticsEvents.length - MAX_ANALYTICS_EVENTS);
+    }
   });
 }
 

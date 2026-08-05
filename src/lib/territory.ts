@@ -81,9 +81,9 @@ export function totalClaimedTerritories(): number {
   return merged.size;
 }
 
-export function checkTerritory(rawZip: unknown): TerritoryCheckResult {
-  const zip = normalizeZip(rawZip);
-  const totalClaimed = totalClaimedTerritories();
+/** Build a territory result from an already-computed set of live claims. */
+function buildResult(zip: string, claimedZips: Set<string>): TerritoryCheckResult {
+  const totalClaimed = new Set<string>([...SEED_CLAIMED, ...claimedZips]).size;
 
   if (!isValidZip(zip)) {
     return {
@@ -96,8 +96,7 @@ export function checkTerritory(rawZip: unknown): TerritoryCheckResult {
     };
   }
 
-  const claimed = SEED_CLAIMED.has(zip) || liveClaimedZips().has(zip);
-
+  const claimed = SEED_CLAIMED.has(zip) || claimedZips.has(zip);
   return {
     ok: true,
     zip,
@@ -110,6 +109,11 @@ export function checkTerritory(rawZip: unknown): TerritoryCheckResult {
   };
 }
 
+export function checkTerritory(rawZip: unknown): TerritoryCheckResult {
+  // Read the live claim set once (readDb deep-clones the store, so avoid doing it twice).
+  return buildResult(normalizeZip(rawZip), liveClaimedZips());
+}
+
 export function appendDemoRequestWithTerritoryCheck(
   record: DemoRequestRecord,
 ): TerritoryCheckResult | null {
@@ -119,44 +123,11 @@ export function appendDemoRequestWithTerritoryCheck(
     return null;
   }
 
-  let territory: TerritoryCheckResult = {
-    ok: true,
-    zip,
-    valid: false,
-    available: false,
-    totalClaimed: 0,
-    message: "Enter a valid 5-digit ZIP code to check territory availability.",
-  };
+  let territory: TerritoryCheckResult | null = null;
 
+  // Compute availability and persist the record inside a single atomic write.
   writeDb((db) => {
-    const claimedZips = liveClaimedZipsFromRequests(db.demoRequests);
-    const totalClaimed = new Set<string>([...SEED_CLAIMED, ...claimedZips]).size;
-
-    if (!isValidZip(zip)) {
-      territory = {
-        ok: true,
-        zip,
-        valid: false,
-        available: false,
-        totalClaimed,
-        message: "Enter a valid 5-digit ZIP code to check territory availability.",
-      };
-      db.demoRequests.push(record);
-      return;
-    }
-
-    const claimed = SEED_CLAIMED.has(zip) || claimedZips.has(zip);
-    territory = {
-      ok: true,
-      zip,
-      valid: true,
-      available: !claimed,
-      totalClaimed,
-      message: claimed
-        ? `Territory ${zip} is already owned. Join the waitlist and we'll alert you the moment it reopens.`
-        : `Territory ${zip} is available — reserve it before another officer does.`,
-    };
-
+    territory = buildResult(zip, liveClaimedZipsFromRequests(db.demoRequests));
     db.demoRequests.push(record);
   });
 

@@ -71,7 +71,16 @@ best-effort basis. This means:
 
 ## Deploy
 
-### Vercel (fastest)
+### Render (recommended — no Vercel needed)
+This repo runs the real Next.js server (`next start`), so it deploys on any Node
+platform with no framework adapter to break. A [`render.yaml`](./render.yaml)
+blueprint is included:
+1. At [dashboard.render.com](https://dashboard.render.com): **New +  → Blueprint**.
+2. Connect the `dave4079111/ypnusa` repo and click **Apply** — Render reads
+   `render.yaml` and provisions the web service automatically.
+3. Set `NEXT_PUBLIC_SITE_URL` to your domain in the service's Environment tab.
+
+### Vercel
 1. Import the repo at [vercel.com/new](https://vercel.com/new).
 2. Set `NEXT_PUBLIC_SITE_URL` to your production domain.
 3. Deploy. No extra config needed (Next.js is detected automatically).
@@ -87,7 +96,7 @@ Put it behind a reverse proxy (nginx/Caddy) and process manager (PM2/systemd). T
 
 ## Project layout
 
-```
+```text
 src/
   app/                     App Router pages, API routes, sitemap.ts, robots.ts
     page.tsx               Marketing homepage

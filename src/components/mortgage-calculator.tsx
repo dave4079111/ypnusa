@@ -60,7 +60,11 @@ export function MortgageCalculator() {
             min={0}
             max={25}
             value={rate}
-            onChange={(e) => setRate(Number(e.target.value))}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              if (e.target.value === "" || !Number.isFinite(next)) return;
+              setRate(Math.min(25, Math.max(0, next)));
+            }}
             className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-violet-500"
           />
         </div>

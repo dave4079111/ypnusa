@@ -37,6 +37,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
   });
 
   async function runCheck() {
+    if (check.status === "checking") return;
     const clean = zip.replace(/\D/g, "").slice(0, 5);
     setZip(clean);
     if (clean.length !== 5) {
@@ -47,6 +48,10 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
     setSubmit({ status: "idle" });
     try {
       const res = await fetch(`/api/territory/check?zip=${encodeURIComponent(clean)}`);
+      if (!res.ok) {
+        setCheck({ status: "error", message: "Couldn't check that territory — try again." });
+        return;
+      }
       const data = (await res.json()) as {
         zip: string;
         valid: boolean;
@@ -72,6 +77,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
 
   async function submitReservation(e: React.FormEvent) {
     e.preventDefault();
+    if (submit.status === "submitting") return;
     if (!form.name.trim() || !form.workEmail.trim() || !form.company.trim()) {
       setSubmit({ status: "error", message: "Name, work email, and company are required." });
       return;
@@ -133,30 +139,32 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
         </button>
       </div>
 
-      {check.status === "error" ? (
-        <p className="mt-3 text-sm font-medium text-rose-200">{check.message}</p>
-      ) : null}
+      <div aria-live="polite" role="status">
+        {check.status === "error" ? (
+          <p className="mt-3 text-sm font-medium text-rose-200">{check.message}</p>
+        ) : null}
 
-      {check.status === "result" ? (
-        <div
-          className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-medium ${
-            check.available
-              ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
-              : "border-amber-300/40 bg-amber-400/10 text-amber-100"
-          }`}
-        >
-          <p className="flex items-center gap-2">
-            <span aria-hidden>{check.available ? "✅" : "🔒"}</span>
-            <span className="font-semibold">
-              {check.available ? `ZIP ${check.zip} is available` : `ZIP ${check.zip} is already claimed`}
-            </span>
-          </p>
-          <p className="mt-1 text-[13px] text-white/80">{check.message}</p>
-          <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/50">
-            {check.totalClaimed} territories claimed nationwide
-          </p>
-        </div>
-      ) : null}
+        {check.status === "result" ? (
+          <div
+            className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-medium ${
+              check.available
+                ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
+                : "border-amber-300/40 bg-amber-400/10 text-amber-100"
+            }`}
+          >
+            <p className="flex items-center gap-2">
+              <span aria-hidden>{check.available ? "✅" : "🔒"}</span>
+              <span className="font-semibold">
+                {check.available ? `ZIP ${check.zip} is available` : `ZIP ${check.zip} is already claimed`}
+              </span>
+            </p>
+            <p className="mt-1 text-[13px] text-white/80">{check.message}</p>
+            <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/50">
+              {check.totalClaimed} territories claimed nationwide
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       {/* Reservation form */}
       {showForm && submit.status !== "done" ? (

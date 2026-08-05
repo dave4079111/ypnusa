@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { appendAnalytics } from "@/lib/db";
 import { generateId } from "@/lib/id";
-import { appendDemoRequestWithTerritoryCheck, normalizeZip } from "@/lib/territory";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { appendDemoRequestWithTerritoryCheck, isValidZip, normalizeZip } from "@/lib/territory";
 import type { DemoRequestRecord } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -17,6 +18,14 @@ function str(value: unknown, max = 500): string | undefined {
 }
 
 export async function POST(request: Request) {
+  const limited = rateLimit(`demo:${clientKey(request)}`, 5, 60_000);
+  if (!limited.ok) {
+    return NextResponse.json(
+      { ok: false, error: "Too many requests — please slow down and try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
+    );
+  }
+
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;
@@ -43,6 +52,12 @@ export async function POST(request: Request) {
   }
 
   const zip = normalizeZip(body.zip);
+  if (zip && !isValidZip(zip)) {
+    return NextResponse.json(
+      { ok: false, error: "Enter a valid 5-digit ZIP code." },
+      { status: 400 },
+    );
+  }
 
   const record: DemoRequestRecord = {
     id: generateId("demo"),

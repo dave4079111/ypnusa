@@ -163,36 +163,45 @@ export default function Home() {
       {/* HERO */}
       <section className="relative isolate overflow-hidden">
         <div className="ypn-aurora pointer-events-none absolute inset-0" aria-hidden />
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-14 px-6 py-16 lg:flex-row lg:items-center lg:py-24">
-          <div className="max-w-xl space-y-7">
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 py-16 lg:flex-row lg:items-center lg:py-24">
+          <div className="max-w-xl">
             <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-100">
               Exclusive ZIP demand · for MLOs
             </span>
-            <h1 className="text-balance text-4xl font-semibold leading-[1.08] lg:text-[3.4rem]">
+            <h1 className="mt-6 text-balance text-4xl font-semibold leading-[1.08] lg:text-[3.4rem]">
               Own your mortgage leads — <span className="text-violet-300">without waiting on Realtors.</span>
             </h1>
-            <p className="text-lg text-white/90">
+            <p className="mt-5 text-lg text-white/90">
               YPN USA gives you an exclusive ZIP-code territory and an always-on AI agent that captures,
               qualifies, and nurtures every borrower in it — automatically. And the leads and website are
               yours to keep, even if you switch brokerages.
             </p>
 
-            <div className="flex flex-wrap gap-4 text-sm font-semibold">
+            <div className="mt-7 flex flex-wrap gap-4 text-sm font-semibold">
               <a
                 href="#territories"
-                className="inline-flex items-center justify-center rounded-full bg-amber-400 px-6 py-3 text-[#09081b] shadow-xl shadow-amber-500/30 transition hover:brightness-105"
+                className="inline-flex items-center justify-center rounded-full bg-amber-400 px-7 py-3.5 text-[#09081b] shadow-xl shadow-amber-500/30 transition hover:brightness-105"
               >
-                Check your ZIP territory
+                Claim your ZIP — free
               </a>
               <a
                 href="#demo"
-                className="inline-flex items-center justify-center rounded-full border border-white/35 bg-white/10 px-6 py-3 text-white backdrop-blur transition hover:bg-white/20"
+                className="inline-flex items-center justify-center rounded-full border border-white/35 bg-white/10 px-6 py-3.5 text-white backdrop-blur transition hover:bg-white/20"
               >
                 See the AI live ↓
               </a>
             </div>
 
-            <dl className="grid grid-cols-3 gap-4 pt-4">
+            <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-[13px] text-white/70">
+              {["Free to start", "No credit card", "You keep every lead"].map((item) => (
+                <li key={item} className="flex items-center gap-1.5">
+                  <span aria-hidden className="text-emerald-400">✓</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+
+            <dl className="mt-8 grid grid-cols-3 gap-4">
               {[
                 ["24/7", "Always-on capture"],
                 ["1 MLO", "Per territory"],
@@ -209,6 +218,24 @@ export default function Home() {
           <div className="w-full lg:max-w-md">
             <TerritoryClaim source="hero" />
           </div>
+        </div>
+      </section>
+
+      {/* TRUST / VALUE STRIP */}
+      <section className="border-b border-white/10 bg-[#0b0a20]">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-px overflow-hidden px-6 py-6 text-center md:grid-cols-4">
+          {[
+            ["🔒", "Exclusive to you", "One MLO per ZIP"],
+            ["🔑", "Own your leads", "Portable for life"],
+            ["🤖", "AI does the work", "Capture to booking"],
+            ["⚡", "Live in days", "No developer needed"],
+          ].map(([icon, title, sub]) => (
+            <div key={title} className="px-3 py-2">
+              <div className="text-xl" aria-hidden>{icon}</div>
+              <p className="mt-1 text-sm font-semibold text-white">{title}</p>
+              <p className="text-[12px] text-white/60">{sub}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -451,7 +478,15 @@ export default function Home() {
               </article>
             ))}
           </div>
-          <p className="mt-6 text-center text-xs text-slate-400">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-slate-600">
+            {["Start free — no credit card", "Cancel anytime", "You keep every lead you capture"].map((item) => (
+              <span key={item} className="flex items-center gap-1.5">
+                <span aria-hidden className="text-emerald-600">✓</span>
+                {item}
+              </span>
+            ))}
+          </div>
+          <p className="mt-4 text-center text-xs text-slate-400">
             Territory availability is limited and first-come. Prices shown are launch rates.
           </p>
         </div>
@@ -496,6 +531,18 @@ export default function Home() {
       </section>
 
       <SiteFooter />
+
+      {/* Mobile sticky conversion bar */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#09081b]/95 px-4 py-3 backdrop-blur md:hidden">
+        <a
+          href="#territories"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-[#09081b] shadow-lg shadow-amber-500/30"
+        >
+          Claim your ZIP territory — free
+        </a>
+      </div>
+      {/* Spacer so the sticky bar never hides footer content on mobile */}
+      <div aria-hidden className="h-16 md:hidden" />
     </div>
   );
 }

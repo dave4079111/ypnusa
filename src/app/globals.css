@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* Smooth anchor scrolling with offset so the sticky header never covers a section heading. */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

@@ -1,0 +1,832 @@
+/* ── YPNUS MLO Toolkit ─────────────────────────────────────────────────────── */
+
+:root {
+  --mlo-navy:       #0D1F35;
+  --mlo-navy-mid:   #162D4A;
+  --mlo-navy-light: #1E3D60;
+  --mlo-gold:       #B8890A;
+  --mlo-gold-light: #D4A012;
+  --mlo-steel:      #4A6585;
+  --mlo-bg:         #F2F5F9;
+  --mlo-surface:    #FFFFFF;
+  --mlo-border:     #D0D9E6;
+  --mlo-text:       #0D1F35;
+  --mlo-text-soft:  #4A6585;
+  --mlo-amber:      #92600A;
+  --mlo-amber-bg:   #FDF3DC;
+  --mlo-amber-border: #E5C77A;
+  --mlo-green:      #1A6B3C;
+  --mlo-radius:     6px;
+  --mlo-radius-lg:  10px;
+  --mlo-shadow:     0 1px 4px rgba(13,31,53,0.10), 0 4px 16px rgba(13,31,53,0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mlo-bg:         #070E18;
+    --mlo-surface:    #0D1F35;
+    --mlo-border:     #1E3D60;
+    --mlo-text:       #E4EBF5;
+    --mlo-text-soft:  #7A9BBE;
+    --mlo-amber-bg:   #1E1400;
+    --mlo-amber-border: #6B4800;
+    --mlo-shadow:     0 1px 4px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.3);
+  }
+}
+
+:root[data-theme="dark"] {
+  --mlo-bg:         #070E18;
+  --mlo-surface:    #0D1F35;
+  --mlo-border:     #1E3D60;
+  --mlo-text:       #E4EBF5;
+  --mlo-text-soft:  #7A9BBE;
+  --mlo-amber-bg:   #1E1400;
+  --mlo-amber-border: #6B4800;
+  --mlo-shadow:     0 1px 4px rgba(0,0,0,0.4), 0 4px 20px rgba(0,0,0,0.3);
+}
+
+:root[data-theme="light"] {
+  --mlo-bg:         #F2F5F9;
+  --mlo-surface:    #FFFFFF;
+  --mlo-border:     #D0D9E6;
+  --mlo-text:       #0D1F35;
+  --mlo-text-soft:  #4A6585;
+  --mlo-amber-bg:   #FDF3DC;
+  --mlo-amber-border: #E5C77A;
+  --mlo-shadow:     0 1px 4px rgba(13,31,53,0.10), 0 4px 16px rgba(13,31,53,0.06);
+}
+
+/* ── Tool Container ────────────────────────────────────────────────────────── */
+
+.ypnus-tool {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--mlo-text);
+  background: var(--mlo-bg);
+  border-radius: var(--mlo-radius-lg);
+  padding: 2rem;
+  max-width: 920px;
+  margin: 0 auto 2rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ypnus-tool__header {
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--mlo-border);
+  padding-bottom: 1.25rem;
+}
+
+.ypnus-tool__eyebrow {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mlo-gold);
+  margin-bottom: 0.4rem;
+}
+
+.ypnus-tool__title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
+  color: var(--mlo-text);
+  text-wrap: balance;
+}
+
+.ypnus-tool__desc {
+  font-size: 0.9375rem;
+  color: var(--mlo-text-soft);
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* ── Form Elements ─────────────────────────────────────────────────────────── */
+
+.ypnus-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.75rem;
+}
+
+.ypnus-form--inline .ypnus-input-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.ypnus-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--mlo-text-soft);
+  text-transform: uppercase;
+}
+
+.ypnus-textarea,
+.ypnus-input {
+  background: var(--mlo-surface);
+  border: 1px solid var(--mlo-border);
+  border-radius: var(--mlo-radius);
+  color: var(--mlo-text);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  padding: 0.75rem 1rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ypnus-textarea {
+  resize: vertical;
+  min-height: 160px;
+  line-height: 1.6;
+}
+
+.ypnus-input {
+  flex: 1;
+}
+
+.ypnus-textarea:focus,
+.ypnus-input:focus {
+  outline: none;
+  border-color: var(--mlo-gold);
+  box-shadow: 0 0 0 3px rgba(184,137,10,0.15);
+}
+
+.ypnus-hint {
+  font-size: 0.8125rem;
+  color: var(--mlo-text-soft);
+  margin: 0;
+  font-style: italic;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+
+.ypnus-btn {
+  align-items: center;
+  border: none;
+  border-radius: var(--mlo-radius);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  gap: 0.5rem;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  position: relative;
+  transition: opacity 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.ypnus-btn:active { transform: scale(0.98); }
+
+.ypnus-btn--primary {
+  background: var(--mlo-navy);
+  color: #FFFFFF;
+}
+
+.ypnus-btn--primary:hover { opacity: 0.88; }
+
+.ypnus-btn.is-loading .ypnus-btn__text { opacity: 0; }
+.ypnus-btn.is-loading { pointer-events: none; }
+
+.ypnus-btn__loader {
+  display: none;
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ypnus-spin 0.7s linear infinite;
+}
+
+.ypnus-btn.is-loading .ypnus-btn__loader { display: block; }
+
+@keyframes ypnus-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ypnus-btn__loader { animation: none; }
+}
+
+/* ── Copy Button ───────────────────────────────────────────────────────────── */
+
+.ypnus-copy-btn {
+  background: transparent;
+  border: 1px solid var(--mlo-border);
+  border-radius: var(--mlo-radius);
+  color: var(--mlo-text-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.3rem 0.75rem;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  text-transform: uppercase;
+}
+
+.ypnus-copy-btn:hover {
+  border-color: var(--mlo-gold);
+  color: var(--mlo-gold);
+}
+
+.ypnus-copy-btn.is-copied {
+  background: var(--mlo-green);
+  border-color: var(--mlo-green);
+  color: #fff;
+}
+
+/* ── Output Grid ───────────────────────────────────────────────────────────── */
+
+.ypnus-output {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ypnus-output[hidden] { display: none; }
+
+.ypnus-output-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ypnus-post-card {
+  background: var(--mlo-surface);
+  border: 1px solid var(--mlo-border);
+  border-radius: var(--mlo-radius-lg);
+  box-shadow: var(--mlo-shadow);
+  overflow: hidden;
+  position: relative;
+}
+
+.ypnus-post-card__header {
+  align-items: center;
+  border-bottom: 1px solid var(--mlo-border);
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+}
+
+.ypnus-post-card__body {
+  padding: 1rem;
+}
+
+.ypnus-post-text {
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--mlo-text);
+}
+
+/* ── Platform Badges ───────────────────────────────────────────────────────── */
+
+.ypnus-platform-badge {
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  text-transform: uppercase;
+}
+
+.ypnus-platform-badge--linkedin  { background: #0A66C2; color: #fff; }
+.ypnus-platform-badge--instagram { background: #C13584; color: #fff; }
+.ypnus-platform-badge--tiktok    { background: #010101; color: #fff; }
+
+/* ── Disclosure Badge ──────────────────────────────────────────────────────── */
+
+.ypnus-disclosure-badge {
+  background: var(--mlo-amber-bg);
+  border-top: 1px solid var(--mlo-amber-border);
+  color: var(--mlo-amber);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.35rem 1rem;
+  text-transform: uppercase;
+}
+
+/* ── Keyword Table ─────────────────────────────────────────────────────────── */
+
+.ypnus-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--mlo-radius-lg);
+  border: 1px solid var(--mlo-border);
+  box-shadow: var(--mlo-shadow);
+}
+
+.ypnus-keyword-table {
+  background: var(--mlo-surface);
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  width: 100%;
+}
+
+.ypnus-keyword-table th {
+  background: var(--mlo-navy);
+  color: rgba(255,255,255,0.75);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ypnus-keyword-table td {
+  border-bottom: 1px solid var(--mlo-border);
+  color: var(--mlo-text);
+  padding: 0.875rem 1rem;
+  vertical-align: top;
+  line-height: 1.45;
+}
+
+.ypnus-keyword-table tr:last-child td { border-bottom: none; }
+
+.ypnus-keyword-table tr:hover td {
+  background: var(--mlo-bg);
+}
+
+.ypnus-keyword-table td:first-child {
+  font-weight: 600;
+  color: #1565C0;
+}
+
+:root[data-theme="dark"] .ypnus-keyword-table td:first-child,
+@media (prefers-color-scheme: dark) {
+  .ypnus-keyword-table td:first-child { color: #7EB8E8; }
+}
+
+/* Intent pills */
+.ypnus-pill {
+  border-radius: 3px;
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ypnus-pill--informational { background: #E0EAF7; color: #1B4F8A; }
+.ypnus-pill--commercial    { background: #E3F5EC; color: #1A6B3C; }
+.ypnus-pill--transactional { background: #FAE8DC; color: #8B3500; }
+.ypnus-pill--navigational  { background: #F0E8FA; color: #5B2D8A; }
+
+.ypnus-diff--easy   { color: #1A6B3C; font-weight: 700; }
+.ypnus-diff--medium { color: #8B5E00; font-weight: 700; }
+.ypnus-diff--hard   { color: #8B2000; font-weight: 700; }
+
+.ypnus-use-keyword-btn {
+  background: transparent;
+  border: 1px solid var(--mlo-border);
+  border-radius: var(--mlo-radius);
+  color: var(--mlo-text-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.ypnus-use-keyword-btn:hover {
+  border-color: var(--mlo-gold);
+  color: var(--mlo-gold);
+}
+
+/* ── Error ─────────────────────────────────────────────────────────────────── */
+
+.ypnus-error {
+  background: #FDE8E8;
+  border: 1px solid #F0ABAB;
+  border-radius: var(--mlo-radius);
+  color: #8B0000;
+  font-size: 0.9rem;
+  padding: 0.875rem 1rem;
+}
+
+.ypnus-error[hidden] { display: none; }
+
+/* ── Silo Navigation ───────────────────────────────────────────────────────── */
+
+.ypnus-silo-nav {
+  background: var(--mlo-surface);
+  border: 1px solid var(--mlo-border);
+  border-left: 3px solid var(--mlo-gold);
+  border-radius: var(--mlo-radius);
+  box-shadow: var(--mlo-shadow);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin-bottom: 1.75rem;
+  overflow: hidden;
+}
+
+.ypnus-silo-nav__breadcrumb {
+  align-items: center;
+  background: var(--mlo-bg);
+  border-bottom: 1px solid var(--mlo-border);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  gap: 0.25rem 0.5rem;
+  padding: 0.6rem 1rem;
+}
+
+.ypnus-silo-nav__home,
+.ypnus-silo-nav__pillar {
+  color: var(--mlo-navy-light);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+:root[data-theme="dark"] .ypnus-silo-nav__home,
+:root[data-theme="dark"] .ypnus-silo-nav__pillar {
+  color: #7EB8E8;
+}
+
+.ypnus-silo-nav__home:hover,
+.ypnus-silo-nav__pillar:hover {
+  text-decoration: underline;
+  color: var(--mlo-gold);
+}
+
+.ypnus-silo-nav__sep {
+  color: var(--mlo-border);
+}
+
+.ypnus-silo-nav__current {
+  color: var(--mlo-text-soft);
+  font-weight: 400;
+}
+
+.ypnus-silo-nav__children {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.5rem;
+  padding: 0.625rem 1rem;
+}
+
+.ypnus-silo-nav__label {
+  color: var(--mlo-text-soft);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-right: 0.25rem;
+  text-transform: uppercase;
+}
+
+.ypnus-silo-nav__child {
+  background: var(--mlo-bg);
+  border: 1px solid var(--mlo-border);
+  border-radius: 4px;
+  color: var(--mlo-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.2rem 0.65rem;
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.ypnus-silo-nav__child:hover {
+  border-color: var(--mlo-gold);
+  color: var(--mlo-gold);
+  background: var(--mlo-surface);
+}
+
+.ypnus-silo-nav__child--active {
+  background: var(--mlo-navy);
+  border-color: var(--mlo-navy);
+  color: #FFFFFF;
+  pointer-events: none;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .ypnus-tool { padding: 1.25rem; }
+  .ypnus-form--inline .ypnus-input-row { flex-direction: column; }
+  .ypnus-btn { width: 100%; }
+}
+
+/* ── Agentic Chat ──────────────────────────────────────────────────────────── */
+
+.ypnus-agent {
+  background: var(--mlo-bg);
+  border-radius: var(--mlo-radius-lg);
+  border: 1px solid var(--mlo-border);
+  box-shadow: var(--mlo-shadow);
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  max-width: 780px;
+  margin: 0 auto 2rem;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+.ypnus-agent__header {
+  align-items: center;
+  background: var(--mlo-navy);
+  color: #fff;
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem 1.25rem;
+}
+
+.ypnus-agent__avatar {
+  align-items: center;
+  background: var(--mlo-gold);
+  border-radius: 50%;
+  color: var(--mlo-navy);
+  display: flex;
+  flex-shrink: 0;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.ypnus-agent__name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.ypnus-agent__sub {
+  color: rgba(255,255,255,0.55);
+  font-size: 0.75rem;
+  margin-top: 1px;
+}
+
+.ypnus-agent__status {
+  align-items: center;
+  display: flex;
+  gap: 0.375rem;
+  margin-left: auto;
+}
+
+.ypnus-agent__dot {
+  background: #3BE878;
+  border-radius: 50%;
+  display: block;
+  flex-shrink: 0;
+  height: 8px;
+  transition: background 0.3s;
+  width: 8px;
+}
+
+.ypnus-agent__dot.is-thinking {
+  animation: ypnus-pulse 1s ease-in-out infinite;
+  background: var(--mlo-gold-light);
+}
+
+@keyframes ypnus-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+.ypnus-agent__status-text {
+  color: rgba(255,255,255,0.6);
+  font-size: 0.75rem;
+}
+
+/* Messages */
+.ypnus-agent__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 300px;
+  max-height: 520px;
+  overflow-y: auto;
+  padding: 1.25rem;
+  scroll-behavior: smooth;
+  background: var(--mlo-surface);
+}
+
+.ypnus-agent__message {
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+}
+
+.ypnus-agent__message--user {
+  align-items: flex-end;
+  align-self: flex-end;
+}
+
+.ypnus-agent__message--agent,
+.ypnus-agent__message--error {
+  align-items: flex-start;
+  align-self: flex-start;
+}
+
+.ypnus-agent__bubble {
+  background: var(--mlo-bg);
+  border: 1px solid var(--mlo-border);
+  border-radius: 12px 12px 12px 2px;
+  color: var(--mlo-text);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  padding: 0.75rem 1rem;
+  word-break: break-word;
+}
+
+.ypnus-agent__message--user .ypnus-agent__bubble {
+  background: var(--mlo-navy);
+  border-color: var(--mlo-navy);
+  border-radius: 12px 12px 2px 12px;
+  color: #fff;
+}
+
+.ypnus-agent__bubble--error {
+  background: #FDE8E8;
+  border-color: #F0ABAB;
+  color: #8B0000;
+}
+
+.ypnus-agent__bubble code {
+  background: rgba(0,0,0,0.07);
+  border-radius: 3px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.825em;
+  padding: 0.1em 0.35em;
+}
+
+.ypnus-agent__message--agent .ypnus-agent__bubble code {
+  background: rgba(13,31,53,0.06);
+}
+
+/* Copy button under agent messages */
+.ypnus-agent__copy {
+  background: transparent;
+  border: none;
+  color: var(--mlo-text-soft);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-top: 0.2rem;
+  padding: 0.15rem 0;
+  text-transform: uppercase;
+  transition: color 0.15s;
+}
+
+.ypnus-agent__copy:hover { color: var(--mlo-gold); }
+
+/* Typing indicator */
+.ypnus-agent__message--typing .ypnus-agent__bubble {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  padding: 0.9rem 1rem;
+}
+
+.ypnus-agent__message--typing .ypnus-agent__bubble span {
+  background: var(--mlo-steel);
+  border-radius: 50%;
+  display: block;
+  height: 7px;
+  width: 7px;
+  animation: ypnus-typing 1.2s ease-in-out infinite;
+}
+
+.ypnus-agent__message--typing .ypnus-agent__bubble span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.ypnus-agent__message--typing .ypnus-agent__bubble span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes ypnus-typing {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.4; }
+  30%            { transform: translateY(-5px); opacity: 1;   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ypnus-agent__message--typing .ypnus-agent__bubble span { animation: none; }
+  .ypnus-agent__dot.is-thinking { animation: none; }
+}
+
+/* Suggestion chips */
+.ypnus-agent__suggestions {
+  background: var(--mlo-surface);
+  border-top: 1px solid var(--mlo-border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+}
+
+.ypnus-agent__chip {
+  background: var(--mlo-bg);
+  border: 1px solid var(--mlo-border);
+  border-radius: 20px;
+  color: var(--mlo-text);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  padding: 0.3rem 0.85rem;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+
+.ypnus-agent__chip:hover {
+  border-color: var(--mlo-gold);
+  color: var(--mlo-gold);
+  background: var(--mlo-surface);
+}
+
+/* Input row */
+.ypnus-agent__input-row {
+  align-items: flex-end;
+  background: var(--mlo-surface);
+  border-top: 1px solid var(--mlo-border);
+  display: flex;
+  gap: 0.625rem;
+  padding: 0.875rem 1.25rem;
+}
+
+.ypnus-agent__input {
+  background: var(--mlo-bg);
+  border: 1px solid var(--mlo-border);
+  border-radius: var(--mlo-radius);
+  color: var(--mlo-text);
+  flex: 1;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 0.625rem 0.875rem;
+  resize: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ypnus-agent__input:focus {
+  border-color: var(--mlo-gold);
+  box-shadow: 0 0 0 3px rgba(184,137,10,0.15);
+  outline: none;
+}
+
+.ypnus-agent__send {
+  align-items: center;
+  background: var(--mlo-navy);
+  border: none;
+  border-radius: var(--mlo-radius);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 40px;
+  justify-content: center;
+  position: relative;
+  transition: opacity 0.15s;
+  width: 40px;
+}
+
+.ypnus-agent__send:hover { opacity: 0.85; }
+.ypnus-agent__send:active { transform: scale(0.96); }
+.ypnus-agent__send.is-loading .ypnus-btn__text { opacity: 0; }
+.ypnus-agent__send.is-loading { pointer-events: none; }
+.ypnus-agent__send .ypnus-btn__loader {
+  width: 16px;
+  height: 16px;
+}
+
+/* Footer */
+.ypnus-agent__footer {
+  background: var(--mlo-bg);
+  border-top: 1px solid var(--mlo-border);
+  color: var(--mlo-text-soft);
+  font-size: 0.6875rem;
+  padding: 0.5rem 1.25rem;
+  text-align: center;
+}
+
+/* ── Agent responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .ypnus-agent__messages { max-height: 380px; }
+  .ypnus-agent__message  { max-width: 94%; }
+  .ypnus-agent__suggestions { gap: 0.4rem; padding: 0.625rem 1rem; }
+  .ypnus-agent__input-row { padding: 0.625rem 1rem; }
+}

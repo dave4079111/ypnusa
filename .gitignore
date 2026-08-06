@@ -43,3 +43,7 @@ next-env.d.ts
 
 # loanpilot local persistence
 /data/store.json
+
+# MLO MCP Server build artifacts
+mlo-mcp-server/node_modules/
+mlo-mcp-server/dist/

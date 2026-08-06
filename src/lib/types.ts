@@ -148,9 +148,27 @@ export interface AnalyticsEventRecord {
     | "intake_progress"
     | "intake_completed"
     | "appointment_booked"
-    | "followup_processed";
+    | "followup_processed"
+    | "demo_requested";
   createdAt: string;
   payload: Record<string, unknown>;
+}
+
+/** Loan-officer / brokerage territory reservation captured from the marketing site. */
+export interface DemoRequestRecord {
+  id: string;
+  createdAt: string;
+  name: string;
+  workEmail: string;
+  company: string;
+  phone?: string;
+  role?: string;
+  /** Requested exclusive ZIP-code territory. */
+  zip?: string;
+  monthlyLeadVolume?: string;
+  message?: string;
+  source?: string;
+  status: "new" | "contacted";
 }
 
 export interface DbShape {
@@ -162,4 +180,5 @@ export interface DbShape {
   followUps: ScheduledFollowUpRecord[];
   appointments: AppointmentRecord[];
   analyticsEvents: AnalyticsEventRecord[];
+  demoRequests: DemoRequestRecord[];
 }

@@ -10,13 +10,13 @@ export default function LoanPilotAnalytics() {
     <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-10 bg-slate-50 px-6 py-16 text-slate-900">
       <header className="space-y-3">
         <p className="text-xs uppercase tracking-[0.3em] text-cyan-600">Operational visibility</p>
-        <h1 className="text-3xl font-semibold">LoanPilot AI intake telemetry</h1>
+        <h1 className="text-3xl font-semibold">YPN USA intake telemetry</h1>
         <p className="text-sm text-slate-600">
           Completion rates infer event ledger ratios; qualification mix summarizes persisted LOS artifacts.
           Follow-up pulses appear once the automation cron route processes outstanding queue rows.
         </p>
         <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 hover:text-teal-600">
-          ← Back to concierge surface
+          ← Back to homepage
         </Link>
       </header>
 
@@ -37,7 +37,7 @@ export default function LoanPilotAnalytics() {
         </article>
 
         <article className="rounded-3xl bg-white p-5 shadow-xl shadow-cyan-100/70 ring-1 ring-slate-100">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">LOS composite avg</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Avg lead score</p>
           <p className="mt-4 text-3xl font-semibold">{pulse.averageLosCompositeScore}</p>
         </article>
       </section>
@@ -47,7 +47,7 @@ export default function LoanPilotAnalytics() {
           <header className="space-y-1">
             <h2 className="text-xl font-semibold">Intake completion rate</h2>
             <p className="text-sm text-slate-600">
-              Borrowers who finish versus those who tapped &ldquo;Start AI intake concierge&rdquo;.
+              Borrowers who finish versus those who started the AI intake assistant.
             </p>
           </header>
           <p className="mt-6 text-5xl font-bold text-cyan-600">{pulse.completionRatePct}%</p>
@@ -95,7 +95,7 @@ export default function LoanPilotAnalytics() {
               </div>
             ))}
             {Object.keys(pulse.funnel).length === 0 ? (
-              <p className="text-sm text-slate-500">No LOS traffic yet — launch the concierge.</p>
+              <p className="text-sm text-slate-500">No traffic yet — launch the assistant.</p>
             ) : null}
           </div>
         </article>

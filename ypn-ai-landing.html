@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>YPN AI — Close more loans. Work less. Grow on autopilot.</title>
   <meta name="description" content="YPN AI — AI platform for mortgage loan officers. Close more loans, work less, grow on autopilot." />
+  <link rel="canonical" href="https://ypnus.com/" />
+  <meta name="theme-color" content="#09152a" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="YPN AI — Close more loans. Work less. Grow on autopilot." />
+  <meta property="og:description" content="AI-powered growth platform for mortgage loan officers: 24/7 borrower intake, realtor acquisition, and compliant marketing—built to convert more of the traffic you already have." />
+  <meta property="og:url" content="https://ypnus.com/" />
+  <meta property="og:site_name" content="YPN AI" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="YPN AI — Close more loans. Work less. Grow on autopilot." />
+  <meta name="twitter:description" content="AI-powered growth platform for mortgage loan officers: 24/7 borrower intake, realtor acquisition, and compliant marketing." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -722,6 +732,135 @@
       font-size: 0.85rem;
       color: var(--muted-dark);
     }
+
+    /* Trust microcopy under primary CTAs */
+    .trust-line {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.4rem 1.1rem;
+      font-size: 0.82rem;
+      color: var(--muted-dark);
+      margin: -1.75rem 0 2.25rem;
+    }
+
+    .trust-line span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .trust-line span::before {
+      content: '✓';
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    /* Live demo section */
+    .demo {
+      background: #f6f8fa;
+    }
+
+    .demo-shell {
+      display: grid;
+      gap: 2rem;
+      align-items: center;
+    }
+
+    @media (min-width: 900px) {
+      .demo-shell {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .demo-copy h2 {
+      font-size: clamp(1.6rem, 3.2vw, 2.1rem);
+      margin: 0 0 0.85rem;
+      color: var(--navy);
+    }
+
+    .demo-copy p {
+      color: var(--muted-dark);
+      margin: 0 0 1.25rem;
+    }
+
+    .demo-copy ul {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 1.5rem;
+      display: grid;
+      gap: 0.6rem;
+    }
+
+    .demo-copy ul li {
+      display: flex;
+      gap: 0.6rem;
+      font-size: 0.95rem;
+      color: var(--muted-dark);
+    }
+
+    .demo-copy ul li::before {
+      content: '✓';
+      color: var(--gold);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .demo-frame-wrap {
+      max-width: 480px;
+      margin: 0 auto;
+      border-radius: 24px;
+      background: var(--navy);
+      padding: 10px;
+      box-shadow: 0 24px 64px rgba(9, 21, 42, 0.18);
+    }
+
+    .demo-frame-wrap iframe {
+      display: block;
+      width: 100%;
+      height: min(640px, 78vh);
+      border: 0;
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    /* Sticky mobile conversion bar */
+    .sticky-cta {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.7rem 1rem;
+      padding-bottom: max(0.7rem, env(safe-area-inset-bottom));
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(9, 21, 42, 0.1);
+      box-shadow: 0 -8px 24px rgba(9, 21, 42, 0.08);
+      transform: translateY(100%);
+      transition: transform 0.25s ease;
+    }
+
+    .sticky-cta.visible {
+      transform: translateY(0);
+    }
+
+    .sticky-cta p {
+      margin: 0;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    @media (max-width: 767px) {
+      .sticky-cta {
+        display: flex;
+      }
+    }
   </style>
 </head>
 <body id="top">
@@ -736,6 +875,7 @@
 
       <nav class="nav-links" id="site-nav-links" aria-label="Primary">
         <a href="#features">Features</a>
+        <a href="#demo">Live Demo</a>
         <a href="#how">How It Works</a>
         <a href="#pricing">Pricing</a>
         <a href="#faq">FAQ</a>
@@ -757,8 +897,14 @@
           </p>
           <div class="hero-ctas">
             <a class="btn btn-primary btn-lg" href="#early-access">Get Early Access</a>
-            <a class="btn btn-outline btn-lg" href="#how">See How It Works</a>
+            <a class="btn btn-outline btn-lg" href="#demo">Try the Live Demo</a>
           </div>
+
+          <p class="trust-line">
+            <span>Free to join early access</span>
+            <span>No credit card required</span>
+            <span>Setup in minutes</span>
+          </p>
 
           <div class="stat-grid" aria-label="Impact stats">
             <div class="stat-box"><div class="stat-value">4,200+</div><div class="stat-label">Loan officers onboarded</div></div>
@@ -827,6 +973,35 @@
             <h3>LO Website Builder</h3>
             <p>Launch a compliant branded website in minutes with conversion-focused templates built for mortgages—not generic small business brochures.</p>
           </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Live demo -->
+    <section id="demo" class="demo">
+      <div class="container">
+        <div class="demo-shell">
+          <div class="demo-copy">
+            <span class="eyebrow">See it in action</span>
+            <h2>This is the exact intake your borrowers will use.</h2>
+            <p>
+              No slides, no mockups—chat with the real AI Borrower Intake widget below. It's the same
+              conversational flow you'd embed on your own site, in referral links, and in campaigns.
+            </p>
+            <ul>
+              <li>Qualifies intent and loan type in under a minute</li>
+              <li>Feels like texting a person, not filling out a form</li>
+              <li>Captures the borrower facts your LOS/CRM needs</li>
+            </ul>
+            <a class="btn btn-primary btn-lg" href="#early-access">Get Early Access</a>
+          </div>
+          <div class="demo-frame-wrap">
+            <iframe
+              src="./ypn-ai-borrower-intake.html?embed=1"
+              title="YPN AI borrower intake live demo"
+              loading="lazy"
+            ></iframe>
+          </div>
         </div>
       </div>
     </section>
@@ -978,6 +1153,9 @@
           <button class="btn btn-primary btn-lg btn-block" type="submit">Submit</button>
 
           <p class="form-status" id="form-status" aria-live="polite"></p>
+          <p style="margin:.75rem 0 0;font-size:.78rem;color:rgba(9,21,42,0.5);">
+            Takes about 30 seconds. We'll never share your info or spam you.
+          </p>
           <small style="display:block;margin-top:.75rem;font-size:.8rem;color:rgba(9,21,42,0.5);">
             Powered by Formspree — swap <code>YOURCODE</code> in this file with your endpoint ID.
           </small>
@@ -1026,6 +1204,11 @@
     </div>
   </footer>
 
+  <div class="sticky-cta" id="sticky-cta">
+    <p>Ready to grow on autopilot?</p>
+    <a class="btn btn-primary" href="#early-access">Get Early Access</a>
+  </div>
+
   <script>
     (function () {
       var toggle = document.getElementById('nav-toggle');
@@ -1065,14 +1248,39 @@
 
       if (!form || !status) return;
 
+      function mailFallbackLink() {
+        var first = (document.getElementById('ea-first') || {}).value || '';
+        var email = (document.getElementById('ea-email') || {}).value || '';
+        var nmls = (document.getElementById('ea-nmls') || {}).value || '';
+        var body =
+          'First name: ' + first + '\nEmail: ' + email + (nmls ? '\nNMLS#: ' + nmls : '');
+        return (
+          'mailto:support@ypnus.com?subject=' +
+          encodeURIComponent('YPN AI — Early Access (ypnus.com)') +
+          '&body=' +
+          encodeURIComponent(body)
+        );
+      }
+
+      function showFallback(message) {
+        status.innerHTML = '';
+        var text = document.createElement('span');
+        text.textContent = message + ' ';
+        var link = document.createElement('a');
+        link.href = mailFallbackLink();
+        link.textContent = 'Email us directly instead →';
+        link.style.textDecoration = 'underline';
+        status.appendChild(text);
+        status.appendChild(link);
+        status.className = 'form-status error';
+      }
+
       form.addEventListener('submit', function (event) {
         var actionUrl = form.getAttribute('action') || '';
 
         if (actionUrl.indexOf('YOURCODE') !== -1) {
           event.preventDefault();
-          status.textContent =
-            'Update the Formspree URL in this HTML file (replace YOURCODE) — then submissions will sync automatically.';
-          status.className = 'form-status error';
+          showFallback('This form isn’t fully connected yet, so we don’t want to lose you.');
           return;
         }
 
@@ -1092,14 +1300,46 @@
               form.reset();
               return;
             }
-            status.textContent = 'Something blocked the send — try email support@ypnus.com.';
-            status.className = 'form-status error';
+            showFallback('Something blocked the send.');
           })
           .catch(function () {
-            status.textContent = 'Network issue — retry or email support@ypnus.com.';
-            status.className = 'form-status error';
+            showFallback('Network issue — retry, or');
           });
       });
+    })();
+
+    (function () {
+      var bar = document.getElementById('sticky-cta');
+      var hero = document.querySelector('.hero');
+      var earlyAccess = document.getElementById('early-access');
+      if (!bar || !hero) return;
+
+      var pastHero = false;
+      var inEarlyAccess = false;
+
+      function sync() {
+        bar.classList.toggle('visible', pastHero && !inEarlyAccess);
+      }
+
+      if ('IntersectionObserver' in window) {
+        new IntersectionObserver(
+          function (entries) {
+            pastHero = !entries[0].isIntersecting;
+            sync();
+          },
+          { rootMargin: '-1px 0px 0px 0px' }
+        ).observe(hero);
+
+        if (earlyAccess) {
+          new IntersectionObserver(
+            function (entries) {
+              inEarlyAccess = entries[0].isIntersecting;
+              sync();
+            },
+            { threshold: 0.2 }
+          ).observe(earlyAccess);
+        }
+      }
     })();
   </script>
 </body>

@@ -17,6 +17,9 @@ export function rateLimit(
   windowMs: number,
 ): { ok: boolean; retryAfter: number } {
   const now = Date.now();
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 1;
+  const safeWindowMs = Number.isFinite(windowMs) && windowMs > 0 ? Math.floor(windowMs) : 60_000;
+  const safeKey = key.trim() || "unknown";
 
   // Opportunistic cleanup so the map can't grow without bound.
   if (buckets.size > 5000) {
@@ -25,13 +28,13 @@ export function rateLimit(
     }
   }
 
-  const existing = buckets.get(key);
+  const existing = buckets.get(safeKey);
   if (!existing || existing.resetAt <= now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    buckets.set(safeKey, { count: 1, resetAt: now + safeWindowMs });
     return { ok: true, retryAfter: 0 };
   }
 
-  if (existing.count >= limit) {
+  if (existing.count >= safeLimit) {
     return { ok: false, retryAfter: Math.ceil((existing.resetAt - now) / 1000) };
   }
 

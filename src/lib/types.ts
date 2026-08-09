@@ -1,3 +1,5 @@
+import type { PricingTierId } from "./pricing";
+
 export type LoanProgram = "FHA" | "VA" | "DSCR" | "HELOC" | "REFI" | "JUMBO";
 
 export type LeadQuality = "prime" | "strong" | "developing" | "watch";
@@ -171,6 +173,23 @@ export interface DemoRequestRecord {
   status: "new" | "contacted";
 }
 
+export interface RevenueSubscriptionRecord {
+  id: string;
+  createdAt: string;
+  startedAt: string;
+  tier: PricingTierId;
+  status: "trialing" | "active" | "cancelled";
+  source: "seed" | "demo_request" | "admin_adjustment";
+  ownerLoId?: string;
+  ownerEmail?: string;
+  company?: string;
+  claimedZips: string[];
+  countyTerritories?: string[];
+  monthlyPriceCents?: number;
+  lifetimeMonths?: number;
+  attributedDemoRequestIds?: string[];
+}
+
 export interface DbShape {
   loanOfficers: LoanOfficerRecord[];
   sessions: IntakeSessionRecord[];
@@ -181,4 +200,5 @@ export interface DbShape {
   appointments: AppointmentRecord[];
   analyticsEvents: AnalyticsEventRecord[];
   demoRequests: DemoRequestRecord[];
+  revenueSubscriptions: RevenueSubscriptionRecord[];
 }

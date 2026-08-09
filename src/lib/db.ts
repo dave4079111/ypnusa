@@ -10,6 +10,7 @@ import type {
   IntakeSessionRecord,
   LoanOfficerRecord,
   LoAlertRecord,
+  RevenueSubscriptionRecord,
   ScheduledFollowUpRecord,
 } from "./types";
 
@@ -93,6 +94,53 @@ const defaultLoanOfficers: LoanOfficerRecord[] = [
   },
 ];
 
+const defaultRevenueSubscriptions: RevenueSubscriptionRecord[] = [
+  {
+    id: "sub_seed_jordan_starter",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    tier: "starter",
+    status: "active",
+    source: "seed",
+    ownerLoId: "lo_jordan_lee",
+    ownerEmail: "jordan.lee@loanapilot.ai",
+    company: "Jordan Lee Lending",
+    claimedZips: ["78701", "78702"],
+    monthlyPriceCents: 2999,
+    lifetimeMonths: 14,
+  },
+  {
+    id: "sub_seed_priya_pro",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    tier: "pro",
+    status: "active",
+    source: "seed",
+    ownerLoId: "lo_priya_nandakumar",
+    ownerEmail: "priya.n@loanapilot.ai",
+    company: "Nandakumar Capital",
+    claimedZips: ["33131", "33132", "33133", "33134"],
+    countyTerritories: ["Miami-Dade County, FL"],
+    monthlyPriceCents: 9999,
+    lifetimeMonths: 18,
+  },
+  {
+    id: "sub_seed_mateo_elite",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    tier: "elite",
+    status: "active",
+    source: "seed",
+    ownerLoId: "lo_mateo_rosales",
+    ownerEmail: "mateo.r@loanapilot.ai",
+    company: "Rosales Home Finance",
+    claimedZips: ["85004", "85006", "85251", "85257", "85281", "85282"],
+    countyTerritories: ["Maricopa County, AZ", "Pima County, AZ"],
+    monthlyPriceCents: 29999,
+    lifetimeMonths: 20,
+  },
+];
+
 const emptyDb = (): DbShape => ({
   loanOfficers: defaultLoanOfficers,
   sessions: [],
@@ -103,43 +151,62 @@ const emptyDb = (): DbShape => ({
   appointments: [],
   analyticsEvents: [],
   demoRequests: [],
+  revenueSubscriptions: defaultRevenueSubscriptions,
 });
 
-/** Fill in any missing collections so older snapshots stay forward-compatible. */
-function normalize(parsed: DbShape): DbShape {
-  parsed.loanOfficers =
-    parsed.loanOfficers && parsed.loanOfficers.length > 0
-      ? parsed.loanOfficers
-      : defaultLoanOfficers;
+function describeFsError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
-  parsed.sessions ??= [];
-  parsed.borrowerLeads ??= [];
-  parsed.crmLeads ??= [];
-  parsed.loAlerts ??= [];
-  parsed.followUps ??= [];
-  parsed.appointments ??= [];
-  parsed.analyticsEvents ??= [];
-  parsed.demoRequests ??= [];
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-  parsed.sessions = parsed.sessions.map((session) => ({
-    ...session,
-    status: session.status ?? "collecting",
-  }));
+function arrayOrEmpty<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
 
-  return parsed;
+/** Fill in any missing collections so older or partial snapshots stay forward-compatible. */
+function normalize(snapshot: unknown): DbShape {
+  const parsed = isPlainRecord(snapshot) ? snapshot : {};
+  const loanOfficers = arrayOrEmpty<LoanOfficerRecord>(parsed.loanOfficers);
+  const sessions = arrayOrEmpty<IntakeSessionRecord>(parsed.sessions);
+  const revenueSubscriptions = arrayOrEmpty<RevenueSubscriptionRecord>(
+    parsed.revenueSubscriptions,
+  );
+
+  return {
+    loanOfficers: loanOfficers.length > 0 ? loanOfficers : defaultLoanOfficers,
+    sessions: sessions.map((session) => ({
+      ...session,
+      status: session.status ?? "collecting",
+    })),
+    borrowerLeads: arrayOrEmpty<BorrowerLeadRecord>(parsed.borrowerLeads),
+    crmLeads: arrayOrEmpty<CrmLeadRecord>(parsed.crmLeads),
+    loAlerts: arrayOrEmpty<LoAlertRecord>(parsed.loAlerts),
+    followUps: arrayOrEmpty<ScheduledFollowUpRecord>(parsed.followUps),
+    appointments: arrayOrEmpty<AppointmentRecord>(parsed.appointments),
+    analyticsEvents: arrayOrEmpty<AnalyticsEventRecord>(parsed.analyticsEvents),
+    demoRequests: arrayOrEmpty<DemoRequestRecord>(parsed.demoRequests),
+    revenueSubscriptions:
+      revenueSubscriptions.length > 0 ? revenueSubscriptions : defaultRevenueSubscriptions,
+  };
 }
 
 /** Process-scoped source of truth. */
 let memoryDb: DbShape | null = null;
 let diskWritable = true;
+let lastStorageError: string | undefined;
 
 function ensureDataDir(): boolean {
   try {
     if (!fs.existsSync(dataDir())) {
       fs.mkdirSync(dataDir(), { recursive: true });
     }
+    lastStorageError = undefined;
     return true;
-  } catch {
+  } catch (error) {
+    lastStorageError = `Unable to create data directory: ${describeFsError(error)}`;
     return false;
   }
 }
@@ -150,17 +217,24 @@ function flushToDisk(db: DbShape): void {
     diskWritable = false;
     return;
   }
+  // Write to a temp file and rename so a crash mid-write can't truncate the
+  // snapshot (rename is atomic on the same filesystem).
+  const target = dbPath();
+  const tmp = `${target}.${process.pid}.tmp`;
   try {
-    // Write to a temp file and rename so a crash mid-write can't truncate the
-    // snapshot (rename is atomic on the same filesystem).
-    const target = dbPath();
-    const tmp = `${target}.${process.pid}.tmp`;
     fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
     fs.renameSync(tmp, target);
-  } catch {
+    lastStorageError = undefined;
+  } catch (error) {
     // Read-only/serverless filesystem: keep serving from memory. Stop retrying
     // so we don't throw on every request.
     diskWritable = false;
+    lastStorageError = `Unable to persist data snapshot: ${describeFsError(error)}`;
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {
+      // Best effort only; persistence has already fallen back to memory.
+    }
   }
 }
 
@@ -171,7 +245,7 @@ function hydrate(): DbShape {
   let snapshotUnreadable = false;
   try {
     if (fs.existsSync(dbPath())) {
-      const parsed = JSON.parse(fs.readFileSync(dbPath(), "utf8")) as DbShape;
+      const parsed = JSON.parse(fs.readFileSync(dbPath(), "utf8")) as unknown;
       memoryDb = normalize(parsed);
       return memoryDb;
     }
@@ -179,7 +253,8 @@ function hydrate(): DbShape {
     // Corrupt/unreadable snapshot: serve from memory but DO NOT overwrite the
     // file — preserve it for manual recovery.
     snapshotUnreadable = true;
-    console.error(`[db] unreadable snapshot at ${dbPath()} — serving fresh store`, error);
+    lastStorageError = `Unreadable data snapshot at ${dbPath()}: ${describeFsError(error)}`;
+    console.error(`[db] ${lastStorageError}`, error);
   }
 
   memoryDb = emptyDb();
@@ -265,10 +340,11 @@ export function appendAnalytics(event: Omit<AnalyticsEventRecord, "id" | "create
 }
 
 /** Exposed for diagnostics/health checks. */
-export function storageMode(): { persistent: boolean; dir: string } {
+export function storageMode(): { persistent: boolean; dir: string; error?: string } {
   hydrate();
   return {
     persistent: diskWritable,
     dir: dataDir(),
+    error: lastStorageError,
   };
 }

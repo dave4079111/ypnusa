@@ -1,6 +1,14 @@
 import type { LoanProgram } from "./types";
 
-export const PROGRAM_LIST: LoanProgram[] = ["FHA", "VA", "DSCR", "HELOC", "REFI", "JUMBO"];
+export const PROGRAM_LIST: LoanProgram[] = [
+  "FHA",
+  "VA",
+  "CONVENTIONAL",
+  "DSCR",
+  "HELOC",
+  "REFI",
+  "JUMBO",
+];
 
 const PROGRAM_LOOKUP = new Set(PROGRAM_LIST);
 

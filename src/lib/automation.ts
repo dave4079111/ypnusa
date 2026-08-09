@@ -1,5 +1,6 @@
-import { appendAnalytics, persistFollowUpsBatch, writeDb } from "./db";
+import { appendAnalytics, persistFollowUpsBatch, readDb, writeDb } from "./db";
 import { generateId } from "./id";
+import { deliverOutreach } from "./outreach";
 import type {
   BorrowerAnswers,
   FollowUpPlan,
@@ -25,17 +26,22 @@ function offsetSinceNow(plan: FollowUpPlan): number {
 
   switch (plan) {
     case "immediate_confirmation_email":
-      return 4_000;
     case "immediate_sms_ack":
-      return 7_000;
+      return 0;
     case "day_1_educational_email":
       return day;
     case "day_3_book_call_email":
       return day * 3;
     case "day_5_urgency_email":
       return day * 5;
+    case "day_30_check_in":
+      return day * 30;
+    case "day_60_check_in":
+      return day * 60;
+    case "day_90_check_in":
+      return day * 90;
     default:
-      return day;
+      return plan satisfies never;
   }
 }
 
@@ -50,12 +56,17 @@ const nurtureCopy: Record<FollowUpPlan, string> = {
     "Conversion nudge—highlight three live consultation blocks mirrored from LOS calendar placeholders.",
   day_5_urgency_email:
     "Momentum reminder—pair live pricing volatility with LOS-ready document requests.",
+  day_30_check_in: "30-day borrower readiness check-in.",
+  day_60_check_in: "60-day purchase or refinance timeline check-in.",
+  day_90_check_in: "90-day mortgage game-plan refresh.",
 };
 
 export function scheduleBorrowerJourney(
   borrowerLeadId: string,
   answers: BorrowerAnswers,
 ): ScheduledFollowUpRecord[] {
+  if (answers.contactConsent !== true) return [];
+
   const email = answers.email ?? "borrower-not-provided@loanapilot.ai";
   const phone = answers.phone ?? "+10005550199";
 
@@ -65,6 +76,9 @@ export function scheduleBorrowerJourney(
     "day_1_educational_email",
     "day_3_book_call_email",
     "day_5_urgency_email",
+    "day_30_check_in",
+    "day_60_check_in",
+    "day_90_check_in",
   ];
 
   const anchor = Date.now();
@@ -84,31 +98,88 @@ export function scheduleBorrowerJourney(
   return created;
 }
 
-export function processDueFollowUps(): {
+export async function processDueFollowUps(options?: {
+  borrowerLeadId?: string;
+  limit?: number;
+}): Promise<{
   processed: number;
+  failed: number;
   events: string[];
-} {
+}> {
   let processed = 0;
+  let failed = 0;
   const events: string[] = [];
+  const claimedIds: string[] = [];
+  const limit = Math.max(1, Math.min(options?.limit ?? 50, 100));
 
   writeDb((db) => {
     const now = Date.now();
-    db.followUps.forEach((job) => {
-      if (job.status !== "pending") return;
-      if (new Date(job.scheduledAt).getTime() > now) return;
-      job.status = "sent";
-      job.sentAt = new Date().toISOString();
-      processed += 1;
-      events.push(`${job.plan}:${job.channel}`);
-    });
+    for (const job of db.followUps) {
+      if (claimedIds.length >= limit) break;
+      if (job.status !== "pending") continue;
+      if (options?.borrowerLeadId && job.borrowerLeadId !== options.borrowerLeadId) continue;
+      if (new Date(job.scheduledAt).getTime() > now) continue;
+      job.status = "sending";
+      job.attemptCount = (job.attemptCount ?? 0) + 1;
+      claimedIds.push(job.id);
+    }
   });
+
+  for (const jobId of claimedIds) {
+    const snapshot = readDb();
+    const job = snapshot.followUps.find((item) => item.id === jobId);
+    const lead = job
+      ? snapshot.borrowerLeads.find((item) => item.id === job.borrowerLeadId)
+      : undefined;
+    const officer = lead
+      ? snapshot.loanOfficers.find((item) => item.id === lead.assignedLoId)
+      : undefined;
+
+    if (!job || !lead || !officer) {
+      writeDb((db) => {
+        const current = db.followUps.find((item) => item.id === jobId);
+        if (!current) return;
+        current.status = "failed";
+        current.lastError = "Lead or assigned MLO context is missing.";
+      });
+      failed += 1;
+      continue;
+    }
+
+    try {
+      const delivery = await deliverOutreach(job, { lead, officer });
+      writeDb((db) => {
+        const current = db.followUps.find((item) => item.id === jobId);
+        if (!current) return;
+        current.status = "sent";
+        current.sentAt = new Date().toISOString();
+        current.deliveryProvider = delivery.provider;
+        current.providerMessageId = delivery.messageId;
+        current.lastError = undefined;
+      });
+      processed += 1;
+      events.push(`${job.plan}:${job.channel}:${delivery.provider}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown outreach delivery failure.";
+      writeDb((db) => {
+        const current = db.followUps.find((item) => item.id === jobId);
+        if (!current) return;
+        const attempts = current.attemptCount ?? 1;
+        current.status = attempts >= 3 ? "failed" : "pending";
+        current.scheduledAt = new Date(Date.now() + attempts * 60_000).toISOString();
+        current.lastError = message.slice(0, 500);
+      });
+      failed += 1;
+      events.push(`${job.plan}:${job.channel}:failed`);
+    }
+  }
 
   if (processed > 0) {
     appendAnalytics({
       type: "followup_processed",
-      payload: { processedCount: processed, previews: events },
+      payload: { processedCount: processed, failedCount: failed, previews: events },
     });
   }
 
-  return { processed, events };
+  return { processed, failed, events };
 }

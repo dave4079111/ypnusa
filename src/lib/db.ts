@@ -57,7 +57,7 @@ const defaultLoanOfficers: LoanOfficerRecord[] = [
     id: "lo_jordan_lee",
     name: "Jordan Lee",
     email: "jordan.lee@loanapilot.ai",
-    specialties: ["FHA", "VA", "REFI"],
+    specialties: ["FHA", "VA", "CONVENTIONAL", "REFI"],
     weeklyWindows: [
       { dow: 1, startMin: 9 * 60, endMin: 17 * 60 },
       { dow: 2, startMin: 9 * 60, endMin: 17 * 60 },
@@ -184,7 +184,11 @@ function normalize(snapshot: unknown): DbShape {
     borrowerLeads: arrayOrEmpty<BorrowerLeadRecord>(parsed.borrowerLeads),
     crmLeads: arrayOrEmpty<CrmLeadRecord>(parsed.crmLeads),
     loAlerts: arrayOrEmpty<LoAlertRecord>(parsed.loAlerts),
-    followUps: arrayOrEmpty<ScheduledFollowUpRecord>(parsed.followUps),
+    followUps: arrayOrEmpty<ScheduledFollowUpRecord>(parsed.followUps).map((followUp) => ({
+      ...followUp,
+      status: followUp.status === "sending" ? "pending" : followUp.status,
+      attemptCount: followUp.attemptCount ?? 0,
+    })),
     appointments: arrayOrEmpty<AppointmentRecord>(parsed.appointments),
     analyticsEvents: arrayOrEmpty<AnalyticsEventRecord>(parsed.analyticsEvents),
     demoRequests: arrayOrEmpty<DemoRequestRecord>(parsed.demoRequests),

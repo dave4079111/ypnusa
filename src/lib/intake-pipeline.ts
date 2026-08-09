@@ -1,5 +1,5 @@
 import { appendAnalytics, persistSession, readDb } from "./db";
-import { scheduleBorrowerJourney } from "./automation";
+import { processDueFollowUps, scheduleBorrowerJourney } from "./automation";
 import { logCrmActivity, routeLoanOfficer } from "./crm";
 import { buildQualification, recommendPrograms } from "./qualification";
 import type { BorrowerAnswers, IntakeSessionRecord, LoanProgram } from "./types";
@@ -14,11 +14,12 @@ export interface BorrowerFinalizeSnapshot {
   assignedOfficer?: { id: string; name: string; email: string };
   routedPrograms?: LoanProgram[];
   followUpsQueued?: number;
+  immediateOutreachSent?: number;
 }
 
-export function finalizeIntakeArtifacts(
+export async function finalizeIntakeArtifacts(
   session: IntakeSessionRecord,
-): BorrowerFinalizeSnapshot | { ok: false; message: string } {
+): Promise<BorrowerFinalizeSnapshot | { ok: false; message: string }> {
   const answers: BorrowerAnswers = {
     ...session.answers,
     loanProgram: session.loanProgram,
@@ -79,6 +80,10 @@ export function finalizeIntakeArtifacts(
   });
 
   const followUpsQueued = scheduleBorrowerJourney(crm.borrowerLeadId, answers).length;
+  const immediateOutreach = await processDueFollowUps({
+    borrowerLeadId: crm.borrowerLeadId,
+    limit: 2,
+  });
 
   const patched: IntakeSessionRecord = {
     ...session,
@@ -128,5 +133,6 @@ export function finalizeIntakeArtifacts(
     },
     routedPrograms: recommendPrograms(answers),
     followUpsQueued,
+    immediateOutreachSent: immediateOutreach.processed,
   };
 }

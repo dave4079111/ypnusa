@@ -45,6 +45,7 @@ export interface BorrowerFinalizeClientSnapshot {
   assignedOfficer?: { id: string; name: string; email: string };
   routedPrograms?: LoanProgram[];
   followUpsQueued?: number;
+  immediateOutreachSent?: number;
 }
 
 export interface IntakeTickResponse {

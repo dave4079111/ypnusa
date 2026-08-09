@@ -57,6 +57,10 @@ function clampScore(value: number): number {
   return Math.max(0, Math.min(100, Number.isFinite(value) ? value : 0));
 }
 
+function assertNever(value: never): never {
+  throw new Error(`Unhandled loan program: ${String(value)}`);
+}
+
 function timingComposite(timeline?: string): number {
   switch (timeline) {
     case "lt_30":
@@ -144,6 +148,8 @@ function programWeighted(
       return clampScore((scores.fhaScore ?? base) * 0.91 + base * 0.09);
     case "VA":
       return clampScore((scores.vaEligibilityScore ?? base) * 0.93 + base * 0.07);
+    case "CONVENTIONAL":
+      return clampScore(base * 0.9 + (scores.fhaScore ?? base) * 0.1);
     case "DSCR":
       return clampScore((scores.investorProfileScore ?? base) * 0.9 + base * 0.1);
     case "REFI":
@@ -155,7 +161,7 @@ function programWeighted(
     case "JUMBO":
       return clampScore(base * 0.85 + (scores.fhaScore ?? base) * 0.15);
     default:
-      return clampScore(base);
+      return assertNever(loan);
   }
 }
 
@@ -168,6 +174,10 @@ function recommendNext(loan: LoanProgram, quality: LeadQuality, urgency: Urgency
         : "Push underwriting-ready DSCR dossier plus rent roll snapshots into LOS.";
     case "VA":
       return "Confirm COE + residual income scaffolding; IRRRL playbook if refinancing.";
+    case "CONVENTIONAL":
+      return hot
+        ? "Prepare a conventional pre-approval package and confirm the target payment today."
+        : "Build a conventional readiness plan around credit, reserves, and target timing.";
     case "HELOC":
       return hot
         ? "Order valuation cascade + payoff demand; LOS warm transfer inside 45 minutes."
@@ -178,10 +188,12 @@ function recommendNext(loan: LoanProgram, quality: LeadQuality, urgency: Urgency
       return quality === "prime"
         ? "White-glove underwriting packet with asset seasoning proof + bespoke pricing."
         : "Elevate liquidity story + contingency reserves before LOS commit.";
-    default:
+    case "FHA":
       return hot
         ? "Fast LOS build with automated FHA disclosure vault + underwriting triage."
         : "Nurture with FHA roadmap content while documents trickle in.";
+    default:
+      return assertNever(loan);
   }
 }
 

@@ -1,4 +1,4 @@
-import { listAvailableSlots } from "@/lib/calendar";
+import { listSyncedAvailableSlots } from "@/lib/calendar";
 import { jsonError, jsonOk, logApiError } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -13,8 +13,8 @@ export async function GET(request: Request) {
       ? Math.min(Math.max(Math.trunc(horizon), 1), 30)
       : 12;
 
-    const slots = listAvailableSlots(loId, safeHorizon);
-    return jsonOk({ slots });
+    const slots = await listSyncedAvailableSlots(loId, safeHorizon);
+    return jsonOk({ slots: slots.slice(0, 3) });
   } catch (error) {
     logApiError("/api/calendar/slots", error);
     return jsonError("Calendar slots are temporarily unavailable.", 500, "CALENDAR_SLOTS_FAILED");

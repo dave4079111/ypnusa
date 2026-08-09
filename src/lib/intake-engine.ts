@@ -69,7 +69,7 @@ function isSyncedSnapshot(snapshot: FinalOutcome): snapshot is BorrowerFinalizeS
   return "borrowerLeadId" in snapshot;
 }
 
-export function intakeTick(payload: IntakeTickRequest): IntakeTickResponse {
+export async function intakeTick(payload: IntakeTickRequest): Promise<IntakeTickResponse> {
   const emptyProgress = { pct: 0, completed: 0, totalApplicable: 0 };
 
   const program = coerceLoanProgram(payload.loanProgram);
@@ -146,7 +146,7 @@ export function intakeTick(payload: IntakeTickRequest): IntakeTickResponse {
       });
     }
 
-    const snapshot = finalizeIntakeArtifacts(session);
+    const snapshot = await finalizeIntakeArtifacts(session);
     if (!isSyncedSnapshot(snapshot)) {
       return baseFail(snapshot.message, {
         sessionId: session.id,
@@ -220,7 +220,7 @@ export function intakeTick(payload: IntakeTickRequest): IntakeTickResponse {
   const nextPrompt = findNextStep(session.loanProgram, workingAnswers);
 
   if (!nextPrompt) {
-    const finalized = finalizeIntakeArtifacts(session);
+    const finalized = await finalizeIntakeArtifacts(session);
     if (!isSyncedSnapshot(finalized)) {
       return baseFail(finalized.message, {
         sessionId: session.id,

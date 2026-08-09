@@ -1,5 +1,11 @@
 import { persistSession } from "@/lib/db";
-import { jsonError, jsonOk, parseJsonBody, requireConfiguredSecret } from "@/lib/http";
+import {
+  isRecord,
+  jsonError,
+  jsonOk,
+  parseJsonBody,
+  requireConfiguredSecret,
+} from "@/lib/http";
 import { generateId } from "@/lib/id";
 import { finalizeIntakeArtifacts } from "@/lib/intake-pipeline";
 import { coerceLoanProgram } from "@/lib/programs";
@@ -32,6 +38,9 @@ export async function POST(request: Request) {
 
   const parsed = await parseJsonBody<InboundLeadPayload>(request);
   if (!parsed.ok) return jsonError(parsed.error, 400, parsed.code);
+  if (!isRecord(parsed.data)) {
+    return jsonError("Request body must be a JSON object.", 400, "INVALID_BODY");
+  }
 
   const program = coerceLoanProgram(parsed.data.loanProgram);
   const name = text(parsed.data.name, 160);

@@ -3,28 +3,31 @@
  * Deploy the Next.js app to Hostinger Cloud (Node.js web apps).
  *
  * Requires HOSTINGER_API_TOKEN (hPanel → API).
+ * Uses the Hostinger file upload (TUS) + Node.js builds API — the multipart
+ * from-archive shortcut is blocked by Cloudflare on this account.
  *
  * Usage:
  *   node scripts/deploy-hostinger.mjs list
  *   node scripts/deploy-hostinger.mjs deploy-next [domain]
  *   node scripts/deploy-hostinger.mjs status [domain]
  *   node scripts/deploy-hostinger.mjs logs <domain> <build-uuid>
+ *   node scripts/deploy-hostinger.mjs fix-htaccess [domain]
  *   node scripts/deploy-hostinger.mjs dns [domain]
- *
- * Notes:
- * - Target product host is app.ypnus.com (WordPress stays on ypnus.com).
- * - app.ypnus.com currently 301s to ypnus.com via Cloudflare — remove that
- *   redirect (see scripts/fix-cloudflare-redirect.mjs) before expecting the
- *   app homepage to serve.
- * - The domain must already be a website slot on the Cloud plan. For a fresh
- *   Node.js slot: hPanel → Websites → Add Website → Node.js web app.
  */
 
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { Blob } from "node:buffer";
+
+const require = createRequire(import.meta.url);
+let tus;
+try {
+  tus = require("tus-js-client");
+} catch {
+  tus = null;
+}
 
 const API = "https://developers.hostinger.com";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -43,21 +46,19 @@ function die(msg, code = 1) {
   process.exit(code);
 }
 
-async function api(pathname, { method = "GET", body, formData, raw = false } = {}) {
+async function api(pathname, { method = "GET", body } = {}) {
   if (!TOKEN) die("HOSTINGER_API_TOKEN is not set.");
   const headers = {
     Authorization: `Bearer ${TOKEN}`,
     Accept: "application/json",
+    "User-Agent": "ypnusa-deploy-hostinger/1.0",
   };
   let payload;
-  if (formData) {
-    payload = formData;
-  } else if (body !== undefined) {
+  if (body !== undefined) {
     headers["Content-Type"] = "application/json";
     payload = JSON.stringify(body);
   }
   const res = await fetch(`${API}${pathname}`, { method, headers, body: payload });
-  if (raw) return res;
   const text = await res.text();
   let data;
   try {
@@ -66,11 +67,11 @@ async function api(pathname, { method = "GET", body, formData, raw = false } = {
     data = text;
   }
   if (!res.ok) {
-    die(
-      `${method} ${pathname} → ${res.status}\n${
-        typeof data === "string" ? data : JSON.stringify(data, null, 2)
-      }`,
-    );
+    const preview =
+      typeof data === "string"
+        ? data.slice(0, 500)
+        : JSON.stringify(data, null, 2);
+    die(`${method} ${pathname} → ${res.status}\n${preview}`);
   }
   return data;
 }
@@ -100,10 +101,22 @@ async function resolveWebsite(domain) {
     hit.user;
   if (!username) {
     die(
-      `Website matched but no account username found. Inspect list output and set HOSTINGER_USERNAME.\n${JSON.stringify(hit, null, 2)}`,
+      `Website matched but no account username found.\n${JSON.stringify(hit, null, 2)}`,
     );
   }
   return { site: hit, username, domain };
+}
+
+function ensureTus() {
+  if (tus) return tus;
+  console.log("Installing tus-js-client…");
+  const r = spawnSync("npm", ["install", "--no-save", "tus-js-client@4"], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  if (r.status !== 0) die("Failed to install tus-js-client");
+  tus = require("tus-js-client");
+  return tus;
 }
 
 function makeArchive() {
@@ -133,46 +146,103 @@ function makeArchive() {
   return out;
 }
 
+async function uploadFile(domain, localPath, remoteName = path.basename(localPath)) {
+  const client = ensureTus();
+  const { username } = await resolveWebsite(domain);
+  const creds = await api("/api/hosting/v1/files/upload-urls", {
+    method: "POST",
+    body: { username, domain },
+  });
+  const uploadUrl = String(creds.url).replace(/\/$/, "");
+  const target = `${uploadUrl}/${remoteName}?override=true`;
+  const stats = fs.statSync(localPath);
+  const headers = {
+    "X-Auth": creds.auth_key,
+    "X-Auth-Rest": creds.rest_auth_key,
+    "upload-length": String(stats.size),
+    "upload-offset": "0",
+  };
+  const pre = await fetch(target, { method: "POST", headers, body: "" });
+  if (pre.status !== 201) {
+    die(`Pre-upload failed ${pre.status}: ${(await pre.text()).slice(0, 300)}`);
+  }
+  await new Promise((resolve, reject) => {
+    const upload = new client.Upload(fs.createReadStream(localPath), {
+      uploadUrl: target,
+      retryDelays: [1000, 2000, 4000, 8000],
+      uploadDataDuringCreation: false,
+      parallelUploads: 1,
+      chunkSize: 10485760,
+      headers,
+      removeFingerprintOnSuccess: true,
+      uploadSize: stats.size,
+      metadata: { filename: remoteName },
+      onError: reject,
+      onProgress: (sent, total) => {
+        process.stdout.write(`\rupload ${remoteName} ${sent}/${total}`);
+      },
+      onSuccess: () => {
+        process.stdout.write("\n");
+        resolve();
+      },
+    });
+    upload.start();
+  });
+  return { creds, remoteName, username };
+}
+
 async function deployNext(domain = DEFAULT_DOMAIN) {
   const { username } = await resolveWebsite(domain);
   const archivePath = makeArchive();
-  const bytes = fs.readFileSync(archivePath);
-  const form = new FormData();
-  form.append(
-    "archive",
-    new Blob([bytes], { type: "application/zip" }),
-    path.basename(archivePath),
-  );
-  form.append("node_version", "22");
-  form.append("build_script", "build");
-  form.append("output_directory", ".next");
-  form.append("package_manager", "npm");
-  // Do not send app_type: API enum historically omits "next"; auto-detect from package.json.
+  const archiveBasename = path.basename(archivePath);
+  console.log(`Uploading ${archiveBasename} to ${domain}…`);
+  await uploadFile(domain, archivePath, archiveBasename);
 
-  console.log(`Starting Node.js build for ${username}/${domain} …`);
+  console.log("Resolving build settings…");
+  const settings = await api(
+    `/api/hosting/v1/accounts/${encodeURIComponent(username)}/websites/${encodeURIComponent(domain)}/nodejs/builds/settings/from-archive?archive_path=${encodeURIComponent(archiveBasename)}`,
+  );
+  const buildData = {
+    ...settings,
+    node_version: settings?.node_version || 20,
+    build_script: settings?.build_script || "build",
+    output_directory: settings?.output_directory || ".next",
+    package_manager: settings?.package_manager || "npm",
+    app_type: settings?.app_type || "next",
+    source_type: "archive",
+    source_options: { archive_path: archiveBasename },
+  };
+  console.log("Triggering build…");
   const result = await api(
-    `/api/hosting/v1/accounts/${encodeURIComponent(username)}/websites/${encodeURIComponent(domain)}/nodejs/builds/from-archive`,
-    { method: "POST", formData: form },
+    `/api/hosting/v1/accounts/${encodeURIComponent(username)}/websites/${encodeURIComponent(domain)}/nodejs/builds`,
+    { method: "POST", body: buildData },
   );
   console.log(JSON.stringify(result, null, 2));
-
-  const uuid = result?.uuid || result?.data?.uuid || result?.build?.uuid;
+  const uuid = result?.uuid || result?.data?.uuid;
   if (uuid) {
     console.log(`\nPolling build ${uuid} …`);
     await pollBuild(username, domain, uuid);
   }
 
+  console.log("Removing stale homepage → ypnus.com .htaccess redirect (if present)…");
+  try {
+    await fixHtaccess(domain);
+  } catch (e) {
+    console.warn("fix-htaccess skipped:", e.message || e);
+  }
+
+  await api(
+    `/api/hosting/v1/accounts/${encodeURIComponent(username)}/websites/${encodeURIComponent(domain)}/nodejs/server/restart`,
+    { method: "POST" },
+  );
+
   console.log(
-    "\nSet these env vars in hPanel → Node.js app → Environment, then Restart:\n" +
+    "\nSet these env vars in hPanel → Node.js app → Environment if not already set:\n" +
       Object.entries(APP_ENV)
         .map(([k, v]) => `  ${k}=${v}`)
         .join("\n"),
   );
-  console.log(
-    "\nAlso remove the Cloudflare redirect app.ypnus.com → ypnus.com if still active:\n" +
-      "  node scripts/fix-cloudflare-redirect.mjs list\n" +
-      "  node scripts/fix-cloudflare-redirect.mjs delete",
-  );
+  console.log(`\nLive check: curl -sI https://${domain}/ | head`);
 }
 
 async function listBuilds(domain = DEFAULT_DOMAIN) {
@@ -190,16 +260,18 @@ async function getLogs(domain, uuid, fromLine = 0) {
   const data = await api(
     `/api/hosting/v1/accounts/${encodeURIComponent(username)}/websites/${encodeURIComponent(domain)}/nodejs/builds/${encodeURIComponent(uuid)}/logs${qs}`,
   );
-  const lines = data?.lines ?? data?.data?.lines;
-  const content = data?.content ?? data?.data?.content ?? data?.log ?? "";
-  if (typeof content === "string" && content) process.stdout.write(content.endsWith("\n") ? content : `${content}\n`);
-  else console.log(JSON.stringify(data, null, 2));
-  return { lines, data };
+  const content = data?.logs ?? data?.content ?? data?.data?.content ?? "";
+  if (typeof content === "string" && content) {
+    process.stdout.write(content.endsWith("\n") ? content : `${content}\n`);
+  } else {
+    console.log(JSON.stringify(data, null, 2));
+  }
+  return data;
 }
 
 async function pollBuild(username, domain, uuid, { timeoutMs = 14 * 60 * 1000 } = {}) {
   const started = Date.now();
-  let fromLine = 0;
+  let prev = "";
   while (Date.now() - started < timeoutMs) {
     const list = await api(
       `/api/hosting/v1/accounts/${encodeURIComponent(username)}/websites/${encodeURIComponent(domain)}/nodejs/builds?per_page=20`,
@@ -211,14 +283,15 @@ async function pollBuild(username, domain, uuid, { timeoutMs = 14 * 60 * 1000 } 
 
     try {
       const logs = await api(
-        `/api/hosting/v1/accounts/${encodeURIComponent(username)}/websites/${encodeURIComponent(domain)}/nodejs/builds/${encodeURIComponent(uuid)}/logs?from_line=${fromLine}`,
+        `/api/hosting/v1/accounts/${encodeURIComponent(username)}/websites/${encodeURIComponent(domain)}/nodejs/builds/${encodeURIComponent(uuid)}/logs`,
       );
-      const content = logs?.content ?? logs?.data?.content ?? "";
-      if (content) process.stdout.write(content);
-      if (typeof logs?.lines === "number") fromLine = logs.lines;
-      else if (typeof logs?.data?.lines === "number") fromLine = logs.data.lines;
+      const content = logs?.logs ?? logs?.content ?? logs?.data?.content ?? "";
+      if (typeof content === "string" && content && content !== prev) {
+        process.stdout.write(content.startsWith(prev) ? content.slice(prev.length) : content);
+        prev = content;
+      }
     } catch {
-      // logs may 404 briefly while the build is queued
+      // logs may 404 briefly while queued
     }
 
     if (state === "completed" || state === "success") {
@@ -231,6 +304,44 @@ async function pollBuild(username, domain, uuid, { timeoutMs = 14 * 60 * 1000 } 
     await new Promise((r) => setTimeout(r, 8000));
   }
   die("Timed out waiting for Hostinger build.");
+}
+
+async function fileBrowser(domain) {
+  const { username } = await resolveWebsite(domain);
+  const creds = await api("/api/hosting/v1/files/upload-urls", {
+    method: "POST",
+    body: { username, domain },
+  });
+  const base = String(creds.url).match(/^(https:\/\/[^/]+\/rest\/[^/]+)/)?.[1];
+  if (!base) die(`Unexpected upload URL: ${creds.url}`);
+  return {
+    creds,
+    base,
+    headers: { "X-Auth": creds.auth_key, "X-Auth-Rest": creds.rest_auth_key },
+  };
+}
+
+async function fixHtaccess(domain = DEFAULT_DOMAIN) {
+  const { base, headers } = await fileBrowser(domain);
+  const res = await fetch(`${base}/api/raw/.htaccess`, { headers });
+  if (!res.ok) die(`Could not read .htaccess (${res.status})`);
+  const original = await res.text();
+  if (!/RewriteRule \^\$ https:\/\/ypnus\.com\//.test(original)) {
+    console.log("No homepage→ypnus.com redirect found in .htaccess.");
+    return;
+  }
+  const fixed = original
+    .replace(
+      /# Brand marketing lives on ypnus\.com[^\n]*\nRewriteRule \^\$ https:\/\/ypnus\.com\/ \[R=301,L\]\nRewriteRule \^index\\\.html\$ https:\/\/ypnus\.com\/ \[R=301,L\]\n?/m,
+      "# Homepage served by Next.js Node app (Passenger) — do not redirect to ypnus.com.\n\n",
+    )
+    .replace(/RewriteRule \^\$ https:\/\/ypnus\.com\/ \[R=301,L\]\n?/g, "")
+    .replace(/RewriteRule \^index\\\.html\$ https:\/\/ypnus\.com\/ \[R=301,L\]\n?/g, "");
+  const tmp = path.join("/tmp", `htaccess-fixed-${Date.now()}`);
+  fs.writeFileSync(tmp, fixed);
+  await uploadFile(domain, tmp, ".htaccess");
+  fs.unlinkSync(tmp);
+  console.log("Updated .htaccess — homepage redirect removed.");
 }
 
 async function showDns(domain = "ypnus.com") {
@@ -253,12 +364,15 @@ switch (cmd) {
     if (!arg || !arg2) die("Usage: logs <domain> <build-uuid>");
     await getLogs(arg, arg2);
     break;
+  case "fix-htaccess":
+    await fixHtaccess(arg || DEFAULT_DOMAIN);
+    break;
   case "dns":
     await showDns(arg || "ypnus.com");
     break;
   default:
     die(
-      "Usage: node scripts/deploy-hostinger.mjs <list|deploy-next|status|logs|dns> [args]\n" +
+      "Usage: node scripts/deploy-hostinger.mjs <list|deploy-next|status|logs|fix-htaccess|dns> [args]\n" +
         "Requires HOSTINGER_API_TOKEN.",
     );
 }

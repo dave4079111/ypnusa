@@ -7,12 +7,13 @@
 | `https://ypnus.com` | Marketing, signup, Cerebro, Rank Math SEO | WordPress on Hostinger |
 | `https://app.ypnus.com` | Territory product / ZIP inventory | Static HTML (+ WP REST for lock ledger); Next.js ready |
 
-## Critical live bugs found
+## Critical live bugs found (and fixed)
 
-1. **`app.ypnus.com/` 301 → `ypnus.com/` (Cloudflare)**  
-   Confirmed via response headers (`server: cloudflare`, `Location: https://ypnus.com/`).  
-   Territory pages (`/zips/90210/`, etc.) still return 200, but every CTA that points at the app homepage dies on this redirect.  
-   **`.htaccess` alone cannot fix this** while the Cloudflare rule remains.
+1. **`app.ypnus.com/` 301 → `ypnus.com/`**  
+   Cause was an `.htaccess` rule (`RewriteRule ^$ https://ypnus.com/`) in the app
+   document root — not Cloudflare alone. Removed by
+   `node scripts/deploy-hostinger.mjs fix-htaccess`. Redeploys can regenerate a
+   stale copy; the deploy script strips that rule automatically.
 
 2. **~70k URLs in `app.ypnus.com/sitemap.xml`**  
    Giant programmatic city/ZIP inventory. Matches the GSC “Not indexed” spike on the brand.

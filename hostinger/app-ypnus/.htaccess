@@ -1,22 +1,29 @@
-# app.ypnus.com — keep territory SEO pages, restore a real homepage.
-# IMPORTANT: Also remove any Hostinger/Cloudflare "Redirect app.ypnus.com → ypnus.com"
-# rule in the control panel. That panel redirect overrides this file.
+# app.ypnus.com — Next.js (Passenger) + legacy territory PHP routes.
+# After each Node.js deploy, Hostinger regenerates Passenger lines at the bottom.
+# Do NOT redirect the homepage to ypnus.com — that breaks the product app.
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # Never bounce the app homepage (or index.html) to the marketing site.
-  RewriteCond %{HTTP_HOST} ^(www\.)?app\.ypnus\.com$ [NC]
-  RewriteRule ^$ /index.html [L]
+  # Force HTTPS
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  RewriteCond %{HTTP_HOST} ^(www\.)?app\.ypnus\.com$ [NC]
-  RewriteRule ^index\.html$ - [L]
+  # Homepage is served by the Next.js Node app (Passenger). Never bounce to marketing.
 
-  # Serve existing static territory pages when the file/directory exists.
-  RewriteCond %{REQUEST_FILENAME} -f [OR]
-  RewriteCond %{REQUEST_FILENAME} -d
-  RewriteRule ^ - [L]
+  # Legacy programmatic SEO territory pages (territory.php) when present.
+  RewriteRule ^territories/?$ territory.php?view=hub [L,QSA]
+  RewriteRule ^states/([a-zA-Z]{2})/?$ territory.php?view=state&state=$1 [L,QSA]
+  RewriteRule ^cities/([a-zA-Z]{2})/([a-z0-9-]+)/?$ territory.php?view=city&state=$1&city=$2 [L,QSA]
+  RewriteRule ^zips/([0-9]{5})/?$ territory.php?view=zip&zip=$1 [L,QSA]
+  RewriteRule ^feed\.xml$ territory.php?view=feed [L]
 </IfModule>
 
-# Prefer our lean robots over any stale generator output when both exist.
-DirectoryIndex index.html
+# BEGIN YPNUS-NOINDEX-PROGRAMMATIC
+<IfModule mod_setenvif.c>
+SetEnvIf Request_URI "^/(app/)?(zips|cities)/" YPNUS_NOINDEX=1
+</IfModule>
+<IfModule mod_headers.c>
+Header set X-Robots-Tag "noindex, follow" env=YPNUS_NOINDEX
+</IfModule>
+# END YPNUS-NOINDEX-PROGRAMMATIC

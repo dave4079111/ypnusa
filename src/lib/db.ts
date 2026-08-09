@@ -156,8 +156,9 @@ function flushToDisk(db: DbShape): void {
     fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
     fs.renameSync(tmp, target);
   } catch {
-    // Read-only/serverless filesystem: keep serving from memory. Stop retrying
-    // so we don't throw on every request.
+    // Disk unavailable or read-only: keep serving from memory. Stop retrying
+    // so we don't throw on every request. Prefer a writable LOANPILOT_DATA_DIR
+    // on Hostinger Cloud (e.g. /tmp/ypnus-data).
     diskWritable = false;
   }
 }

@@ -10,7 +10,8 @@ always-on AI agent that captures, qualifies, routes, and nurtures every borrower
 
 Built with **Next.js 16 (App Router, Turbopack)**, **React 19**, and **Tailwind CSS v4**.
 
-Hostinger restore files for the currently-broken app homepage live in [`hostinger/`](./hostinger/).
+**Deploy target: Hostinger Cloud only** (not Vercel). Production notes and
+drop-ins live in [`hostinger/`](./hostinger/).
 
 ## What's inside
 
@@ -59,7 +60,7 @@ All environment variables are optional — see `.env.example`.
 | `NEXT_PUBLIC_SITE_URL` | Product app URL for SEO/canonical/sitemap. Defaults to `https://app.ypnus.com`. |
 | `NEXT_PUBLIC_MARKETING_SITE_URL` | WordPress marketing host. Defaults to `https://ypnus.com`. |
 | `YPNUS_WP_API_BASE` | Live territory/signup REST base. Defaults to `https://ypnus.com/wp-json/ypnus/v1`. |
-| `LOANPILOT_DATA_DIR` | Directory for the JSON data snapshot. Defaults to `./data`. Point at a writable path (e.g. `/tmp/ypnus`) on read-only hosts. |
+| `LOANPILOT_DATA_DIR` | Directory for the JSON data snapshot. Defaults to `./data`. On Hostinger Cloud use `/tmp/ypnus-data`. |
 | `INTAKE_EXTERNAL_WEBHOOK_URL` | If set, completed intakes are POSTed here (Zapier/CRM). |
 | `LOANPILOT_DEMO_MODE` / `LOANPILOT_DEMO_DAY_MINUTES` | Compress the multi-day nurture ladder for live demos. |
 
@@ -67,17 +68,15 @@ All environment variables are optional — see `.env.example`.
 
 State (sessions, leads, CRM notes, territory reservations, analytics) is held in an
 **in-memory store** that is hydrated from and written through to a JSON snapshot on a
-best-effort basis. This means:
+best-effort basis. On Hostinger Cloud (`next start`), set `LOANPILOT_DATA_DIR=/tmp/ypnus-data`
+so the snapshot survives restarts on a writable path.
 
-- **Persistent Node host** (`next start` on Hostinger Cloud, a VPS, Docker, Render) → the
-  JSON snapshot survives restarts. This is the supported production path.
-- For durable multi-instance production data, swap the storage layer in `src/lib/db.ts` for
-  a database (Supabase, Postgres, etc.); a starter schema is in `supabase-leads-schema.sql`.
+For durable multi-instance production data, swap the storage layer in `src/lib/db.ts` for
+a database (Supabase, Postgres, etc.); a starter schema is in `supabase-leads-schema.sql`.
 
-## Deploy
+## Deploy (Hostinger Cloud)
 
-### Hostinger Cloud (recommended)
-Production shape: WordPress marketing on `ypnus.com`, this Next.js product app on
+WordPress marketing stays on `ypnus.com`. This Next.js product app runs on
 `app.ypnus.com` as a Hostinger **Cloud Node.js web app**. Full checklist:
 [`hostinger/README.md`](./hostinger/README.md).
 
@@ -88,24 +87,14 @@ npm run deploy:hostinger:next  # builds on app.ypnus.com
 ```
 
 Or in hPanel: **Websites → Add Website → Node.js web app → Import GitHub**
-(`dave4079111/ypnusa`). Set `NEXT_PUBLIC_SITE_URL=https://app.ypnus.com` and the
-other vars from `.env.example`. Remove the Cloudflare redirect that currently
-sends `app.ypnus.com/` → `ypnus.com/` first.
+(`dave4079111/ypnusa`). Set env vars from `.env.example`
+(`NEXT_PUBLIC_SITE_URL=https://app.ypnus.com`, `LOANPILOT_DATA_DIR=/tmp/ypnus-data`, …).
 
-### Render
-A [`render.yaml`](./render.yaml) blueprint is included for a persistent Node host:
-1. At [dashboard.render.com](https://dashboard.render.com): **New +  → Blueprint**.
-2. Connect the `dave4079111/ypnusa` repo and click **Apply**.
-3. Set `NEXT_PUBLIC_SITE_URL` in the service's Environment tab.
+Local / generic Node (dev or VPS):
 
-### Any Node host (VPS / Docker)
 ```bash
-npm ci
-npm run build
-NEXT_PUBLIC_SITE_URL=https://your-domain npm run start   # honors $PORT
+npm ci && npm run build && npm run start   # honors $PORT, defaults to :3000
 ```
-Put it behind a reverse proxy (nginx/Caddy) and process manager (PM2/systemd). The default
-`./data` directory is writable here, so lead data persists across restarts.
 
 ## Project layout
 

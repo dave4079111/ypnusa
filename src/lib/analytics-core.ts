@@ -15,12 +15,12 @@ export function summarizeAnalyticsPulse() {
   const completionRatePct =
     started === 0 ? 0 : Math.round((Math.min(completions, started) / started) * 100);
 
+  // Count once-per-session lifecycle events (start + completion) so the
+  // per-program tally reflects borrower demand. `intake_progress` is
+  // intentionally excluded: it fires once per answered field, which both
+  // inflates the count and biases it toward programs with more questions.
   const demandTally = events.reduce<Record<string, number>>((memo, evt) => {
-    if (
-      evt.type === "intake_started" ||
-      evt.type === "intake_completed" ||
-      evt.type === "intake_progress"
-    ) {
+    if (evt.type === "intake_started" || evt.type === "intake_completed") {
       const program =
         typeof evt.payload.program === "string" ? (evt.payload.program as string) : undefined;
       if (program) {

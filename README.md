@@ -79,9 +79,12 @@ best-effort basis. This means:
 ## Deploy
 
 ### Hostinger Cloud (recommended)
-Production shape: WordPress marketing on `ypnus.com`, this Next.js product app on
-`app.ypnus.com` as a Hostinger **Cloud Node.js web app**. Full checklist:
-[`hostinger/README.md`](./hostinger/README.md).
+Production shape (hosts stay separate, linked both ways):
+- WordPress marketing homepage on `ypnus.com`
+- This Next.js product app on `app.ypnus.com` (Hostinger **Cloud Node.js**)
+- Install `wp-plugins/ypnus-app-bridge.zip` on WordPress so the homepage CTAs open the app
+
+Full checklist: [`hostinger/README.md`](./hostinger/README.md).
 
 ```bash
 export HOSTINGER_API_TOKEN=…   # hPanel → API

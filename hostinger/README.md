@@ -2,10 +2,23 @@
 
 ## Current production shape
 
+Keep the hosts **separate**, but **link** them so visitors can move both ways:
+
 | Host | Role | Stack |
 | --- | --- | --- |
-| `https://ypnus.com` | Marketing, signup, Cerebro, Rank Math SEO | WordPress on Hostinger |
-| `https://app.ypnus.com` | Territory product / ZIP inventory | Static HTML (+ WP REST for lock ledger); Next.js ready |
+| `https://ypnus.com` | Marketing homepage, signup, Rank Math SEO | WordPress on Hostinger |
+| `https://app.ypnus.com` | Live territory / ZIP product app | Next.js on Hostinger Cloud |
+
+### Link the marketing homepage → app
+
+1. Upload and activate `wp-plugins/ypnus-app-bridge.zip` on **ypnus.com** (WP Admin → Plugins).
+2. That plugin adds:
+   - A front-page bar: **Open app · check ZIP** → `https://app.ypnus.com/#territories`
+   - A **Product app** item in primary/header menus
+   - Shortcode `[ypnus_open_app path="/#territories"]` for Elementor blocks
+3. Optional: in Elementor, point a hero button at `https://app.ypnus.com/` (or the shortcode).
+
+The Next app header/footer already link back to `https://ypnus.com/`.
 
 ## Critical live bugs found
 

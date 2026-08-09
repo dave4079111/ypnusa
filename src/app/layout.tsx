@@ -70,6 +70,7 @@ const jsonLd = {
       email: "support@ypnus.com",
       telephone: "+15592056940",
       sameAs: [
+        APP_SITE_URL,
         "https://www.linkedin.com/in/davidjmooreypn",
         "https://www.facebook.com/YPN.Incorporated/",
       ],
@@ -82,6 +83,7 @@ const jsonLd = {
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web",
       isPartOf: { "@id": `${MARKETING_SITE_URL}/#organization` },
+      relatedLink: MARKETING_SITE_URL,
       offers: [
         { "@type": "Offer", name: "Free", price: "0", priceCurrency: "USD" },
         { "@type": "Offer", name: "Starter", price: "29.99", priceCurrency: "USD" },

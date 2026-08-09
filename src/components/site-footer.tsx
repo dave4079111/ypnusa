@@ -1,6 +1,5 @@
 import Link from "next/link";
-
-const MARKETING = "https://ypnus.com";
+import { APP_SITE_URL, MARKETING_SITE_URL, marketingUrl } from "@/lib/site";
 
 export function SiteFooter() {
   return (
@@ -19,15 +18,23 @@ export function SiteFooter() {
             </span>
           </div>
           <p className="mt-4 max-w-sm text-sm">
-            Product app for exclusive ZIP demand. Marketing site and content live on{" "}
-            <a href={MARKETING} className="underline hover:text-white">
-              ypnus.com
+            Separate product host linked from the marketing homepage: start on{" "}
+            <a href={marketingUrl("/")} className="underline hover:text-white">
+              {MARKETING_SITE_URL.replace(/^https?:\/\//, "")}
             </a>
-            ; this surface is{" "}
-            <a href="https://app.ypnus.com" className="underline hover:text-white">
-              app.ypnus.com
+            , then open the live territory app at{" "}
+            <a href={APP_SITE_URL} className="underline hover:text-white">
+              {APP_SITE_URL.replace(/^https?:\/\//, "")}
             </a>
             .
+          </p>
+          <p className="mt-3">
+            <a
+              href={marketingUrl("/")}
+              className="inline-flex text-sm font-semibold text-violet-200 underline-offset-4 hover:text-white hover:underline"
+            >
+              ← Back to ypnus.com homepage
+            </a>
           </p>
         </div>
 
@@ -45,10 +52,31 @@ export function SiteFooter() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">ypnus.com</p>
           <ul className="mt-4 space-y-2 text-sm">
-            <li><a href={`${MARKETING}/check-zip.html`} className="transition hover:text-white">ZIP demand check</a></li>
-            <li><a href={`${MARKETING}/lo-signup.html`} className="transition hover:text-white">Free LO signup</a></li>
-            <li><a href={`${MARKETING}/pricing-plans/`} className="transition hover:text-white">Pricing plans</a></li>
-            <li><Link href="/embed/intake" className="transition hover:text-white">Embed the assistant</Link></li>
+            <li>
+              <a href={marketingUrl("/")} className="transition hover:text-white">
+                Marketing homepage
+              </a>
+            </li>
+            <li>
+              <a href={marketingUrl("/check-zip.html")} className="transition hover:text-white">
+                ZIP demand check
+              </a>
+            </li>
+            <li>
+              <a href={marketingUrl("/lo-signup.html")} className="transition hover:text-white">
+                Free LO signup
+              </a>
+            </li>
+            <li>
+              <a href={marketingUrl("/pricing-plans/")} className="transition hover:text-white">
+                Pricing plans
+              </a>
+            </li>
+            <li>
+              <Link href="/embed/intake" className="transition hover:text-white">
+                Embed the assistant
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

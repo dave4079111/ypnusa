@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { marketingUrl } from "@/lib/site";
 
 type CheckState =
   | { status: "idle" }
@@ -32,7 +33,7 @@ const VOLUME_OPTIONS = [
   "Whole brokerage / branch",
 ];
 
-const MARKETING_SIGNUP = "https://ypnus.com/lo-signup.html";
+const MARKETING_SIGNUP = marketingUrl("/lo-signup.html");
 
 export function TerritoryClaim({ source = "territory_section" }: { source?: string }) {
   const [zip, setZip] = useState("");

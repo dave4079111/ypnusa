@@ -20,13 +20,11 @@ import type {
  * hydrated once from disk (if a snapshot exists) and written through to disk on
  * every mutation on a best-effort basis.
  *
- * Why in-memory-first: on serverless hosts (e.g. Vercel) the application
- * directory is read-only, so file writes throw. Keeping state in memory means
- * multi-step flows (the intake chat posting several `tick`s) still work within a
- * warm instance even when disk persistence is unavailable. On a persistent Node
- * host (`next start`, a VPS, Docker) the disk snapshot additionally survives
- * restarts. Set `LOANPILOT_DATA_DIR` to a writable path to control where the
- * snapshot lives.
+ * Why in-memory-first: multi-step flows (the intake chat posting several `tick`s)
+ * stay coherent within a single Node process even if a disk write fails. On a
+ * persistent Node host (`next start` on Hostinger Cloud, a VPS, Docker, Render)
+ * the disk snapshot additionally survives restarts. Set `LOANPILOT_DATA_DIR` to
+ * a writable path to control where the snapshot lives.
  */
 
 /**
@@ -158,8 +156,9 @@ function flushToDisk(db: DbShape): void {
     fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
     fs.renameSync(tmp, target);
   } catch {
-    // Read-only/serverless filesystem: keep serving from memory. Stop retrying
-    // so we don't throw on every request.
+    // Disk unavailable or read-only: keep serving from memory. Stop retrying
+    // so we don't throw on every request. Prefer a writable LOANPILOT_DATA_DIR
+    // on Hostinger Cloud (e.g. /tmp/ypnus-data).
     diskWritable = false;
   }
 }

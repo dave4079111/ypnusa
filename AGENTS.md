@@ -28,6 +28,7 @@ Local demo state persists to `data/store.json`. Live ZIP availability is read fr
 ### Key caveats
 
 - The project uses **Next.js 16.2.6** with React 19 and Tailwind CSS 4. Consult `node_modules/next/dist/docs/` for API guidance rather than relying on training-data assumptions.
-- No `.env` file is required; the app runs fully without environment variables. `INTAKE_EXTERNAL_WEBHOOK_URL` is optional for Zapier-style integrations.
-- The file-based DB at `data/store.json` is auto-created on first write. It can be deleted to reset state.
+- Production is **Hostinger Cloud Node** (`app.ypnus.com`). See `hostinger/README.md` and `npm run deploy:hostinger:next`.
+- No `.env` file is required locally; the app runs with defaults. Production should set `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_MARKETING_SITE_URL`, and `LOANPILOT_DATA_DIR=/tmp/ypnus-data`.
+- The file-based DB at `data/store.json` is auto-created on first write. It can be deleted to reset local state.
 - The `package-lock.json` is the lockfile; use `npm install` (not yarn/pnpm/bun).

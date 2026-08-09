@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YPN USA App — Check Exclusive ZIP Territory Availability</title>
+  <meta name="description" content="Check whether your mortgage ZIP territory is still open. One licensed MLO per ZIP. Start free on ypnus.com." />
+  <link rel="canonical" href="https://app.ypnus.com/" />
+  <meta property="og:title" content="YPN USA App — Exclusive ZIP Territories" />
+  <meta property="og:description" content="Check ZIP availability against the live lock ledger. Claim free on ypnus.com." />
+  <meta property="og:url" content="https://app.ypnus.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="YPN USA" />
+  <style>
+    :root { --ink:#0f172a; --slate:#475569; --blue:#1d4ed8; --amber:#f59e0b; --bg:#f8fafc; --line:#e2e8f0; --ok:#059669; --bad:#b45309; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); line-height: 1.55; }
+    header { background: #fff; border-bottom: 1px solid var(--line); }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px; }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; }
+    .brand { font-weight: 800; letter-spacing: -0.02em; text-decoration: none; color: var(--ink); }
+    .brand span { color: var(--blue); }
+    .nav a { color: var(--slate); text-decoration: none; font-size: 14px; font-weight: 600; }
+    .hero { padding: 56px 0 28px; }
+    h1 { font-size: clamp(28px, 5vw, 44px); line-height: 1.1; margin: 0 0 14px; letter-spacing: -0.03em; }
+    .lead { color: var(--slate); font-size: 18px; max-width: 620px; margin: 0 0 28px; }
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: 0 18px 40px rgba(15,23,42,.06); }
+    label { display: block; font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--slate); margin-bottom: 10px; }
+    .row { display: flex; flex-wrap: wrap; gap: 10px; }
+    input[type=text] { flex: 1 1 180px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 16px; font-weight: 700; }
+    button, .btn { border: 0; border-radius: 12px; padding: 14px 18px; font-size: 15px; font-weight: 800; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+    button { background: var(--blue); color: #fff; }
+    .btn-amber { background: var(--amber); color: #111; }
+    .status { margin-top: 14px; border-radius: 12px; padding: 14px 16px; font-size: 14px; display: none; }
+    .status.show { display: block; }
+    .status.ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .status.bad { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .status.err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .links { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+    .muted { color: var(--slate); font-size: 13px; margin-top: 18px; }
+    footer { margin: 48px 0 32px; color: var(--slate); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="/">YPN <span>USA</span> App</a>
+      <nav>
+        <a href="/territories/">Territories</a>
+        ·
+        <a href="https://ypnus.com/pricing-plans/">Pricing</a>
+        ·
+        <a href="https://ypnus.com/lo-signup.html">Start free</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap hero" id="zip-check">
+    <h1>Is your ZIP still open?</h1>
+    <p class="lead">
+      Check exclusive territory availability against the live YPN USA lock ledger.
+      One licensed mortgage loan officer per ZIP. First territory free.
+    </p>
+
+    <div class="card">
+      <label for="zip">ZIP code</label>
+      <div class="row">
+        <input id="zip" type="text" inputmode="numeric" maxlength="5" autocomplete="postal-code" placeholder="e.g. 93618" />
+        <button type="button" id="check">Check availability</button>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <div class="links">
+        <a class="btn btn-amber" href="https://ypnus.com/lo-signup.html">Claim a ZIP free →</a>
+        <a class="btn" style="background:#e2e8f0;color:#0f172a" href="https://ypnus.com/check-zip.html">Full 60-day demand report</a>
+      </div>
+      <p class="muted">
+        This restores the app homepage that was 301-redirecting to ypnus.com.
+        Territory SEO pages under <code>/zips/</code>, <code>/cities/</code>, and <code>/states/</code> stay in place.
+      </p>
+    </div>
+  </main>
+
+  <footer class="wrap">
+    © <span id="y"></span> YPN Inc. / YPN USA · David J. Moore, MBA · NMLS #787257 · Equal Housing Opportunity ·
+    Marketing technology only — not a commitment to lend.
+  </footer>
+
+  <script>
+    document.getElementById("y").textContent = new Date().getFullYear();
+    const status = document.getElementById("status");
+    const zipInput = document.getElementById("zip");
+
+    function show(kind, html) {
+      status.className = "status show " + kind;
+      status.innerHTML = html;
+    }
+
+    async function runCheck() {
+      const zip = String(zipInput.value || "").replace(/\D/g, "").slice(0, 5);
+      zipInput.value = zip;
+      if (zip.length !== 5) {
+        show("err", "Enter a valid 5-digit ZIP code.");
+        return;
+      }
+      show("ok", "Checking live lock ledger…");
+      try {
+        const res = await fetch("https://ypnus.com/wp-json/ypnus/v1/zip-check/" + encodeURIComponent(zip), {
+          headers: { Accept: "application/json" },
+        });
+        const data = await res.json();
+        if (!res.ok || typeof data.available !== "boolean") {
+          show("err", "Territory check failed. Try again or use <a href='https://ypnus.com/check-zip.html'>ypnus.com/check-zip.html</a>.");
+          return;
+        }
+        const place = data.city && data.state ? data.city + ", " + data.state : "ZIP " + zip;
+        const signup = data.signup_url || ("https://ypnus.com/lo-signup.html?zip=" + encodeURIComponent(zip));
+        const demand = data.demand && data.demand.total ? " ~" + data.demand.total + " buyers/sellers/movers in 60 days." : "";
+        if (data.available) {
+          show("ok", "<strong>" + place + " is open.</strong>" + demand + "<br/><a href='" + signup + "'>Claim this ZIP free →</a>");
+        } else {
+          show("bad", "<strong>" + place + " is locked.</strong> " + (data.message || "") + "<br/><a href='https://ypnus.com/lo-signup.html'>Start free on a nearby ZIP →</a>");
+        }
+      } catch (e) {
+        show("err", "Network error reaching ypnus.com. Open <a href='https://ypnus.com/check-zip.html'>the demand checker</a> instead.");
+      }
+    }
+
+    document.getElementById("check").addEventListener("click", runCheck);
+    zipInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); runCheck(); }
+    });
+
+    const params = new URLSearchParams(location.search);
+    if (params.get("zip")) {
+      zipInput.value = params.get("zip");
+      runCheck();
+    }
+  </script>
+</body>
+</html>

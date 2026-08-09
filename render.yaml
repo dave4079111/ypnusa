@@ -18,10 +18,14 @@ services:
     startCommand: npm run start
     healthCheckPath: /
     envVars:
-      # Set this to your real domain once connected (e.g. https://ypnus.com or
-      # https://app.ypnus.com). Used for SEO metadata, sitemap, and robots.
+      # Product app host. Keep this on app.ypnus.com so SEO/canonicals don't
+      # collide with the WordPress marketing site on ypnus.com.
       - key: NEXT_PUBLIC_SITE_URL
-        sync: false
+        value: https://app.ypnus.com
+      - key: NEXT_PUBLIC_MARKETING_SITE_URL
+        value: https://ypnus.com
+      - key: YPNUS_WP_API_BASE
+        value: https://ypnus.com/wp-json/ypnus/v1
       # Persist the lead store on Render's writable disk instead of the repo dir.
       - key: LOANPILOT_DATA_DIR
         value: /tmp/ypnus-data

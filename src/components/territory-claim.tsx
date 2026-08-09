@@ -5,7 +5,18 @@ import { useState } from "react";
 type CheckState =
   | { status: "idle" }
   | { status: "checking" }
-  | { status: "result"; zip: string; available: boolean; totalClaimed: number; message: string }
+  | {
+      status: "result";
+      zip: string;
+      available: boolean;
+      totalClaimed: number;
+      message: string;
+      city?: string | null;
+      state?: string | null;
+      signupUrl?: string | null;
+      demandTotal?: number | null;
+      source?: string | null;
+    }
   | { status: "error"; message: string };
 
 type SubmitState =
@@ -20,6 +31,8 @@ const VOLUME_OPTIONS = [
   "6–20 loan officers",
   "Whole brokerage / branch",
 ];
+
+const MARKETING_SIGNUP = "https://ypnus.com/lo-signup.html";
 
 export function TerritoryClaim({ source = "territory_section" }: { source?: string }) {
   const [zip, setZip] = useState("");
@@ -58,6 +71,11 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
         available: boolean;
         totalClaimed: number;
         message: string;
+        city?: string | null;
+        state?: string | null;
+        signupUrl?: string | null;
+        demand?: { total?: number } | null;
+        source?: string | null;
       };
       if (!data.valid) {
         setCheck({ status: "error", message: data.message });
@@ -69,6 +87,11 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
         available: data.available,
         totalClaimed: data.totalClaimed,
         message: data.message,
+        city: data.city,
+        state: data.state,
+        signupUrl: data.signupUrl,
+        demandTotal: data.demand?.total ?? null,
+        source: data.source,
       });
     } catch {
       setCheck({ status: "error", message: "Couldn't reach the territory service — try again." });
@@ -106,10 +129,19 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
 
   const showForm = check.status === "result";
   const claimed = check.status === "result" && !check.available;
+  const place =
+    check.status === "result" && check.city && check.state
+      ? `${check.city}, ${check.state}`
+      : check.status === "result"
+        ? `ZIP ${check.zip}`
+        : "";
+  const signupHref =
+    check.status === "result"
+      ? check.signupUrl || `${MARKETING_SIGNUP}?zip=${encodeURIComponent(check.zip)}`
+      : MARKETING_SIGNUP;
 
   return (
     <div className="w-full rounded-[28px] border border-white/15 bg-white/[0.06] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur md:p-8">
-      {/* ZIP checker */}
       <label htmlFor="territory-zip" className="text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-200">
         Check your territory
       </label>
@@ -155,18 +187,30 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
             <p className="flex items-center gap-2">
               <span aria-hidden>{check.available ? "✅" : "🔒"}</span>
               <span className="font-semibold">
-                {check.available ? `ZIP ${check.zip} is available` : `ZIP ${check.zip} is already claimed`}
+                {check.available ? `${place} is available` : `${place} is already claimed`}
               </span>
             </p>
             <p className="mt-1 text-[13px] text-white/80">{check.message}</p>
-            <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/50">
-              {check.totalClaimed} territories claimed nationwide
-            </p>
+            {check.demandTotal ? (
+              <p className="mt-2 text-[12px] text-white/65">
+                ~{check.demandTotal} buyers / sellers / movers in the next 60 days
+              </p>
+            ) : null}
+            {check.totalClaimed > 0 ? (
+              <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-white/50">
+                {check.totalClaimed} territories claimed nationwide
+              </p>
+            ) : null}
+            <a
+              href={signupHref}
+              className="mt-3 inline-flex rounded-full bg-amber-400 px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#09081b] transition hover:brightness-105"
+            >
+              {check.available ? "Claim this ZIP free →" : "Start free on a nearby ZIP →"}
+            </a>
           </div>
         ) : null}
       </div>
 
-      {/* Reservation form */}
       {showForm && submit.status !== "done" ? (
         <form onSubmit={submitReservation} className="mt-6 grid gap-3 sm:grid-cols-2">
           <p className="sm:col-span-2 text-sm font-semibold text-white">
@@ -252,7 +296,11 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
                 : "Reserve my territory"}
           </button>
           <p className="sm:col-span-2 text-[11px] text-white/50">
-            No credit card. A specialist activates your territory and walks you through onboarding.
+            Prefer the full signup?{" "}
+            <a href={signupHref} className="underline hover:text-white">
+              Continue on ypnus.com
+            </a>
+            . No credit card required.
           </p>
         </form>
       ) : null}
@@ -263,6 +311,12 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
             🎉
           </p>
           <p className="mt-2 text-sm font-semibold text-emerald-100">{submit.message}</p>
+          <a
+            href={signupHref}
+            className="mt-4 inline-flex rounded-full bg-amber-400 px-5 py-2 text-xs font-bold uppercase tracking-wide text-[#09081b]"
+          >
+            Finish free setup →
+          </a>
         </div>
       ) : null}
     </div>

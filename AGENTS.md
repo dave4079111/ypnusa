@@ -8,7 +8,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ### Project overview
 
-LoanPilot AI is a self-contained Next.js 16 (App Router) application for AI-powered mortgage borrower intake. All data is persisted to `data/store.json` (file-based); no external database or services are required.
+YPN USA product app (Next.js 16 App Router) for exclusive ZIP territories + AI borrower intake.
+
+| Host | Role |
+| --- | --- |
+| `https://ypnus.com` | WordPress marketing, signup, Cerebro, Rank Math |
+| `https://app.ypnus.com` | Product app target for this Next.js repo |
+
+Local demo state persists to `data/store.json`. Live ZIP availability is read from `https://ypnus.com/wp-json/ypnus/v1/zip-check/{zip}` when reachable. See `hostinger/README.md` for production Hostinger fixes.
 
 ### Running services
 

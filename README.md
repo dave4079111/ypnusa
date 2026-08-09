@@ -1,11 +1,16 @@
-# YPN USA — Exclusive Mortgage Lead Territories
+# YPN USA App (`app.ypnus.com`)
 
-A B2B marketing site **and** working product demo for mortgage loan officers (MLOs).
-YPN USA sells exclusive ZIP-code territories and an always-on AI agent that captures,
-qualifies, routes, and nurtures every borrower — leads and website the officer keeps for
-life, even across brokerage changes.
+Product app for mortgage loan officers (MLOs): exclusive ZIP-code territories and an
+always-on AI agent that captures, qualifies, routes, and nurtures every borrower.
+
+| Host | Role |
+| --- | --- |
+| [`ypnus.com`](https://ypnus.com) | WordPress marketing, LO signup, Cerebro, SEO content |
+| [`app.ypnus.com`](https://app.ypnus.com) | **This Next.js app** (territory checker, intake demo, analytics) |
 
 Built with **Next.js 16 (App Router, Turbopack)**, **React 19**, and **Tailwind CSS v4**.
+
+Hostinger restore files for the currently-broken app homepage live in [`hostinger/`](./hostinger/).
 
 ## What's inside
 
@@ -51,7 +56,9 @@ All environment variables are optional — see `.env.example`.
 
 | Variable | Purpose |
 | --- | --- |
-| `NEXT_PUBLIC_SITE_URL` | Production domain used for SEO metadata, canonical URL, `sitemap.xml`, `robots.txt`. Defaults to `https://ypnus.com`. |
+| `NEXT_PUBLIC_SITE_URL` | Product app URL for SEO/canonical/sitemap. Defaults to `https://app.ypnus.com`. |
+| `NEXT_PUBLIC_MARKETING_SITE_URL` | WordPress marketing host. Defaults to `https://ypnus.com`. |
+| `YPNUS_WP_API_BASE` | Live territory/signup REST base. Defaults to `https://ypnus.com/wp-json/ypnus/v1`. |
 | `LOANPILOT_DATA_DIR` | Directory for the JSON data snapshot. Defaults to `./data`. Point at a writable path (e.g. `/tmp/ypnus`) on read-only hosts. |
 | `INTAKE_EXTERNAL_WEBHOOK_URL` | If set, completed intakes are POSTed here (Zapier/CRM). |
 | `LOANPILOT_DEMO_MODE` / `LOANPILOT_DEMO_DAY_MINUTES` | Compress the multi-day nurture ladder for live demos. |

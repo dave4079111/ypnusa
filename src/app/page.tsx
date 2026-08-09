@@ -88,46 +88,61 @@ const PRICING = [
   {
     name: "Free",
     price: "$0",
-    cadence: "start free, no card",
-    tagline: "Try the engine on one ZIP",
+    cadence: "forever · no card",
+    tagline: "Prove demand on your first ZIP",
     features: [
-      "1 ZIP territory to test",
-      "Always-on AI intake assistant",
-      "Automated qualification + scoring",
-      "Up to 5 borrower leads / month",
+      "1 exclusive ZIP to start",
+      "AI borrower intake assistant",
+      "Qualification + scoring",
       "You own every lead you capture",
+      "Upgrade when pull-through is real",
     ],
     cta: "Start free",
     highlight: false,
   },
   {
-    name: "Pro MLO",
-    price: "$297",
-    cadence: "/mo per territory",
+    name: "Starter",
+    price: "$29.99",
+    cadence: "/mo",
+    tagline: "Lock a small exclusive footprint",
+    features: [
+      "Up to 3 exclusive ZIPs",
+      "Branded borrower experience",
+      "AI intake + follow-up",
+      "Territory demand reports",
+      "Cancel anytime",
+    ],
+    cta: "Claim Starter",
+    highlight: false,
+  },
+  {
+    name: "Pro",
+    price: "$99.99",
+    cadence: "/mo",
     tagline: "For the serious loan officer",
     features: [
-      "Exclusive ZIP territory (unlimited leads)",
-      "Your own portable MLO website",
-      "Instant SMS + email follow-up ladders",
+      "Up to 5 exclusive ZIPs",
+      "Portable MLO website",
+      "SMS + email nurture ladders",
       "Calendar booking + CRM mirroring",
-      "Keep your leads & site if you switch",
+      "Keep leads & site if you switch",
     ],
-    cta: "Claim your territory",
+    cta: "Claim Pro",
     highlight: true,
   },
   {
-    name: "Brokerage",
-    price: "Custom",
-    cadence: "volume territory rights",
-    tagline: "For teams, branches & enterprises",
+    name: "Elite",
+    price: "$299.99",
+    cadence: "/mo",
+    tagline: "Unlimited exclusive capacity",
     features: [
-      "Multiple / regional territories",
-      "Round-robin lead routing",
-      "White-label branding",
-      "CRM + LOS integrations",
-      "Dedicated onboarding",
+      "Unlimited exclusive ZIPs",
+      "Priority territory expansion",
+      "Advanced life-event signals",
+      "White-glove onboarding",
+      "Team / brokerage ready",
     ],
-    cta: "Talk to us",
+    cta: "Go Elite",
     highlight: false,
   },
 ];
@@ -151,7 +166,7 @@ const FAQ = [
   },
   {
     q: "How much does it cost to start?",
-    a: "Nothing. Start free on one ZIP, capture real borrowers, and upgrade to an exclusive territory when you're ready to scale.",
+    a: "Nothing. Start free on one ZIP with no credit card. Paid plans are Starter $29.99/mo, Pro $99.99/mo, and Elite $299.99/mo when you're ready to lock more exclusive capacity.",
   },
 ];
 
@@ -436,7 +451,7 @@ export default function Home() {
             <p className="mt-4 text-slate-600">Reserve a ZIP, deploy your AI, and own the pipeline it builds.</p>
           </div>
 
-          <div className="mt-14 grid gap-6 lg:grid-cols-3">
+          <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {PRICING.map((tier) => (
               <article
                 key={tier.name}

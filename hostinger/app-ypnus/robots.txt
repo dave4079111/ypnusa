@@ -1,0 +1,18 @@
+# Product / territory host.
+# Keep crawlable, but do not invent a second 70k-URL sitemap here.
+# The existing /sitemap.xml with ~70k city/ZIP URLs is a major contributor
+# to Google Search Console "Crawled - currently not indexed" growth.
+# After deploying the restored homepage, either:
+#   1) prune /sitemaps/sitemap-*.xml.gz down to state hubs + top metros, OR
+#   2) temporarily point Sitemap: to a tiny index that lists only / and /territories/
+
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Temporary crawl guidance while the giant ZIP inventory is pruned:
+# User-agent: *
+# Disallow: /cities/
+# Disallow: /zips/
+
+Sitemap: https://app.ypnus.com/sitemap.xml

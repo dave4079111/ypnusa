@@ -18,6 +18,9 @@ export function SiteHeader() {
           </span>
           <span className="text-sm font-semibold tracking-tight text-white">
             YPN<span className="text-violet-300"> USA</span>
+            <span className="ml-2 hidden text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45 sm:inline">
+              App
+            </span>
           </span>
         </Link>
 
@@ -27,10 +30,13 @@ export function SiteHeader() {
               {item.label}
             </a>
           ))}
+          <a href="https://ypnus.com/" className="transition hover:text-white">
+            Marketing site
+          </a>
         </nav>
 
         <a
-          href="#territories"
+          href="https://ypnus.com/lo-signup.html"
           className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-[#09081b] shadow-lg shadow-amber-500/20 transition hover:brightness-105"
         >
           Claim your ZIP

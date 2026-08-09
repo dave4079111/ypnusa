@@ -1,0 +1,22 @@
+# app.ypnus.com — keep territory SEO pages, restore a real homepage.
+# IMPORTANT: Also remove any Hostinger/Cloudflare "Redirect app.ypnus.com → ypnus.com"
+# rule in the control panel. That panel redirect overrides this file.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Never bounce the app homepage (or index.html) to the marketing site.
+  RewriteCond %{HTTP_HOST} ^(www\.)?app\.ypnus\.com$ [NC]
+  RewriteRule ^$ /index.html [L]
+
+  RewriteCond %{HTTP_HOST} ^(www\.)?app\.ypnus\.com$ [NC]
+  RewriteRule ^index\.html$ - [L]
+
+  # Serve existing static territory pages when the file/directory exists.
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+</IfModule>
+
+# Prefer our lean robots over any stale generator output when both exist.
+DirectoryIndex index.html

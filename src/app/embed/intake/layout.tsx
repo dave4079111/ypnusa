@@ -10,6 +10,7 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "YPN · Borrower intake (embed)",
   description: "Full YPN USA intake pipeline in an iframe-friendly surface.",
+  robots: { index: false, follow: false },
 };
 
 export default function EmbedIntakeLayout({ children }: { children: ReactNode }) {

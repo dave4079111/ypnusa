@@ -1,15 +1,15 @@
 import type { MetadataRoute } from "next";
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim() || "https://ypnus.com";
+import { APP_SITE_URL } from "@/lib/site";
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/api/", "/analytics"],
+      // Keep product/telemetry surfaces out of the marketing crawl budget.
+      disallow: ["/api/", "/analytics", "/embed/"],
     },
-    sitemap: `${siteUrl}/sitemap.xml`,
-    host: siteUrl,
+    sitemap: `${APP_SITE_URL}/sitemap.xml`,
+    host: APP_SITE_URL,
   };
 }

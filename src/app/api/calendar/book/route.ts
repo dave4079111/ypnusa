@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       return jsonError("Loan officer mismatch for this borrower.", 409, "LOAN_OFFICER_MISMATCH");
     }
 
-    const appointment = bookAppointment({
+    const appointment = await bookAppointment({
       borrowerLeadId,
       loId,
       startIso: new Date(startMs).toISOString(),
@@ -85,6 +85,7 @@ export async function POST(request: Request) {
     return jsonOk({ appointment });
   } catch (error) {
     logApiError("/api/calendar/book", error);
-    return jsonError("Booking could not be completed.", 500, "BOOKING_FAILED");
+    const message = error instanceof Error ? error.message : "Booking could not be completed.";
+    return jsonError(message, 409, "BOOKING_FAILED");
   }
 }

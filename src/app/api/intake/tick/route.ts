@@ -12,6 +12,7 @@ const BORROWER_FIELDS = new Set<string>([
   "name",
   "email",
   "phone",
+  "contactConsent",
   "estimatedCreditBand",
   "annualIncomeUsd",
   "employment",
@@ -119,7 +120,7 @@ export async function POST(request: Request) {
       return intakeFailure(validated.error, 400, validated.code);
     }
 
-    const envelope = intakeTick(validated.body);
+    const envelope = await intakeTick(validated.body);
     return NextResponse.json(envelope);
   } catch (error) {
     logApiError("/api/intake/tick", error);

@@ -28,7 +28,7 @@ const CAPABILITIES = [
   {
     icon: "💬",
     title: "Captures every borrower",
-    body: "A conversational AI greets visitors 24/7, adapts its questions to FHA, VA, DSCR, HELOC, refi, or jumbo, and never lets a lead bounce without capturing their details.",
+    body: "A conversational AI greets visitors 24/7, adapts its questions to FHA, VA, conventional, DSCR, HELOC, refi, or jumbo, and never lets a lead bounce without capturing their details.",
   },
   {
     icon: "🎯",
@@ -83,7 +83,7 @@ const OWNERSHIP = [
   },
 ];
 
-const PROGRAMS = ["FHA", "VA", "DSCR", "HELOC", "Refinance", "Jumbo"];
+const PROGRAMS = ["FHA", "VA", "Conventional", "DSCR", "HELOC", "Refinance", "Jumbo"];
 
 const PRICING = [
   {
@@ -167,7 +167,7 @@ const FAQ = [
   },
   {
     q: "Which loan programs does it handle?",
-    a: "FHA, VA, DSCR, HELOC, refinance, and jumbo — each with a tailored question flow. DSCR and investor lending are fully supported, so you can capture the fast-growing investor-borrower market too.",
+    a: "FHA, VA, conventional, DSCR, HELOC, refinance, and jumbo — each with a tailored question flow. DSCR and investor lending are fully supported, so you can capture the fast-growing investor-borrower market too.",
   },
   {
     q: "How much does it cost to start?",

@@ -7,6 +7,12 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 
 type Bubble = { id: string; role: "assistant" | "user" | "system"; body: string };
 type IncomingPayload = { field: keyof BorrowerAnswers; rawValue: string };
+type BookedAppointment = {
+  id: string;
+  provider?: string;
+  meetingUrl?: string;
+  externalBookingUrl?: string;
+};
 
 function makeId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -49,7 +55,6 @@ export function MortgageIntakeChat(props: {
   );
   const sessionIdRef = useRef<string | null>(null);
 
-  const automationSentRef = useRef(false);
   const hasHydratedFsRef = useRef(false);
   const embedBootedRef = useRef(false);
 
@@ -61,7 +66,7 @@ export function MortgageIntakeChat(props: {
   const [crm, setCrm] = useState<IntakeTickResponse["crmArtifacts"]>();
   const [slots, setSlots] = useState<NonNullable<IntakeTickResponse["slotPreview"]>>([]);
   const [draft, setDraft] = useState("");
-  const [booked, setBooked] = useState(false);
+  const [booked, setBooked] = useState<BookedAppointment | null>(null);
   const [busy, setBusy] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
 
@@ -129,7 +134,6 @@ export function MortgageIntakeChat(props: {
   const purgeSession = useCallback(() => {
     sessionIdRef.current = null;
     setSessionIdState(null);
-    automationSentRef.current = false;
     try {
       window.localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -139,8 +143,7 @@ export function MortgageIntakeChat(props: {
 
   async function hydrateSlots(preview?: IntakeTickResponse["slotPreview"], officerId?: string | null) {
     if (preview?.length) {
-      setSlots(preview.slice(0, 14));
-      return;
+      setSlots(preview.slice(0, 3));
     }
     if (!officerId) {
       setSlots([]);
@@ -150,7 +153,7 @@ export function MortgageIntakeChat(props: {
       const res = await fetch(`/api/calendar/slots?loId=${encodeURIComponent(officerId)}`);
       const payload = (await res.json()) as { slots?: NonNullable<IntakeTickResponse["slotPreview"]> };
 
-      setSlots((payload.slots ?? []).slice(0, 14));
+      setSlots((payload.slots ?? []).slice(0, 3));
     } catch {
       setSlots([]);
     }
@@ -176,12 +179,7 @@ export function MortgageIntakeChat(props: {
       setCrm(snapshot.crmArtifacts);
       await hydrateSlots(snapshot.slotPreview, snapshot.crmArtifacts?.assignedOfficer?.id);
 
-      if (snapshot.ok && !automationSentRef.current) {
-        automationSentRef.current = true;
-        fetch("/api/automation/process", { method: "POST" }).catch(() => undefined);
-      }
-
-      setBooked(false);
+      setBooked(null);
     } else {
       setSlots([]);
       setCrm(undefined);
@@ -275,7 +273,7 @@ export function MortgageIntakeChat(props: {
     purgeSession();
     setMsgs([]);
     setDraft("");
-    setBooked(false);
+    setBooked(null);
     setPhase("collecting");
     setStep(null);
     setCrm(undefined);
@@ -309,14 +307,18 @@ export function MortgageIntakeChat(props: {
         }),
       });
 
-      const body = (await res.json()) as { ok?: boolean; error?: string; appointment?: { id: string } };
+      const body = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        appointment?: BookedAppointment;
+      };
 
       if (!body.ok) {
         pushSys(body.error ?? "Booking blocked—double-check slot availability.");
         return;
       }
 
-      setBooked(true);
+      setBooked(body.appointment ?? null);
       pushSys(`Consultation locked (${body.appointment?.id ?? "reference pending"}).`);
     } catch {
       pushSys("Booking transport failed.");
@@ -529,7 +531,7 @@ function InnerChrome(props: {
   scrollerRef: RefObject<HTMLDivElement | null>;
   msgs: Bubble[];
   slots: NonNullable<IntakeTickResponse["slotPreview"]>;
-  booked: boolean;
+  booked: BookedAppointment | null;
   handleBook: (startIso: string, loId: string) => Promise<void>;
   step: AssistantStep | null;
   phaseForChips: IntakeTickResponse["phase"];
@@ -696,7 +698,7 @@ function InnerChrome(props: {
                 <button
                   key={`${slot.loId}-${slot.start}`}
                   type="button"
-                  disabled={busyFlag || booked}
+                  disabled={busyFlag || Boolean(booked)}
                   onClick={() => void handleBook(slot.start, slot.loId)}
                   className={`rounded-full border bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-xs transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 ${chipSlot}`}
                 >
@@ -704,7 +706,21 @@ function InnerChrome(props: {
                 </button>
               ))}
             </div>
-            {booked ? <p className="text-xs text-emerald-600">Consultation placeholder confirmed.</p> : null}
+            {booked ? (
+              <div className="space-y-1 text-xs text-emerald-700">
+                <p>Consultation confirmed through {booked.provider ?? "YPN USA"}.</p>
+                {booked.meetingUrl || booked.externalBookingUrl ? (
+                  <a
+                    className="font-semibold underline underline-offset-2"
+                    href={booked.meetingUrl ?? booked.externalBookingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {booked.meetingUrl ? "Open meeting link" : "Continue in calendar"}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 

@@ -143,10 +143,21 @@ const identityFlow: FlowStepDescriptor[] = [
   },
   {
     id: "borrower_phone",
-    prompt: "Best mobile number for SMS acknowledgments?",
+    prompt: "What is the best mobile number for appointment updates?",
     fieldPath: "phone",
     kind: "tel",
     placeholder: "(555) 123-9876",
+  },
+  {
+    id: "contact_consent",
+    prompt:
+      "May YPN USA and your assigned loan officer contact you by text and email about this request? Message and data rates may apply; reply STOP to opt out.",
+    fieldPath: "contactConsent",
+    kind: "boolean",
+    chips: [
+      { label: "Yes, contact me", value: "true" },
+      { label: "No, I’ll book here", value: "false" },
+    ],
   },
 ];
 
@@ -189,6 +200,7 @@ export const programPrefaces: Record<LoanProgram, FlowStepDescriptor[]> = {
       ],
     },
   ],
+  CONVENTIONAL: [],
   DSCR: [
     {
       id: "dscr_portfolio_depth",
@@ -331,6 +343,8 @@ export function greetingForProgram(program: LoanProgram): string {
       "FHA playbook engaged—capture MI + residual income scaffolding while we personalize your underwriting path.",
     VA:
       "VA concierge mode—we will validate eligibility, IRRRL deltas, and COE checkpoints as we chat.",
+    CONVENTIONAL:
+      "Conventional lending mode—we will align credit, down payment, and timing with a practical approval path.",
     DSCR:
       "Rental-performance lens active—Debt Service Coverage underwriting starts with rents and portfolio breadth.",
     HELOC:

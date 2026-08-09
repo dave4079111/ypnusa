@@ -1,6 +1,13 @@
 import type { PricingTierId } from "./pricing";
 
-export type LoanProgram = "FHA" | "VA" | "DSCR" | "HELOC" | "REFI" | "JUMBO";
+export type LoanProgram =
+  | "FHA"
+  | "VA"
+  | "CONVENTIONAL"
+  | "DSCR"
+  | "HELOC"
+  | "REFI"
+  | "JUMBO";
 
 export type LeadQuality = "prime" | "strong" | "developing" | "watch";
 
@@ -11,15 +18,20 @@ export type FollowUpPlan =
   | "immediate_sms_ack"
   | "day_1_educational_email"
   | "day_3_book_call_email"
-  | "day_5_urgency_email";
+  | "day_5_urgency_email"
+  | "day_30_check_in"
+  | "day_60_check_in"
+  | "day_90_check_in";
 
 export type FollowUpChannel = "email" | "sms";
+export type CalendarProvider = "local" | "google" | "microsoft" | "calendly";
 
 export interface BorrowerAnswers {
   loanProgram: LoanProgram;
   name?: string;
   email?: string;
   phone?: string;
+  contactConsent?: boolean;
   /** e.g. 620-679, prefer numeric midpoint for scoring when possible */
   estimatedCreditBand?: string;
   annualIncomeUsd?: number;
@@ -73,6 +85,10 @@ export interface LoanOfficerRecord {
   specialties: LoanProgram[];
   /** Simple weekly availability placeholders (minutes from midnight UTC) */
   weeklyWindows: Array<{ dow: number; startMin: number; endMin: number }>;
+  calendarProvider?: CalendarProvider;
+  calendarId?: string;
+  calendarTimeZone?: string;
+  calendlyUrl?: string;
 }
 
 export interface BorrowerLeadRecord {
@@ -116,10 +132,14 @@ export interface ScheduledFollowUpRecord {
   channel: FollowUpChannel;
   recipient: string;
   scheduledAt: string;
-  status: "pending" | "sent" | "failed";
+  status: "pending" | "sending" | "sent" | "failed";
   bodySummary: string;
   createdAt: string;
   sentAt?: string;
+  attemptCount?: number;
+  deliveryProvider?: "twilio" | "sendgrid" | "webhook" | "demo";
+  providerMessageId?: string;
+  lastError?: string;
 }
 
 export interface AppointmentRecord {
@@ -130,6 +150,10 @@ export interface AppointmentRecord {
   end: string;
   createdAt: string;
   borrowerNotes?: string;
+  provider?: CalendarProvider;
+  externalEventId?: string;
+  meetingUrl?: string;
+  externalBookingUrl?: string;
 }
 
 export interface IntakeSessionRecord {

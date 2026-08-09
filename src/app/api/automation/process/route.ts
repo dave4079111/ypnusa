@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const summary = processDueFollowUps();
+    const summary = await processDueFollowUps();
     return jsonOk(summary);
   } catch (error) {
     logApiError("/api/automation/process", error);

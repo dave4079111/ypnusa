@@ -36,8 +36,14 @@ import type {
 let cachedDataDir: string | null = null;
 function dataDir(): string {
   if (cachedDataDir) return cachedDataDir;
-  cachedDataDir =
-    process.env.LOANPILOT_DATA_DIR?.trim() || path.join(process.cwd(), "data");
+  const configured = process.env.LOANPILOT_DATA_DIR?.trim();
+  if (configured) {
+    cachedDataDir = configured;
+    return cachedDataDir;
+  }
+  // Keep the data dir under ./data so NFT does not trace the whole repo.
+  // turbopackIgnore prevents cwd() from expanding the file trace.
+  cachedDataDir = path.join(/*turbopackIgnore: true*/ process.cwd(), "data");
   return cachedDataDir;
 }
 function dbPath(): string {
@@ -185,19 +191,22 @@ export function ensureDataDirExists(): void {
 }
 
 export function readDb(): DbShape {
+  // Return a deep clone so callers cannot accidentally mutate live state.
   return structuredClone(hydrate());
 }
 
-function writeDbMutable(db: DbShape): void {
-  memoryDb = structuredClone(db);
-  flushToDisk(memoryDb);
-}
-
+/**
+ * Mutate the live in-memory store, then best-effort flush to disk.
+ *
+ * The mutator receives the process-scoped store (not a disposable clone).
+ * Clone-then-replace RMW lets overlapping or nested writers drop each other's
+ * updates (e.g. two demo-request reservations racing on the same ZIP).
+ */
 export function writeDb(mutator: (db: DbShape) => void): DbShape {
-  const db = readDb();
+  const db = hydrate();
   mutator(db);
-  writeDbMutable(db);
-  return db;
+  flushToDisk(db);
+  return structuredClone(db);
 }
 
 export function persistSession(session: IntakeSessionRecord): void {

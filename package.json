@@ -9,7 +9,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx --test src/**/*.test.ts",
+    "deploy:hostinger:list": "node scripts/deploy-hostinger.mjs list",
+    "deploy:hostinger:next": "node scripts/deploy-hostinger.mjs deploy-next",
+    "deploy:cloudflare:list": "node scripts/fix-cloudflare-redirect.mjs list"
   },
   "dependencies": {
     "next": "16.2.6",
@@ -24,6 +28,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.11",
     "typescript": "^5"
   }
 }

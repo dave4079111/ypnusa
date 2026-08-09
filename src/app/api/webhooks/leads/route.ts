@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   persistSession(session);
 
   const result = await finalizeIntakeArtifacts(session);
-  if (!("borrowerLeadId" in result)) {
+  if ("message" in result) {
     return jsonError(result.message, 422, "LEAD_FINALIZATION_FAILED");
   }
 

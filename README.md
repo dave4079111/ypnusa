@@ -10,7 +10,7 @@ always-on AI agent that captures, qualifies, routes, and nurtures every borrower
 
 Built with **Next.js 16 (App Router, Turbopack)**, **React 19**, and **Tailwind CSS v4**.
 
-**Deploy target: Hostinger Cloud only** (not Vercel). Production notes and
+**Deploy target: Hostinger Cloud** (`app.ypnus.com`). Production notes and
 drop-ins live in [`hostinger/`](./hostinger/).
 
 ## What's inside

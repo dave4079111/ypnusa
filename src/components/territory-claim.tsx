@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { marketingUrl } from "@/lib/site";
 
 type CheckState =
   | { status: "idle" }
@@ -32,7 +33,13 @@ const VOLUME_OPTIONS = [
   "Whole brokerage / branch",
 ];
 
-const MARKETING_SIGNUP = "https://ypnus.com/lo-signup.html";
+const MARKETING_SIGNUP = marketingUrl("/lo-signup.html");
+
+function signupHrefFor(zip?: string, plan = "free") {
+  const params = new URLSearchParams({ plan });
+  if (zip) params.set("zip", zip);
+  return `${MARKETING_SIGNUP}?${params.toString()}`;
+}
 
 export function TerritoryClaim({ source = "territory_section" }: { source?: string }) {
   const [zip, setZip] = useState("");
@@ -137,8 +144,14 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
         : "";
   const signupHref =
     check.status === "result"
-      ? check.signupUrl || `${MARKETING_SIGNUP}?zip=${encodeURIComponent(check.zip)}`
-      : MARKETING_SIGNUP;
+      ? check.signupUrl || signupHrefFor(check.zip)
+      : signupHrefFor();
+  const resultTitle =
+    check.status === "result"
+      ? check.available
+        ? `${place} is open for exclusive claim`
+        : `${place} is claimed — join the waitlist`
+      : "";
 
   return (
     <div className="w-full rounded-[28px] border border-white/15 bg-white/[0.06] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur md:p-8">
@@ -159,35 +172,69 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
               void runCheck();
             }
           }}
-          className="w-full rounded-2xl border border-white/20 bg-white px-4 py-3 text-base font-semibold tracking-wide text-slate-900 outline-none ring-violet-300 placeholder:font-normal placeholder:text-slate-400 focus:ring-2"
+          className="w-full rounded-2xl border border-white/20 bg-white px-4 py-3 text-base font-semibold tracking-wide text-slate-900 outline-none ring-violet-300 transition placeholder:font-normal placeholder:text-slate-400 focus:ring-2"
         />
         <button
           type="button"
           onClick={() => void runCheck()}
           disabled={check.status === "checking"}
-          className="shrink-0 rounded-2xl bg-gradient-to-r from-violet-500 to-violet-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-violet-600/30 transition hover:brightness-110 disabled:opacity-60"
+          className="shrink-0 rounded-2xl bg-gradient-to-r from-violet-500 to-violet-600 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-violet-600/30 transition duration-200 hover:-translate-y-0.5 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300 disabled:translate-y-0 disabled:cursor-wait disabled:opacity-60"
+          aria-busy={check.status === "checking"}
         >
           {check.status === "checking" ? "Checking…" : "Check availability"}
         </button>
       </div>
 
-      <div aria-live="polite" role="status">
+      <div aria-live="polite" role="status" className="mt-4 min-h-[172px]">
+        {check.status === "idle" ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm text-white/70">
+            <p className="font-medium text-white">Instant ZIP availability</p>
+            <p className="mt-1 text-[13px]">
+              Enter a 5-digit ZIP to see whether it is still exclusive, then reserve in-app or continue to the full signup.
+            </p>
+          </div>
+        ) : null}
+
+        {check.status === "checking" ? (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-4">
+            <div className="animate-pulse space-y-3">
+              <div className="h-4 w-3/5 rounded-full bg-white/20" />
+              <div className="h-3 w-full rounded-full bg-white/10" />
+              <div className="h-3 w-4/5 rounded-full bg-white/10" />
+              <div className="h-9 w-40 rounded-full bg-amber-300/50" />
+            </div>
+          </div>
+        ) : null}
+
         {check.status === "error" ? (
-          <p className="mt-3 text-sm font-medium text-rose-200">{check.message}</p>
+          <div className="rounded-2xl border border-rose-300/30 bg-rose-400/10 px-4 py-4 text-sm text-rose-100">
+            <p className="font-semibold">We could not check that ZIP.</p>
+            <p className="mt-1 text-rose-100/80">{check.message}</p>
+            <button
+              type="button"
+              className="mt-3 rounded-full border border-rose-200/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+              onClick={() => void runCheck()}
+            >
+              Retry check
+            </button>
+          </div>
         ) : null}
 
         {check.status === "result" ? (
           <div
-            className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-medium ${
+            className={`rounded-2xl border px-4 py-4 text-sm font-medium transition ${
               check.available
                 ? "border-emerald-300/40 bg-emerald-400/10 text-emerald-100"
                 : "border-amber-300/40 bg-amber-400/10 text-amber-100"
             }`}
           >
             <p className="flex items-center gap-2">
-              <span aria-hidden>{check.available ? "✅" : "🔒"}</span>
+              <span
+                aria-hidden
+                className={`h-2.5 w-2.5 rounded-full ${check.available ? "bg-emerald-300" : "bg-amber-300"}`}
+              />
               <span className="font-semibold">
-                {check.available ? `${place} is available` : `${place} is already claimed`}
+                {resultTitle}
               </span>
             </p>
             <p className="mt-1 text-[13px] text-white/80">{check.message}</p>
@@ -203,7 +250,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
             ) : null}
             <a
               href={signupHref}
-              className="mt-3 inline-flex rounded-full bg-amber-400 px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#09081b] transition hover:brightness-105"
+              className="mt-3 inline-flex rounded-full bg-amber-400 px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#09081b] transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
             >
               {check.available ? "Claim this ZIP free →" : "Start free on a nearby ZIP →"}
             </a>
@@ -287,7 +334,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
           <button
             type="submit"
             disabled={submit.status === "submitting"}
-            className="sm:col-span-2 mt-1 rounded-2xl bg-amber-400 px-6 py-3 text-base font-semibold text-[#09081b] shadow-xl shadow-amber-500/30 transition hover:brightness-105 disabled:opacity-60"
+            className="sm:col-span-2 mt-1 rounded-2xl bg-amber-400 px-6 py-3 text-base font-semibold text-[#09081b] shadow-xl shadow-amber-500/30 transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200 disabled:translate-y-0 disabled:cursor-wait disabled:opacity-60"
           >
             {submit.status === "submitting"
               ? "Submitting…"
@@ -307,13 +354,13 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
 
       {submit.status === "done" ? (
         <div className="mt-6 rounded-2xl border border-emerald-300/40 bg-emerald-400/10 px-5 py-5 text-center">
-          <p className="text-2xl" aria-hidden>
-            🎉
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-200">
+            {claimed ? "Waitlist request received" : "Reservation request received"}
           </p>
           <p className="mt-2 text-sm font-semibold text-emerald-100">{submit.message}</p>
           <a
             href={signupHref}
-            className="mt-4 inline-flex rounded-full bg-amber-400 px-5 py-2 text-xs font-bold uppercase tracking-wide text-[#09081b]"
+            className="mt-4 inline-flex rounded-full bg-amber-400 px-5 py-2 text-xs font-bold uppercase tracking-wide text-[#09081b] transition hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
           >
             Finish free setup →
           </a>

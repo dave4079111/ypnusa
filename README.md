@@ -78,25 +78,33 @@ best-effort basis. This means:
 
 ## Deploy
 
-### Render (recommended — no Vercel needed)
-This repo runs the real Next.js server (`next start`), so it deploys on any Node
-platform with no framework adapter to break. A [`render.yaml`](./render.yaml)
-blueprint is included:
+### Hostinger Cloud (recommended)
+Production shape: WordPress marketing on `ypnus.com`, this Next.js product app on
+`app.ypnus.com` as a Hostinger **Cloud Node.js web app**. Full checklist:
+[`hostinger/README.md`](./hostinger/README.md).
+
+```bash
+export HOSTINGER_API_TOKEN=…   # hPanel → API
+npm run deploy:hostinger:list
+npm run deploy:hostinger:next  # builds on app.ypnus.com
+```
+
+Or in hPanel: **Websites → Add Website → Node.js web app → Import GitHub**
+(`dave4079111/ypnusa`). Set `NEXT_PUBLIC_SITE_URL=https://app.ypnus.com` and the
+other vars from `.env.example`. Remove the Cloudflare redirect that currently
+sends `app.ypnus.com/` → `ypnus.com/` first.
+
+### Render
+A [`render.yaml`](./render.yaml) blueprint is included for a persistent Node host:
 1. At [dashboard.render.com](https://dashboard.render.com): **New +  → Blueprint**.
-2. Connect the `dave4079111/ypnusa` repo and click **Apply** — Render reads
-   `render.yaml` and provisions the web service automatically.
-3. Set `NEXT_PUBLIC_SITE_URL` to your domain in the service's Environment tab.
+2. Connect the `dave4079111/ypnusa` repo and click **Apply**.
+3. Set `NEXT_PUBLIC_SITE_URL` in the service's Environment tab.
 
-### Vercel
-1. Import the repo at [vercel.com/new](https://vercel.com/new).
-2. Set `NEXT_PUBLIC_SITE_URL` to your production domain.
-3. Deploy. No extra config needed (Next.js is detected automatically).
-
-### Any Node host (VPS, Docker, Hostinger Node app)
+### Any Node host (VPS / Docker)
 ```bash
 npm ci
 npm run build
-NEXT_PUBLIC_SITE_URL=https://your-domain npm run start   # serves on :3000
+NEXT_PUBLIC_SITE_URL=https://your-domain npm run start   # honors $PORT
 ```
 Put it behind a reverse proxy (nginx/Caddy) and process manager (PM2/systemd). The default
 `./data` directory is writable here, so lead data persists across restarts.

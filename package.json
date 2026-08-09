@@ -8,11 +8,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint",
     "test": "tsx --test src/**/*.test.ts",
     "deploy:hostinger:list": "node scripts/deploy-hostinger.mjs list",
     "deploy:hostinger:next": "node scripts/deploy-hostinger.mjs deploy-next",
+    "deploy:hostinger:status": "node scripts/deploy-hostinger.mjs status",
     "deploy:cloudflare:list": "node scripts/fix-cloudflare-redirect.mjs list"
   },
   "dependencies": {

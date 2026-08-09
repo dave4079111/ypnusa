@@ -54,34 +54,44 @@ Then in Rank Math:
 - Review `/markets/` and near-duplicate city LO pages; noindex or consolidate thin ones
 - Keep conversion URLs: `/check-zip.html`, `/lo-signup.html`, `/pricing-plans/`
 
-## Next.js app (recommended Hostinger Node.js web app)
+## Next.js app on Hostinger Cloud (Node.js web app)
 
-This repo is configured as the **product app** for `https://app.ypnus.com`:
+This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
+**Cloud** plan (Node.js web apps). WordPress stays on `ypnus.com` for marketing/SEO.
 
 | Setting | Value |
 | --- | --- |
-| Application type | `next` |
-| Node.js | 20+ (22 preferred) |
+| Plan | Hostinger Cloud (Startup / Professional / Enterprise) |
+| Application type | `next` (auto-detected) |
+| Node.js | 22 |
 | Build script | `build` |
+| Start script | `start` (`next start -H 0.0.0.0 -p $PORT`) |
 | Output directory | `.next` |
+| `output` in `next.config.ts` | `standalone` |
 | `NEXT_PUBLIC_SITE_URL` | `https://app.ypnus.com` |
 | `NEXT_PUBLIC_MARKETING_SITE_URL` | `https://ypnus.com` |
 | `YPNUS_WP_API_BASE` | `https://ypnus.com/wp-json/ypnus/v1` |
 | `LOANPILOT_DATA_DIR` | `/tmp/ypnus-data` |
 
-### Option A — hPanel GitHub deploy
+### Option A — hPanel GitHub deploy (recommended)
 1. Remove the Cloudflare redirect (above).
-2. hPanel → **Websites** → **Add Website** → **Node.js web app** → import `dave4079111/ypnusa`.
-3. Set the env vars in the table, deploy on branch `main` (or this PR branch for a preview).
+2. If `app.ypnus.com` is still a static/PHP site, remove that website slot first
+   (download a backup), then **Websites → Add Website → Node.js web app**.
+3. Import `dave4079111/ypnusa`, set the env vars above, deploy branch `main`
+   (or this PR branch for a preview).
 
 ### Option B — API archive deploy
 ```bash
 export HOSTINGER_API_TOKEN=…   # hPanel → API
-node scripts/deploy-hostinger.mjs list
-node scripts/deploy-hostinger.mjs deploy-next app.ypnus.com
+npm run deploy:hostinger:list
+npm run deploy:hostinger:next          # defaults to app.ypnus.com
+npm run deploy:hostinger:status
 ```
 
-### Option C — Render blueprint
-[`render.yaml`](../render.yaml) still works as a Node host; point DNS for `app.ypnus.com` at the Render service after the Cloudflare redirect is gone.
+The script uploads a source zip (no `node_modules` / `.next`), starts the Cloud
+Node.js build, and streams logs until completion. Set the env vars in hPanel
+afterward and **Restart** the Node process.
 
-Keep WordPress on `ypnus.com` for marketing/SEO; put the Next product surface on `app.ypnus.com`.
+### Option C — Render blueprint
+[`render.yaml`](../render.yaml) still works as a Node host; point DNS for
+`app.ypnus.com` at the Render service after the Cloudflare redirect is gone.

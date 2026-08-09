@@ -42,8 +42,9 @@ function dataDir(): string {
     return cachedDataDir;
   }
   // Keep the data dir under ./data so NFT does not trace the whole repo.
-  // turbopackIgnore prevents cwd() from expanding the file trace.
-  cachedDataDir = path.join(/*turbopackIgnore: true*/ process.cwd(), "data");
+  // Prefer resolve("data") over cwd()+join — Hostinger/standalone NFT treats
+  // process.cwd() joins as whole-project traces even with turbopackIgnore.
+  cachedDataDir = path.resolve(/*turbopackIgnore: true*/ "data");
   return cachedDataDir;
 }
 function dbPath(): string {

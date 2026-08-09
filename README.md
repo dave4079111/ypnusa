@@ -26,6 +26,9 @@ Hostinger restore files for the currently-broken app homepage live in [`hostinge
 **Working product demo:**
 - `/embed/intake` — the borrower intake assistant in an iframe-friendly surface (embed on any MLO site)
 - The same assistant runs inline in the homepage "Live demo" section
+- `/mortgage-broker/[city]-[state]` and `/zip/[zipcode]` — curated, source-aware local SEO
+  territories (unknown locations 404 rather than generating thin pages)
+- `/dashboard/local-seo` — MLO NAP, Google Business Profile, review-feed, and review-link readiness
 
 **Backend (App Router route handlers):**
 - `POST /api/intake/tick` — conversational intake engine (adaptive FHA/VA/DSCR/HELOC/REFI/JUMBO flows, scoring, CRM mirroring, officer routing, nurture scheduling)
@@ -34,6 +37,9 @@ Hostinger restore files for the currently-broken app homepage live in [`hostinge
 - `GET  /api/calendar/slots`, `POST /api/calendar/book` — consultation booking
 - `POST /api/automation/process` — processes due nurture follow-ups
 - `GET  /api/analytics/summary` — intake telemetry (also rendered at `/analytics`)
+- `POST /api/reviews/request` — accepts an authenticated closing event and hands an honest
+  Google review request to the configured SMS/email delivery webhook
+- `GET  /local-seo-sitemap.xml` — small sitemap containing only curated local territories
 
 ## Getting started
 
@@ -62,6 +68,32 @@ All environment variables are optional — see `.env.example`.
 | `LOANPILOT_DATA_DIR` | Directory for the JSON data snapshot. Defaults to `./data`. Point at a writable path (e.g. `/tmp/ypnus`) on read-only hosts. |
 | `INTAKE_EXTERNAL_WEBHOOK_URL` | If set, completed intakes are POSTed here (Zapier/CRM). |
 | `LOANPILOT_DEMO_MODE` / `LOANPILOT_DEMO_DAY_MINUTES` | Compress the multi-day nurture ladder for live demos. |
+| `LOCAL_SEO_PUBLIC_ORIGIN` | Public origin for local canonical URLs; defaults to `https://ypnus.com`. |
+| `MLO_PUBLIC_*` / `MLO_NMLS_ID` | Co-branded public NAP and license fields. Omit a non-public office address. |
+| `GBP_PLACE_ID` / `GBP_PROFILE_URL` | Verified Place ID for review links and public GBP listing URL. |
+| `GBP_REVIEWS_PROVIDER_URL` / `GBP_REVIEWS_PROVIDER_TOKEN` | Authorized server-side source for dynamic verified review records. |
+| `NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY` | Optional browser-restricted key for lazy map embeds. |
+| `REVIEW_REQUEST_API_SECRET` | Bearer secret required by the closing-event endpoint in production. |
+| `REVIEW_REQUEST_WEBHOOK_URL` / `REVIEW_REQUEST_WEBHOOK_TOKEN` | SMS/email provider handoff for post-closing review messages. |
+
+## Local SEO deployment
+
+The Next.js service is hosted at `app.ypnus.com`, while the requested local pages are intended for
+`ypnus.com`. Before indexing, configure WordPress/Hostinger to reverse-proxy these paths to this app:
+
+- `/mortgage-broker/*`
+- `/zip/*`
+- `/local-seo-sitemap.xml`
+
+Then add `https://ypnus.com/local-seo-sitemap.xml` to the marketing site's sitemap index or Google
+Search Console. Do not submit the app-hosted sitemap as a substitute for that marketing-host route.
+
+Location pages are intentionally registry-backed. Add a distinct profile with original copy,
+neighborhoods, municipal sources, and dated metric sources before a city or ZIP is generated. Reviews
+are omitted from both the page and JSON-LD until a configured provider returns valid records; no
+sample testimonials or ratings ship in production. `FinancialService` / `MortgageBroker` JSON-LD is
+emitted only when both `MLO_PUBLIC_NAME` and `MLO_NMLS_ID` are configured; otherwise the page uses
+neutral `WebPage` structured data.
 
 ## Data & persistence
 

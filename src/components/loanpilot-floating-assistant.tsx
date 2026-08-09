@@ -63,6 +63,7 @@ export function MortgageIntakeChat(props: {
   const [draft, setDraft] = useState("");
   const [booked, setBooked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -92,7 +93,7 @@ export function MortgageIntakeChat(props: {
     queueMicrotask(() => {
       el.scrollTop = el.scrollHeight;
     });
-  }, [msgs, open, phase, busy, variant]);
+  }, [msgs, open, phase, busy, variant, lastError]);
 
   const pushAssistant = useCallback((t: string) => {
     const b = t.trim();
@@ -156,6 +157,7 @@ export function MortgageIntakeChat(props: {
   }
 
   async function applySnapshot(snapshot: IntakeTickResponse) {
+    setLastError(snapshot.ok ? null : snapshot.error ?? "The intake tick could not complete.");
     rememberSession(snapshot.sessionId);
 
     const denominator = Math.max(1, snapshot.progress.totalApplicable);
@@ -196,6 +198,7 @@ export function MortgageIntakeChat(props: {
 
   async function postTick(payload?: IncomingPayload) {
     setBusy(true);
+    setLastError(null);
     try {
       const res = await fetch("/api/intake/tick", {
         method: "POST",
@@ -208,15 +211,20 @@ export function MortgageIntakeChat(props: {
         }),
       });
 
+      if (!res.ok) {
+        throw new Error("Intake service unavailable.");
+      }
+
       const snapshot = (await res.json()) as IntakeTickResponse;
       await applySnapshot(snapshot);
       return snapshot;
-    } catch {
-      pushSys(
+    } catch (error) {
+      const message =
         brand === "ypn"
           ? "Connection glitch — retry when you’re back online."
-          : "Network turbulence—LoanPilot LOS bridge unavailable.",
-      );
+          : "Network turbulence—LoanPilot LOS bridge unavailable.";
+      setLastError(error instanceof Error && error.message ? `${message} ${error.message}` : message);
+      pushSys(message);
       return null;
     } finally {
       setBusy(false);
@@ -272,6 +280,7 @@ export function MortgageIntakeChat(props: {
     setStep(null);
     setCrm(undefined);
     setSlots([]);
+    setLastError(null);
     void postTick();
   }
 
@@ -385,7 +394,7 @@ export function MortgageIntakeChat(props: {
         <button
           type="button"
           onClick={handleOpen}
-          className={`fixed bottom-6 right-4 z-40 flex items-center gap-3 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-2xl md:right-8 ${fabGradient}`}
+          className={`fixed bottom-24 right-4 z-40 flex items-center gap-3 rounded-full px-6 py-3 text-sm font-semibold text-white shadow-2xl transition duration-200 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 md:bottom-6 md:right-8 ${fabGradient}`}
         >
           <span className="text-lg" aria-hidden>
             {brand === "ypn" ? "✦" : "⚡️"}
@@ -414,6 +423,7 @@ export function MortgageIntakeChat(props: {
                 funnel={funnel}
                 variant={variant}
                 busy={busy}
+                lastError={lastError}
                 counts={counts}
                 pct={pct}
                 phase={phase}
@@ -425,6 +435,7 @@ export function MortgageIntakeChat(props: {
                 onLoanProgram={(p) => setLoanProgram(p)}
                 onClose={() => setOpen(false)}
                 onReset={handleReset}
+                onRetry={() => void postTick()}
                 markBubble={markBubble}
                 scrollerRef={scrollerRef}
                 msgs={msgs}
@@ -455,6 +466,7 @@ export function MortgageIntakeChat(props: {
               funnel={funnel}
               variant={variant}
               busy={busy}
+              lastError={lastError}
               counts={counts}
               pct={pct}
               phase={phase}
@@ -466,6 +478,7 @@ export function MortgageIntakeChat(props: {
               onLoanProgram={(p) => setLoanProgram(p)}
               onClose={() => setOpen(false)}
               onReset={handleReset}
+              onRetry={() => void postTick()}
               markBubble={markBubble}
               scrollerRef={scrollerRef}
               msgs={msgs}
@@ -499,6 +512,7 @@ function InnerChrome(props: {
   funnel: string;
   variant: IntakeVariant;
   busy: boolean;
+  lastError: string | null;
   counts: { done: number; total: number };
   pct: number;
   phase: IntakeTickResponse["phase"];
@@ -510,6 +524,7 @@ function InnerChrome(props: {
   onLoanProgram: (p: LoanProgram) => void;
   onClose: () => void;
   onReset: () => void;
+  onRetry: () => void;
   markBubble: string;
   scrollerRef: RefObject<HTMLDivElement | null>;
   msgs: Bubble[];
@@ -536,6 +551,7 @@ function InnerChrome(props: {
     funnel,
     variant,
     busy,
+    lastError,
     counts,
     pct,
     phase,
@@ -547,6 +563,7 @@ function InnerChrome(props: {
     onLoanProgram,
     onClose,
     onReset,
+    onRetry,
     markBubble,
     scrollerRef,
     msgs,
@@ -583,11 +600,20 @@ function InnerChrome(props: {
 
           <div className="flex flex-col gap-2 text-[11px] text-slate-500">
             {variant === "fab" ? (
-              <button type="button" className="rounded-full px-3 py-1 hover:bg-slate-100" onClick={onClose}>
+              <button
+                type="button"
+                className="rounded-full px-3 py-1 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                onClick={onClose}
+              >
                 Close
               </button>
             ) : null}
-            <button type="button" className="rounded-full px-3 py-1 hover:bg-slate-100" onClick={onReset} disabled={busy}>
+            <button
+              type="button"
+              className="rounded-full px-3 py-1 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 disabled:opacity-50"
+              onClick={onReset}
+              disabled={busy}
+            >
               Reset
             </button>
           </div>
@@ -602,7 +628,7 @@ function InnerChrome(props: {
           </div>
           <div className="h-2 rounded-full bg-slate-100">
             <div
-              className={`h-2 rounded-full transition-all ${progressFillTone}`}
+              className={`h-2 rounded-full transition-all duration-300 ${progressFillTone}`}
               style={{ width: `${Math.max(6, Math.min(100, pct))}%` }}
             />
           </div>
@@ -628,10 +654,27 @@ function InnerChrome(props: {
       </header>
 
       <div ref={scrollerRef} className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
+        {msgs.length === 0 && !lastError && (busy || !step) ? <IntakeSkeleton /> : null}
+
+        {lastError ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            <p className="font-semibold">The intake assistant paused.</p>
+            <p className="mt-1 text-amber-900/80">{lastError}</p>
+            <button
+              type="button"
+              className="mt-3 rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 disabled:translate-y-0 disabled:opacity-50"
+              onClick={onRetry}
+              disabled={busy}
+            >
+              {busy ? "Retrying…" : "Retry intake"}
+            </button>
+          </div>
+        ) : null}
+
         {msgs.map((bubble) => (
           <article
             key={bubble.id}
-            className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+            className={`max-w-[90%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap transition ${
               bubble.role === "assistant"
                 ? "self-start bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80 rounded-bl-[6px]"
                 : bubble.role === "user"
@@ -655,7 +698,7 @@ function InnerChrome(props: {
                   type="button"
                   disabled={busyFlag || booked}
                   onClick={() => void handleBook(slot.start, slot.loId)}
-                  className={`rounded-full border bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-xs disabled:cursor-not-allowed disabled:opacity-40 ${chipSlot}`}
+                  className={`rounded-full border bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-xs transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 ${chipSlot}`}
                 >
                   {slotPretty(slot.start)}
                 </button>
@@ -672,7 +715,7 @@ function InnerChrome(props: {
                 key={chip.value}
                 type="button"
                 disabled={busyFlag || phaseForChips === "crm_synced"}
-                className={`rounded-full border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 shadow-xs disabled:opacity-40 ${chipHover}`}
+                className={`rounded-full border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 shadow-xs transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-40 ${chipHover}`}
                 onClick={() => step && submitAnswer(step, chip.value, chip.label)}
               >
                 {chip.label}
@@ -702,9 +745,9 @@ function InnerChrome(props: {
               type="button"
               disabled={busyFlag || !step}
               onClick={() => step && submitAnswer(step, draft)}
-              className={`rounded-2xl px-4 py-2 text-sm font-semibold disabled:opacity-35 ${sendGradient}`}
+              className={`rounded-2xl px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 disabled:translate-y-0 disabled:opacity-35 ${sendGradient}`}
             >
-              Send
+              {busyFlag ? "Sending…" : "Send"}
             </button>
           </div>
         ) : (
@@ -712,6 +755,19 @@ function InnerChrome(props: {
         )}
       </footer>
     </>
+  );
+}
+
+function IntakeSkeleton() {
+  return (
+    <div className="space-y-3" aria-label="Loading intake assistant">
+      <div className="max-w-[88%] animate-pulse rounded-2xl rounded-bl-[6px] bg-white p-4 shadow-sm ring-1 ring-slate-200/80">
+        <div className="h-3 w-32 rounded-full bg-slate-200" />
+        <div className="mt-3 h-3 w-full rounded-full bg-slate-100" />
+        <div className="mt-2 h-3 w-4/5 rounded-full bg-slate-100" />
+      </div>
+      <div className="ml-auto h-10 w-28 animate-pulse rounded-2xl rounded-br-[6px] bg-slate-200" />
+    </div>
   );
 }
 

@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { MortgageIntakeChat } from "@/components/loanpilot-floating-assistant";
+import { MortgageIntakeChat } from "@/components/lazy-loanpilot-assistant";
 import { TerritoryClaim } from "@/components/territory-claim";
 import { MortgageCalculator } from "@/components/mortgage-calculator";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { marketingUrl } from "@/lib/site";
 
 const LIFE_EVENTS = [
   {
@@ -98,6 +99,7 @@ const PRICING = [
       "Upgrade when pull-through is real",
     ],
     cta: "Start free",
+    plan: "free",
     highlight: false,
   },
   {
@@ -113,6 +115,7 @@ const PRICING = [
       "Cancel anytime",
     ],
     cta: "Claim Starter",
+    plan: "starter",
     highlight: false,
   },
   {
@@ -128,6 +131,7 @@ const PRICING = [
       "Keep leads & site if you switch",
     ],
     cta: "Claim Pro",
+    plan: "pro",
     highlight: true,
   },
   {
@@ -143,6 +147,7 @@ const PRICING = [
       "Team / brokerage ready",
     ],
     cta: "Go Elite",
+    plan: "elite",
     highlight: false,
   },
 ];
@@ -170,15 +175,19 @@ const FAQ = [
   },
 ];
 
+function signupHrefForPlan(plan: string) {
+  return marketingUrl(`/lo-signup.html?plan=${encodeURIComponent(plan)}`);
+}
+
 export default function Home() {
   return (
-    <div className="flex min-h-full flex-col bg-[#09081b] text-white">
+    <div className="flex min-h-full flex-col overflow-x-clip bg-[#09081b] pb-24 text-white md:pb-0">
       <SiteHeader />
 
       {/* HERO */}
       <section className="relative isolate overflow-hidden">
         <div className="ypn-aurora pointer-events-none absolute inset-0" aria-hidden />
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 py-16 lg:flex-row lg:items-center lg:py-24">
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-12 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:py-24">
           <div className="max-w-xl">
             <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-100">
               Exclusive ZIP demand · for MLOs
@@ -195,13 +204,13 @@ export default function Home() {
             <div className="mt-7 flex flex-wrap gap-4 text-sm font-semibold">
               <a
                 href="#territories"
-                className="inline-flex items-center justify-center rounded-full bg-amber-400 px-7 py-3.5 text-[#09081b] shadow-xl shadow-amber-500/30 transition hover:brightness-105"
+                className="inline-flex items-center justify-center rounded-full bg-amber-400 px-7 py-3.5 text-[#09081b] shadow-xl shadow-amber-500/30 transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
               >
                 Claim your ZIP — free
               </a>
               <a
                 href="#demo"
-                className="inline-flex items-center justify-center rounded-full border border-white/35 bg-white/10 px-6 py-3.5 text-white backdrop-blur transition hover:bg-white/20"
+                className="inline-flex items-center justify-center rounded-full border border-white/35 bg-white/10 px-6 py-3.5 text-white backdrop-blur transition duration-200 hover:-translate-y-0.5 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
               >
                 See the AI live ↓
               </a>
@@ -216,7 +225,7 @@ export default function Home() {
               ))}
             </ul>
 
-            <dl className="mt-8 grid grid-cols-3 gap-4">
+            <dl className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[
                 ["24/7", "Always-on capture"],
                 ["1 MLO", "Per territory"],
@@ -238,7 +247,7 @@ export default function Home() {
 
       {/* TRUST / VALUE STRIP */}
       <section className="border-b border-white/10 bg-[#0b0a20]">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-px overflow-hidden px-6 py-6 text-center md:grid-cols-4">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-px overflow-hidden px-4 py-6 text-center sm:px-6 md:grid-cols-4">
           {[
             ["🔒", "Exclusive to you", "One MLO per ZIP"],
             ["🔑", "Own your leads", "Portable for life"],
@@ -311,7 +320,7 @@ export default function Home() {
       {/* EXCLUSIVE TERRITORIES */}
       <section id="territories" className="relative isolate overflow-hidden bg-[#09081b] py-20">
         <div className="ypn-aurora pointer-events-none absolute inset-0 opacity-80" aria-hidden />
-        <div className="relative z-10 mx-auto grid w-full max-w-6xl gap-12 px-6 lg:grid-cols-2 lg:items-center">
+        <div className="relative z-10 mx-auto grid w-full max-w-6xl gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:items-center">
           <div className="space-y-6">
             <span className="inline-flex rounded-full border border-white/25 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-100">
               Exclusive ZIP territories
@@ -455,7 +464,7 @@ export default function Home() {
             {PRICING.map((tier) => (
               <article
                 key={tier.name}
-                className={`flex flex-col rounded-3xl border p-8 ${
+                className={`flex min-h-full flex-col rounded-3xl border p-6 transition duration-200 hover:-translate-y-1 md:p-8 ${
                   tier.highlight
                     ? "border-violet-400 bg-[#09081b] text-white shadow-2xl shadow-violet-500/20 ring-2 ring-violet-400/40"
                     : "border-slate-200 bg-white text-slate-900 shadow-sm"
@@ -481,14 +490,22 @@ export default function Home() {
                   ))}
                 </ul>
                 <a
-                  href="#territories"
-                  className={`mt-8 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition hover:brightness-105 ${
+                  href={signupHrefForPlan(tier.plan)}
+                  className={`mt-8 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 ${
                     tier.highlight
                       ? "bg-amber-400 text-[#09081b] shadow-lg shadow-amber-500/30"
                       : "bg-[#09081b] text-white"
                   }`}
                 >
                   {tier.cta}
+                </a>
+                <a
+                  href="#territories"
+                  className={`mt-3 text-center text-xs font-semibold underline-offset-4 transition hover:underline focus-visible:outline-none focus-visible:ring-2 ${
+                    tier.highlight ? "text-white/75 focus-visible:ring-violet-300" : "text-violet-700 focus-visible:ring-violet-500"
+                  }`}
+                >
+                  Check ZIP availability first
                 </a>
               </article>
             ))}
@@ -535,7 +552,7 @@ export default function Home() {
           </p>
           <a
             href="#territories"
-            className="mt-8 inline-flex items-center justify-center rounded-full bg-amber-400 px-8 py-4 text-base font-semibold text-[#09081b] shadow-xl shadow-amber-500/30 transition hover:brightness-105"
+            className="mt-8 inline-flex items-center justify-center rounded-full bg-amber-400 px-8 py-4 text-base font-semibold text-[#09081b] shadow-xl shadow-amber-500/30 transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
           >
             Claim your ZIP territory
           </a>
@@ -548,16 +565,14 @@ export default function Home() {
       <SiteFooter />
 
       {/* Mobile sticky conversion bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#09081b]/95 px-4 py-3 backdrop-blur md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#09081b]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
         <a
           href="#territories"
-          className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-[#09081b] shadow-lg shadow-amber-500/30"
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-[#09081b] shadow-lg shadow-amber-500/30 transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
         >
           Claim your ZIP territory — free
         </a>
       </div>
-      {/* Spacer so the sticky bar never hides footer content on mobile */}
-      <div aria-hidden className="h-16 md:hidden" />
     </div>
   );
 }

@@ -21,7 +21,7 @@ html {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -35,6 +35,7 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
 /* YPN USA brand aurora — violet + amber over near-black ink. */
@@ -45,8 +46,20 @@ body {
     radial-gradient(circle at 78% 82%, rgba(245, 158, 11, 0.22), transparent 44%),
     radial-gradient(circle at 30% 88%, rgba(100, 49, 246, 0.35), transparent 50%),
     linear-gradient(150deg, #09081b 0%, #14122e 48%, #1b1c2e 100%);
+  transform: translateZ(0);
 }
 
 .thin-scroll {
   scrollbar-width: thin;
+}
+
+[data-cwv-shell] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36rem;
+}
+
+@media (max-width: 767px) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

@@ -5,6 +5,7 @@ import { Outfit } from "next/font/google";
 const outfit = Outfit({
   subsets: ["latin"],
   display: "swap",
+  fallback: ["system-ui", "Arial"],
 });
 
 export const metadata: Metadata = {

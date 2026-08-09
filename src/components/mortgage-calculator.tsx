@@ -28,10 +28,10 @@ export function MortgageCalculator() {
   }, [amount, rate, term]);
 
   return (
-    <div className="grid gap-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-xl md:grid-cols-2 md:p-10">
+    <div className="grid gap-8 rounded-3xl border border-slate-200 bg-white p-5 shadow-xl sm:p-8 md:grid-cols-2 md:p-10">
       <div className="space-y-6">
         <div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
             <label htmlFor="calc-amount" className="text-sm font-semibold text-slate-700">
               Loan amount
             </label>
@@ -65,7 +65,7 @@ export function MortgageCalculator() {
               if (e.target.value === "" || !Number.isFinite(next)) return;
               setRate(Math.min(25, Math.max(0, next)));
             }}
-            className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-violet-500"
+            className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-violet-500"
           />
         </div>
 
@@ -77,7 +77,7 @@ export function MortgageCalculator() {
             id="calc-term"
             value={term}
             onChange={(e) => setTerm(Number(e.target.value))}
-            className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 outline-none focus:ring-2 focus:ring-violet-500"
+            className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-slate-900 outline-none transition focus:ring-2 focus:ring-violet-500"
           >
             {TERMS.map((t) => (
               <option key={t.value} value={t.value}>
@@ -88,9 +88,9 @@ export function MortgageCalculator() {
         </div>
       </div>
 
-      <div className="flex flex-col justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-violet-800 p-8 text-center text-white">
+      <div className="flex min-h-[320px] flex-col justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-violet-800 p-6 text-center text-white sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-200">Estimated monthly payment</p>
-        <p className="mt-2 text-5xl font-black">{usd(monthly)}</p>
+        <p className="mt-2 text-4xl font-black sm:text-5xl">{usd(monthly)}</p>
         <p className="mt-3 text-sm text-violet-100">
           Principal &amp; interest · {term}-year term
         </p>
@@ -106,7 +106,7 @@ export function MortgageCalculator() {
         </div>
         <a
           href="#territories"
-          className="mt-6 inline-flex items-center justify-center rounded-full bg-amber-400 px-5 py-3 text-sm font-semibold text-[#09081b] shadow-lg shadow-amber-500/30 transition hover:brightness-105"
+          className="mt-6 inline-flex items-center justify-center rounded-full bg-amber-400 px-5 py-3 text-sm font-semibold text-[#09081b] shadow-lg shadow-amber-500/30 transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
         >
           Put this tool on my MLO site
         </a>

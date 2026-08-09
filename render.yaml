@@ -1,8 +1,7 @@
 # Render.com deployment blueprint for the YPN USA Next.js app.
-# Deploy without Vercel: runs the real Next.js server (`next start`), so this
-# brand-new Next.js 16 build works exactly as it does locally — no framework
-# adapter to break. Because it's a persistent Node process, the JSON lead store
-# also survives between requests and restarts.
+# Runs the real Next.js server (`next start`) — same as Hostinger Cloud / local.
+# Because it's a persistent Node process, the JSON lead store survives between
+# requests and restarts.
 #
 # One-time setup at https://dashboard.render.com:
 #   New +  →  Blueprint  →  connect the dave4079111/ypnusa repo  →  Apply.

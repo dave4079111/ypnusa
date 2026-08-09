@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "block-unhandled-promises",
+      "severity": "error",
+      "pattern": "async\\s*\\([^)]*\\)\\s*=>\\s*\\{[^}]*fetch\\(",
+      "message": "Async handlers executing network calls must be wrapped in try/catch error boundaries."
+    },
+    {
+      "id": "enforce-cls-prevention",
+      "severity": "error",
+      "pattern": "<img\\b(?!.*\\b(width|height|fill)\\b)[^>]*>",
+      "message": "Image tags missing explicit width/height or fill layout attributes induce Cumulative Layout Shift (CLS)."
+    }
+  ],
+  "gates": {
+    "blockMergeOnErrors": true,
+    "requireCleanBuild": true
+  }
+}

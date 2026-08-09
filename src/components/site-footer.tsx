@@ -1,6 +1,5 @@
 import Link from "next/link";
-
-const MARKETING = "https://ypnus.com";
+import { appUrl, marketingUrl } from "@/lib/site";
 
 export function SiteFooter() {
   return (
@@ -20,11 +19,11 @@ export function SiteFooter() {
           </div>
           <p className="mt-4 max-w-sm text-sm">
             Product app for exclusive ZIP demand. Marketing site and content live on{" "}
-            <a href={MARKETING} className="underline hover:text-white">
+            <a href={marketingUrl("/")} className="underline hover:text-white">
               ypnus.com
             </a>
             ; this surface is{" "}
-            <a href="https://app.ypnus.com" className="underline hover:text-white">
+            <a href={appUrl("/")} className="underline hover:text-white">
               app.ypnus.com
             </a>
             .
@@ -45,9 +44,9 @@ export function SiteFooter() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/50">ypnus.com</p>
           <ul className="mt-4 space-y-2 text-sm">
-            <li><a href={`${MARKETING}/check-zip.html`} className="transition hover:text-white">ZIP demand check</a></li>
-            <li><a href={`${MARKETING}/lo-signup.html`} className="transition hover:text-white">Free LO signup</a></li>
-            <li><a href={`${MARKETING}/pricing-plans/`} className="transition hover:text-white">Pricing plans</a></li>
+            <li><a href={marketingUrl("/check-zip.html")} className="transition hover:text-white">ZIP demand check</a></li>
+            <li><a href={marketingUrl("/lo-signup.html?plan=free")} className="transition hover:text-white">Free LO signup</a></li>
+            <li><a href={marketingUrl("/pricing-plans/")} className="transition hover:text-white">Pricing plans</a></li>
             <li><Link href="/embed/intake" className="transition hover:text-white">Embed the assistant</Link></li>
           </ul>
         </div>

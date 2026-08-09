@@ -106,7 +106,7 @@ function NapCard({
   return (
     <aside className="rounded-3xl bg-[#100d2c] p-7 text-white shadow-xl">
       <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">
-        Local mortgage contact
+        Local territory contact
       </p>
       <h2 className="mt-3 text-2xl font-semibold">{business.name}</h2>
       <dl className="mt-5 space-y-3 text-sm text-white/80">
@@ -228,6 +228,9 @@ export async function LocationPage({ profile, business }: LocationPageProps) {
   const reviewFeed = await loadGbpReviews(business);
   const reviewUrl = buildGoogleReviewUrl(business.placeId);
   const canonicalUrl = `${LOCAL_SEO_PUBLIC_ORIGIN}${getLocalSeoPath(profile)}`;
+  const hasVerifiedMortgageIdentity = Boolean(
+    process.env.MLO_PUBLIC_NAME?.trim() && business.nmlsId,
+  );
   const address =
     business.streetAddress && business.locality && business.region
       ? {
@@ -249,36 +252,45 @@ export async function LocationPage({ profile, business }: LocationPageProps) {
           reviewCount: reviewFeed.reviews.length,
         }
       : undefined;
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": ["FinancialService", "MortgageBroker"],
-    "@id": `${canonicalUrl}#business`,
-    name: business.name,
-    url: canonicalUrl,
-    telephone: business.phone,
-    email: business.email,
-    address,
-    areaServed: {
-      "@type": "City",
-      name: `${profile.city}, ${profile.stateCode}`,
-    },
-    geo: {
-      "@type": "GeoCoordinates",
-      latitude: profile.latitude,
-      longitude: profile.longitude,
-    },
-    sameAs: business.profileUrl ? [business.profileUrl] : undefined,
-    aggregateRating,
-    review:
-      reviewFeed.reviews.length > 0
-        ? reviewFeed.reviews.map((review) => ({
-            "@type": "Review",
-            author: { "@type": "Person", name: review.author },
-            reviewRating: { "@type": "Rating", ratingValue: review.rating, bestRating: 5 },
-            reviewBody: review.text,
-          }))
-        : undefined,
-  };
+  const jsonLd = hasVerifiedMortgageIdentity
+    ? {
+        "@context": "https://schema.org",
+        "@type": ["FinancialService", "MortgageBroker"],
+        "@id": `${canonicalUrl}#business`,
+        name: business.name,
+        url: canonicalUrl,
+        telephone: business.phone,
+        email: business.email,
+        address,
+        areaServed: {
+          "@type": "City",
+          name: `${profile.city}, ${profile.stateCode}`,
+        },
+        geo: {
+          "@type": "GeoCoordinates",
+          latitude: profile.latitude,
+          longitude: profile.longitude,
+        },
+        sameAs: business.profileUrl ? [business.profileUrl] : undefined,
+        aggregateRating,
+        review:
+          reviewFeed.reviews.length > 0
+            ? reviewFeed.reviews.map((review) => ({
+                "@type": "Review",
+                author: { "@type": "Person", name: review.author },
+                reviewRating: { "@type": "Rating", ratingValue: review.rating, bestRating: 5 },
+                reviewBody: review.text,
+              }))
+            : undefined,
+      }
+    : {
+        "@context": "https://schema.org",
+        "@type": "WebPage",
+        "@id": `${canonicalUrl}#webpage`,
+        name: profile.headline,
+        url: canonicalUrl,
+        about: `${profile.city}, ${profile.stateCode} mortgage information`,
+      };
   const relatedProfiles = LOCAL_SEO_PROFILES.filter(
     (candidate) =>
       candidate.slug !== profile.slug &&
@@ -391,8 +403,8 @@ export async function LocationPage({ profile, business }: LocationPageProps) {
         <section className="bg-[#100d2c] px-6 py-16 text-center text-white">
           <h2 className="text-3xl font-semibold">Talk through your local financing goal</h2>
           <p className="mx-auto mt-3 max-w-2xl text-white/70">
-            Share your target ZIP and timeline. A licensed professional can confirm current
-            availability and provide information for your specific scenario.
+            Share your target ZIP and timeline. Your configured mortgage contact can confirm
+            current availability and provide information for your specific scenario.
           </p>
           <a
             href="https://ypnus.com/lo-signup.html"

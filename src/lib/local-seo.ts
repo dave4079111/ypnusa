@@ -72,7 +72,7 @@ const CITY_PROFILES: LocalSeoProfile[] = [
     neighborhoods: ["Tower District", "Woodward Park", "Sunnyside"],
     headline: "Mortgage guidance built around Fresno buyers",
     introduction:
-      "Fresno borrowers balance established neighborhoods, newer north-side inventory, and nearby rural properties. This page routes local questions to a licensed mortgage professional serving Fresno rather than presenting a generic national lead form.",
+      "Fresno borrowers balance established neighborhoods, newer north-side inventory, and nearby rural properties. This page routes local questions to the configured mortgage contact serving Fresno rather than presenting a generic national lead form.",
     marketContext:
       "Loan structure can change with property type, occupancy, down-payment resources, and whether a home sits inside city limits or an eligible surrounding area. A local review helps separate those details before a borrower compares programs.",
     localProcess:
@@ -105,7 +105,7 @@ const CITY_PROFILES: LocalSeoProfile[] = [
     neighborhoods: ["Old Town Clovis", "Loma Vista", "Harlan Ranch"],
     headline: "A local mortgage starting point for Clovis",
     introduction:
-      "Clovis buyers may be comparing established streets near Old Town with newer communities farther east. This page gives those borrowers a locally framed path to a licensed mortgage professional without inventing market statistics or availability.",
+      "Clovis buyers may be comparing established streets near Old Town with newer communities farther east. This page gives those borrowers a locally framed path to the configured mortgage contact without inventing market statistics or availability.",
     marketContext:
       "New construction timelines, homeowners association costs, occupancy plans, and property location can each affect a financing conversation. Those details should be reviewed against current lender and public-record information for the actual address.",
     localProcess:

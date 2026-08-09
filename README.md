@@ -91,7 +91,9 @@ Search Console. Do not submit the app-hosted sitemap as a substitute for that ma
 Location pages are intentionally registry-backed. Add a distinct profile with original copy,
 neighborhoods, municipal sources, and dated metric sources before a city or ZIP is generated. Reviews
 are omitted from both the page and JSON-LD until a configured provider returns valid records; no
-sample testimonials or ratings ship in production.
+sample testimonials or ratings ship in production. `FinancialService` / `MortgageBroker` JSON-LD is
+emitted only when both `MLO_PUBLIC_NAME` and `MLO_NMLS_ID` are configured; otherwise the page uses
+neutral `WebPage` structured data.
 
 ## Data & persistence
 

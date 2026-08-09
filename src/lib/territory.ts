@@ -114,18 +114,26 @@ export function checkTerritory(rawZip: unknown): TerritoryCheckResult {
   return buildResult(normalizeZip(rawZip), liveClaimedZips());
 }
 
+/**
+ * Persist a demo request and compute territory availability in one writeDb.
+ *
+ * Availability is read from the live store inside the mutator, immediately
+ * before the push, so a second overlapping claim for the same ZIP sees the
+ * first reservation and returns waitlist copy instead of a duplicate activation.
+ */
 export function appendDemoRequestWithTerritoryCheck(
   record: DemoRequestRecord,
 ): TerritoryCheckResult | null {
   const zip = normalizeZip(record.zip);
   if (!zip) {
-    writeDb((db) => db.demoRequests.push(record));
+    writeDb((db) => {
+      db.demoRequests.push(record);
+    });
     return null;
   }
 
   let territory: TerritoryCheckResult | null = null;
 
-  // Compute availability and persist the record inside a single atomic write.
   writeDb((db) => {
     territory = buildResult(zip, liveClaimedZipsFromRequests(db.demoRequests));
     db.demoRequests.push(record);

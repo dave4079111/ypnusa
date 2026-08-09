@@ -185,19 +185,22 @@ export function ensureDataDirExists(): void {
 }
 
 export function readDb(): DbShape {
+  // Return a deep clone so callers cannot accidentally mutate live state.
   return structuredClone(hydrate());
 }
 
-function writeDbMutable(db: DbShape): void {
-  memoryDb = structuredClone(db);
-  flushToDisk(memoryDb);
-}
-
+/**
+ * Mutate the live in-memory store, then best-effort flush to disk.
+ *
+ * The mutator receives the process-scoped store (not a disposable clone).
+ * Clone-then-replace RMW lets overlapping or nested writers drop each other's
+ * updates (e.g. two demo-request reservations racing on the same ZIP).
+ */
 export function writeDb(mutator: (db: DbShape) => void): DbShape {
-  const db = readDb();
+  const db = hydrate();
   mutator(db);
-  writeDbMutable(db);
-  return db;
+  flushToDisk(db);
+  return structuredClone(db);
 }
 
 export function persistSession(session: IntakeSessionRecord): void {

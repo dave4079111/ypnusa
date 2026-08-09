@@ -10,6 +10,7 @@ import type {
   IntakeSessionRecord,
   LoanOfficerRecord,
   LoAlertRecord,
+  RevenueSubscriptionRecord,
   ScheduledFollowUpRecord,
 } from "./types";
 
@@ -93,6 +94,53 @@ const defaultLoanOfficers: LoanOfficerRecord[] = [
   },
 ];
 
+const defaultRevenueSubscriptions: RevenueSubscriptionRecord[] = [
+  {
+    id: "sub_seed_jordan_starter",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    tier: "starter",
+    status: "active",
+    source: "seed",
+    ownerLoId: "lo_jordan_lee",
+    ownerEmail: "jordan.lee@loanapilot.ai",
+    company: "Jordan Lee Lending",
+    claimedZips: ["78701", "78702"],
+    monthlyPriceCents: 2999,
+    lifetimeMonths: 14,
+  },
+  {
+    id: "sub_seed_priya_pro",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    tier: "pro",
+    status: "active",
+    source: "seed",
+    ownerLoId: "lo_priya_nandakumar",
+    ownerEmail: "priya.n@loanapilot.ai",
+    company: "Nandakumar Capital",
+    claimedZips: ["33131", "33132", "33133", "33134"],
+    countyTerritories: ["Miami-Dade County, FL"],
+    monthlyPriceCents: 9999,
+    lifetimeMonths: 18,
+  },
+  {
+    id: "sub_seed_mateo_elite",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    tier: "elite",
+    status: "active",
+    source: "seed",
+    ownerLoId: "lo_mateo_rosales",
+    ownerEmail: "mateo.r@loanapilot.ai",
+    company: "Rosales Home Finance",
+    claimedZips: ["85004", "85006", "85251", "85257", "85281", "85282"],
+    countyTerritories: ["Maricopa County, AZ", "Pima County, AZ"],
+    monthlyPriceCents: 29999,
+    lifetimeMonths: 20,
+  },
+];
+
 const emptyDb = (): DbShape => ({
   loanOfficers: defaultLoanOfficers,
   sessions: [],
@@ -103,6 +151,7 @@ const emptyDb = (): DbShape => ({
   appointments: [],
   analyticsEvents: [],
   demoRequests: [],
+  revenueSubscriptions: defaultRevenueSubscriptions,
 });
 
 function describeFsError(error: unknown): string {
@@ -122,6 +171,9 @@ function normalize(snapshot: unknown): DbShape {
   const parsed = isPlainRecord(snapshot) ? snapshot : {};
   const loanOfficers = arrayOrEmpty<LoanOfficerRecord>(parsed.loanOfficers);
   const sessions = arrayOrEmpty<IntakeSessionRecord>(parsed.sessions);
+  const revenueSubscriptions = arrayOrEmpty<RevenueSubscriptionRecord>(
+    parsed.revenueSubscriptions,
+  );
 
   return {
     loanOfficers: loanOfficers.length > 0 ? loanOfficers : defaultLoanOfficers,
@@ -136,6 +188,8 @@ function normalize(snapshot: unknown): DbShape {
     appointments: arrayOrEmpty<AppointmentRecord>(parsed.appointments),
     analyticsEvents: arrayOrEmpty<AnalyticsEventRecord>(parsed.analyticsEvents),
     demoRequests: arrayOrEmpty<DemoRequestRecord>(parsed.demoRequests),
+    revenueSubscriptions:
+      revenueSubscriptions.length > 0 ? revenueSubscriptions : defaultRevenueSubscriptions,
   };
 }
 

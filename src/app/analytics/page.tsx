@@ -15,9 +15,14 @@ export default function LoanPilotAnalytics() {
           Completion rates infer event ledger ratios; qualification mix summarizes persisted LOS artifacts.
           Follow-up pulses appear once the automation cron route processes outstanding queue rows.
         </p>
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-700 hover:text-teal-600">
-          ← Back to homepage
-        </Link>
+        <div className="flex flex-wrap gap-4 text-sm font-semibold">
+          <Link href="/" className="inline-flex items-center gap-2 text-cyan-700 hover:text-teal-600">
+            ← Back to homepage
+          </Link>
+          <Link href="/dashboard/local-seo" className="text-violet-700 hover:text-violet-900">
+            Configure local SEO &amp; GBP →
+          </Link>
+        </div>
       </header>
 
       <section className="grid gap-4 md:grid-cols-4">

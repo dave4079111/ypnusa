@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MortgageIntakeChat } from "@/components/loanpilot-floating-assistant";
+import { MortgageIntakeChat } from "@/components/lazy-loanpilot-assistant";
 import { TerritoryClaim } from "@/components/territory-claim";
 import { MortgageCalculator } from "@/components/mortgage-calculator";
 import { SiteHeader } from "@/components/site-header";

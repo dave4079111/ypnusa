@@ -49,7 +49,7 @@ function dataDir(): string {
   }
   // Keep the fallback statically scoped under ./data so output tracing does not
   // include the whole project.
-  cachedDataDir = path.join(process.cwd(), "data");
+  cachedDataDir = path.join(/*turbopackIgnore: true*/ process.cwd(), "data");
   return cachedDataDir;
 }
 function dbPath(): string {

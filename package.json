@@ -13,6 +13,8 @@
     "test": "tsx --test src/**/*.test.ts",
     "test:wp": "php wp-plugins/ypnus-stripe-webhook/tests/ypnus-stripe-webhook.test.php",
     "test:all": "npm test && npm run test:wp",
+    "store:backup": "node scripts/backup-store.mjs backup",
+    "store:restore": "node scripts/backup-store.mjs restore",
     "deploy:hostinger:list": "node scripts/deploy-hostinger.mjs list",
     "deploy:hostinger:next": "node scripts/deploy-hostinger.mjs deploy-next",
     "deploy:hostinger:status": "node scripts/deploy-hostinger.mjs status",

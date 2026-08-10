@@ -89,7 +89,8 @@ limiting.
 - [ ] Set `LOANPILOT_DATA_DIR` to a persistent writable directory and verify
       `/api/health` reports persistent storage.
 - [ ] Back up the data store, encrypt it at rest, restrict filesystem
-      permissions, and test restore procedures.
+      permissions, and test `npm run store:backup` plus
+      `npm run store:restore -- /absolute/path/to/snapshot.json` before launch.
 - [ ] Retain consumed `jti` records at least until their JWT expiration and
       retain webhook `eventId` records for the provider retry window.
 

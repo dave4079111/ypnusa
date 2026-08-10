@@ -36,6 +36,16 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Smaller Hostinger / Node host deploys; `next start` still works.
   output: "standalone",
+  outputFileTracingExcludes: {
+    "/*": [
+      "./next.config.ts",
+      "./docs/**/*",
+      "./hostinger/**/*",
+      "./scripts/**/*",
+      "./wp-plugins/**/*",
+      "./data/**/*",
+    ],
+  },
   poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],

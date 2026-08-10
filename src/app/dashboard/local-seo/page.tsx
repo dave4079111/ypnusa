@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GbpLinkingWidget } from "@/components/local-seo/gbp-linking-widget";
+import { SessionBar } from "@/components/session-bar";
 import { getPublicBusinessProfile } from "@/lib/local-seo";
 
 export const metadata: Metadata = {
@@ -16,9 +17,12 @@ export default function LocalSeoDashboardPage() {
     <main className="min-h-full bg-slate-50 px-6 py-12 text-slate-900">
       <div className="mx-auto max-w-5xl">
         <header>
-          <Link href="/analytics" className="text-sm font-semibold text-violet-700">
-            ← MLO dashboard
-          </Link>
+          <div className="flex items-center justify-between">
+            <Link href="/analytics" className="text-sm font-semibold text-violet-700">
+              ← MLO dashboard
+            </Link>
+            <SessionBar />
+          </div>
           <p className="mt-7 text-xs font-semibold uppercase tracking-[0.25em] text-violet-700">
             MLO local visibility
           </p>

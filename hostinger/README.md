@@ -80,6 +80,42 @@ This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
 | `NEXT_PUBLIC_MARKETING_SITE_URL` | `https://ypnus.com` |
 | `YPNUS_WP_API_BASE` | `https://ypnus.com/wp-json/ypnus/v1` |
 | `LOANPILOT_DATA_DIR` | `/tmp/ypnus-data` |
+| `SESSION_SECRET` | random 32+ byte string — signs the `ypnus_session` cookie |
+| `YPNUS_SSO_SHARED_SECRET` | random secret shared with the WordPress SSO handoff (see `docs/sso-handoff.md`) |
+| `STRIPE_SECRET_KEY` | Stripe secret key — required to create Checkout Sessions (`/api/billing/checkout`) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret — required for `/api/webhooks/stripe` to accept events (fails closed / 501 until set) |
+| `STRIPE_PRICE_ID_STARTER` / `STRIPE_PRICE_ID_PRO` / `STRIPE_PRICE_ID_ELITE` | Stripe Price IDs for the three paid tiers |
+
+## Session / SSO architecture
+
+`ypnus.com` is public marketing + MLO lead-capture only. Authenticated sessions and
+dashboard routes (`/dashboard`, `/portal`, `/analytics`, `/admin`) live exclusively on
+`app.ypnus.com`, gated by `src/proxy.ts` and a host-only `ypnus_session` cookie that is
+never shared with `ypnus.com`. Full handoff contract: `docs/sso-handoff.md`.
+
+## Marketing lead capture (ypnus.com → app.ypnus.com)
+
+`ypnus.com`'s marketing forms should post directly to **`app.ypnus.com/api/demo-request`**
+(CORS-enabled for `https://ypnus.com`, `OPTIONS` preflight included) rather than a new
+endpoint — it already validates, rate-limits, checks territory availability, and persists
+the lead. There's no need for a separate `/api/webhooks/mlo-leads`; that would just
+duplicate this logic.
+
+## Stripe billing — lives on WordPress, not this app
+
+`ypnus.com`'s **`ypnus-stripe-webhook`** plugin (`wp-plugins/ypnus-stripe-webhook.zip`) is
+the real Stripe receiver: `POST https://ypnus.com/wp-json/ypnus/v1/stripe-webhook`. It
+verifies signatures, atomically claims events (idempotent under Stripe retries), resolves
+the tier from Payment Link/Price metadata, provisions a WordPress user, and stores
+`ypnus_tier` / `ypnus_paid_access` / `ypnus_stripe_*` on that user. See
+`wp-plugins/ypnus-stripe-webhook/README.md` for the full setup (webhook secret and tier
+maps go in `wp-config.php` — never in chat or source control).
+
+An earlier app-side Stripe webhook (`/api/webhooks/stripe`, `/api/billing/checkout`) was
+removed to avoid two systems processing the same Stripe events with different entitlement
+state. If a future need arises for app.ypnus.com to know a user's paid tier (e.g. to gate a
+dashboard feature), pass `tier` / `subscription_status` through as claims on the SSO
+handoff (`docs/sso-handoff.md`) rather than re-deriving it from a second webhook.
 
 ### Option A — hPanel GitHub deploy (recommended)
 1. Remove the Cloudflare redirect (above).

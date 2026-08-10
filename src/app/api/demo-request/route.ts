@@ -2,11 +2,27 @@ import { appendAnalytics } from "@/lib/db";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
 import { generateId } from "@/lib/id";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { MARKETING_SITE_URL } from "@/lib/site";
 import { appendDemoRequestWithTerritoryCheck, isValidZip, normalizeZip } from "@/lib/territory";
 import type { DemoRequestRecord } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * CORS for ypnus.com marketing forms posting leads directly to this endpoint
+ * client-side. Restricted to the marketing origin — not a wildcard.
+ */
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": MARKETING_SITE_URL,
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  Vary: "Origin",
+};
+
+export async function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS_HEADERS });
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -18,6 +34,14 @@ function str(value: unknown, max = 500): string | undefined {
 }
 
 export async function POST(request: Request) {
+  const response = await handlePost(request);
+  for (const [key, value] of Object.entries(CORS_HEADERS)) {
+    response.headers.set(key, value);
+  }
+  return response;
+}
+
+async function handlePost(request: Request) {
   try {
     const limited = rateLimit(`demo:${clientKey(request)}`, 5, 60_000);
     if (!limited.ok) {

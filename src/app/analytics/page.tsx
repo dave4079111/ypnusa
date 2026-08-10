@@ -1,7 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { SessionBar } from "@/components/session-bar";
 import { summarizeAnalyticsPulse } from "@/lib/analytics-core";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 export default function LoanPilotAnalytics() {
   const pulse = summarizeAnalyticsPulse();
@@ -9,7 +15,10 @@ export default function LoanPilotAnalytics() {
   return (
     <div className="mx-auto flex min-h-full max-w-4xl flex-col gap-10 bg-slate-50 px-6 py-16 text-slate-900">
       <header className="space-y-3">
-        <p className="text-xs uppercase tracking-[0.3em] text-cyan-600">Operational visibility</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-[0.3em] text-cyan-600">Operational visibility</p>
+          <SessionBar />
+        </div>
         <h1 className="text-3xl font-semibold">YPN USA intake telemetry</h1>
         <p className="text-sm text-slate-600">
           Completion rates infer event ledger ratios; qualification mix summarizes persisted LOS artifacts.

@@ -196,7 +196,12 @@ function normalize(snapshot: unknown): DbShape {
     processedEntitlementEvents: arrayOrEmpty<ProcessedEntitlementEventRecord>(
       parsed.processedEntitlementEvents,
     ),
-    mloLeadSubmissions: arrayOrEmpty<MloLeadSubmissionRecord>(parsed.mloLeadSubmissions),
+    mloLeadSubmissions: arrayOrEmpty<MloLeadSubmissionRecord>(
+      parsed.mloLeadSubmissions,
+    ).map((submission) => ({
+      ...submission,
+      status: submission.status ?? "completed",
+    })),
     sessions: sessions.map((session) => ({
       ...session,
       status: session.status ?? "collecting",
@@ -332,8 +337,49 @@ export function upsertLoanOfficer(officer: LoanOfficerRecord): void {
   });
 }
 
-export function appendMloLeadSubmission(submission: MloLeadSubmissionRecord): void {
-  writeDb((db) => db.mloLeadSubmissions.push(submission));
+export function claimMloLeadSubmission(
+  submission: MloLeadSubmissionRecord,
+): MloLeadSubmissionRecord | null {
+  let existing: MloLeadSubmissionRecord | null = null;
+  writeDb((db) => {
+    const index = db.mloLeadSubmissions.findIndex(
+      (item) => item.eventId === submission.eventId,
+    );
+    existing = index >= 0 ? db.mloLeadSubmissions[index] : null;
+    if (
+      existing?.status === "processing" &&
+      Date.parse(existing.createdAt) <= Date.now() - 10 * 60_000
+    ) {
+      db.mloLeadSubmissions[index] = submission;
+      existing = null;
+      return;
+    }
+    if (!existing) db.mloLeadSubmissions.push(submission);
+  });
+  return existing;
+}
+
+export function completeMloLeadSubmission(
+  eventId: string,
+  borrowerLeadId: string,
+  crmLeadId: string,
+): void {
+  writeDb((db) => {
+    const submission = db.mloLeadSubmissions.find((item) => item.eventId === eventId);
+    if (!submission) return;
+    submission.status = "completed";
+    submission.borrowerLeadId = borrowerLeadId;
+    submission.crmLeadId = crmLeadId;
+  });
+}
+
+export function releaseMloLeadSubmission(eventId: string): void {
+  writeDb((db) => {
+    db.mloLeadSubmissions = db.mloLeadSubmissions.filter(
+      (submission) =>
+        submission.eventId !== eventId || submission.status === "completed",
+    );
+  });
 }
 
 export function appendBorrowerLead(lead: BorrowerLeadRecord): void {

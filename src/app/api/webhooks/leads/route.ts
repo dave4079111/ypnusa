@@ -1,8 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import {
-  appendMloLeadSubmission,
+  claimMloLeadSubmission,
+  completeMloLeadSubmission,
   persistSession,
   readDb,
+  releaseMloLeadSubmission,
   upsertLoanOfficer,
 } from "@/lib/db";
 import {
@@ -230,17 +232,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const duplicate = snapshot.mloLeadSubmissions.find(
-    (submission) => submission.eventId === eventId,
-  );
-  if (duplicate) {
-    return jsonOk({
-      duplicate: true,
-      borrowerLeadId: duplicate.borrowerLeadId,
-      crmLeadId: duplicate.crmLeadId,
-    });
-  }
-
   const session: IntakeSessionRecord = {
     id: generateId("sess"),
     createdAt: new Date().toISOString(),
@@ -249,27 +240,40 @@ export async function POST(request: Request) {
     answers,
     status: "qualified",
   };
+  const existing = claimMloLeadSubmission({
+    eventId,
+    createdAt: new Date().toISOString(),
+    status: "processing",
+    mlo,
+    borrower: answers,
+    intakeSessionId: session.id,
+  });
+  if (existing?.status === "completed") {
+    return jsonOk({
+      duplicate: true,
+      borrowerLeadId: existing.borrowerLeadId,
+      crmLeadId: existing.crmLeadId,
+    });
+  }
+  if (existing) {
+    return jsonError("This lead event is already processing.", 409, "LEAD_IN_PROGRESS", {
+      headers: { "Retry-After": "5" },
+    });
+  }
 
   try {
     const officer = upsertWebhookMlo(mlo);
     persistSession(session);
     const result = await finalizeIntakeArtifacts(session, { assignedLoId: officer.id });
     if ("message" in result || !result.borrowerLeadId || !result.crmLeadId) {
+      releaseMloLeadSubmission(eventId);
       return jsonError(
         "message" in result ? result.message : "Lead finalization did not produce CRM records.",
         422,
         "LEAD_FINALIZATION_FAILED",
       );
     }
-    appendMloLeadSubmission({
-      eventId,
-      createdAt: new Date().toISOString(),
-      mlo,
-      borrower: answers,
-      intakeSessionId: session.id,
-      borrowerLeadId: result.borrowerLeadId,
-      crmLeadId: result.crmLeadId,
-    });
+    completeMloLeadSubmission(eventId, result.borrowerLeadId, result.crmLeadId);
 
     return jsonOk(
       {
@@ -285,6 +289,7 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
+    releaseMloLeadSubmission(eventId);
     logApiError("/api/webhooks/leads", error);
     return jsonError("Unable to process lead.", 500, "LEAD_PROCESSING_FAILED");
   }

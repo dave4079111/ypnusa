@@ -75,14 +75,14 @@ describe("inbound lead webhook", async () => {
         funnelSource: "mlo_landing_page",
       },
     };
-    const createRequest = () =>
+    const createRequest = (body = payload) =>
       new Request("http://localhost/api/webhooks/leads", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.MLO_LEAD_WEBHOOK_SECRET}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
 
     const response = await POST(createRequest());
@@ -108,5 +108,37 @@ describe("inbound lead webhook", async () => {
     assert.equal(replay.status, 200);
     assert.equal((await replay.json()).duplicate, true);
     assert.equal(readDb().mloLeadSubmissions.length, 1);
+
+    const concurrentPayload = {
+      ...payload,
+      eventId: "webform_evt_concurrent",
+      borrower: {
+        ...payload.borrower,
+        email: "concurrent@example.com",
+      },
+    };
+    const concurrent = await Promise.all([
+      POST(createRequest(concurrentPayload)),
+      POST(createRequest(concurrentPayload)),
+    ]);
+    assert.equal(concurrent.filter((response) => response.status === 201).length, 1);
+    assert.ok(
+      concurrent.some(
+        (response) => response.status === 200 || response.status === 409,
+      ),
+    );
+    const afterConcurrent = readDb();
+    assert.equal(
+      afterConcurrent.mloLeadSubmissions.filter(
+        (submission) => submission.eventId === concurrentPayload.eventId,
+      ).length,
+      1,
+    );
+    assert.equal(
+      afterConcurrent.borrowerLeads.filter(
+        (lead) => lead.answers.email === "concurrent@example.com",
+      ).length,
+      1,
+    );
   });
 });

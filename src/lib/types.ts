@@ -131,11 +131,12 @@ export interface ProcessedEntitlementEventRecord {
 export interface MloLeadSubmissionRecord {
   eventId: string;
   createdAt: string;
+  status: "processing" | "completed";
   mlo: MloLeadProfile;
   borrower: BorrowerAnswers;
   intakeSessionId: string;
-  borrowerLeadId: string;
-  crmLeadId: string;
+  borrowerLeadId?: string;
+  crmLeadId?: string;
 }
 
 export interface BorrowerLeadRecord {

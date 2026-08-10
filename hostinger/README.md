@@ -81,6 +81,10 @@ This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
 | `YPNUS_WP_API_BASE` | `https://ypnus.com/wp-json/ypnus/v1` |
 | `LOANPILOT_DATA_DIR` | `/tmp/ypnus-data` |
 
+Before enabling SSO or MLO webform delivery, complete the security, secrets,
+CORS, persistence, nurture, and release checks in
+[`docs/production-checklist.md`](../docs/production-checklist.md).
+
 ### Option A — hPanel GitHub deploy (recommended)
 1. Remove the Cloudflare redirect (above).
 2. If `app.ypnus.com` is still a static/PHP site, remove that website slot first

@@ -1,20 +1,36 @@
-import { persistSession } from "@/lib/db";
+import { timingSafeEqual } from "node:crypto";
+import {
+  appendMloLeadSubmission,
+  persistSession,
+  readDb,
+  upsertLoanOfficer,
+} from "@/lib/db";
 import {
   isRecord,
   jsonError,
   jsonOk,
+  logApiError,
   parseJsonBody,
-  requireConfiguredSecret,
 } from "@/lib/http";
 import { generateId } from "@/lib/id";
 import { finalizeIntakeArtifacts } from "@/lib/intake-pipeline";
 import { coerceLoanProgram } from "@/lib/programs";
-import type { BorrowerAnswers, IntakeSessionRecord } from "@/lib/types";
+import { clientKey, rateLimit } from "@/lib/rate-limit";
+import type {
+  BorrowerAnswers,
+  IntakeSessionRecord,
+  LoanOfficerRecord,
+  LoanProgram,
+  MloSubscriberProfile,
+} from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 interface InboundLeadPayload {
+  eventId?: unknown;
+  mlo?: unknown;
+  borrower?: unknown;
   name?: unknown;
   email?: unknown;
   phone?: unknown;
@@ -26,15 +42,145 @@ interface InboundLeadPayload {
   contactConsent?: unknown;
 }
 
+const ALL_PROGRAMS: LoanProgram[] = [
+  "FHA",
+  "VA",
+  "CONVENTIONAL",
+  "DSCR",
+  "HELOC",
+  "REFI",
+  "JUMBO",
+];
+
 function text(value: unknown, maxLength: number): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed ? trimmed.slice(0, maxLength) : undefined;
 }
 
+function email(value: unknown): string | undefined {
+  const normalized = text(value, 320)?.toLowerCase();
+  return normalized && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+    ? normalized
+    : undefined;
+}
+
+function phone(value: unknown): string | undefined {
+  const normalized = text(value, 40)?.replace(/[^\d+(). -]/g, "");
+  return normalized && normalized.replace(/\D/g, "").length >= 7 ? normalized : undefined;
+}
+
+function isAuthorized(request: Request): "ok" | "missing" | "invalid" {
+  const expected = process.env.MLO_LEAD_WEBHOOK_SECRET?.trim();
+  if (!expected || Buffer.byteLength(expected) < 32) return "missing";
+  const authorization = request.headers.get("authorization")?.trim() ?? "";
+  const supplied = authorization.toLowerCase().startsWith("bearer ")
+    ? authorization.slice(7).trim()
+    : request.headers.get("x-webhook-secret")?.trim() ?? "";
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(supplied);
+  return suppliedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(suppliedBuffer, expectedBuffer)
+    ? "ok"
+    : "invalid";
+}
+
+function normalizeMlo(value: unknown): MloSubscriberProfile | null {
+  if (!isRecord(value)) return null;
+  const id = text(value.id, 160);
+  const name = text(value.name, 160);
+  const normalizedEmail = email(value.email);
+  if (!id || !name || !normalizedEmail) return null;
+  const claimedZips = Array.isArray(value.claimedZips)
+    ? [...new Set(value.claimedZips)]
+        .filter((zip): zip is string => typeof zip === "string")
+        .map((zip) => zip.trim())
+        .filter((zip) => /^\d{5}$/.test(zip))
+        .slice(0, 500)
+    : [];
+  return {
+    id,
+    name,
+    email: normalizedEmail,
+    paidAccess: true,
+    nmlsId: text(value.nmlsId, 40),
+    company: text(value.company, 160),
+    subscriptionTier: text(value.subscriptionTier ?? value.tier, 40),
+    claimedZips,
+  };
+}
+
+function normalizeBorrower(payload: InboundLeadPayload): BorrowerAnswers | null {
+  const source = isRecord(payload.borrower) ? payload.borrower : payload;
+  const loanProgram = coerceLoanProgram(source.loanProgram);
+  const name = text(source.name, 160);
+  const normalizedEmail = email(source.email);
+  const normalizedPhone = phone(source.phone);
+  const timeline = text(source.timeline, 40);
+  const estimatedCreditBand = text(source.estimatedCreditBand, 40);
+  if (
+    !loanProgram ||
+    !name ||
+    !normalizedEmail ||
+    !normalizedPhone ||
+    !timeline ||
+    !estimatedCreditBand ||
+    typeof source.contactConsent !== "boolean"
+  ) {
+    return null;
+  }
+  return {
+    loanProgram,
+    name,
+    email: normalizedEmail,
+    phone: normalizedPhone,
+    timeline,
+    estimatedCreditBand,
+    purchaseRefiIntent:
+      source.purchaseRefiIntent === "purchase" ||
+      source.purchaseRefiIntent === "refinance" ||
+      source.purchaseRefiIntent === "unsure"
+        ? source.purchaseRefiIntent
+        : "unsure",
+    contactConsent: source.contactConsent,
+    funnelSource: text(source.funnelSource, 160) ?? "mlo_webform",
+  };
+}
+
+function upsertWebhookMlo(profile: MloSubscriberProfile): LoanOfficerRecord {
+  const existing = readDb().loanOfficers.find((officer) => officer.id === profile.id);
+  const officer: LoanOfficerRecord = {
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    specialties: existing?.specialties ?? ALL_PROGRAMS,
+    weeklyWindows:
+      existing?.weeklyWindows ??
+      [1, 2, 3, 4, 5].map((dow) => ({ dow, startMin: 9 * 60, endMin: 17 * 60 })),
+    calendarProvider: existing?.calendarProvider,
+    calendarId: existing?.calendarId,
+    calendarTimeZone: existing?.calendarTimeZone,
+    calendlyUrl: existing?.calendlyUrl,
+  };
+  upsertLoanOfficer(officer);
+  return officer;
+}
+
 export async function POST(request: Request) {
-  const unauthorized = requireConfiguredSecret(request);
-  if (unauthorized) return unauthorized;
+  const limited = rateLimit(`lead-webhook:${clientKey(request)}`, 60, 60_000);
+  if (!limited.ok) {
+    return jsonError("Too many webhook requests.", 429, "RATE_LIMITED", {
+      headers: { "Retry-After": String(limited.retryAfter) },
+    });
+  }
+
+  const authorization = isAuthorized(request);
+  if (authorization === "missing") {
+    return jsonError("Lead webhook is not configured.", 503, "WEBHOOK_NOT_CONFIGURED");
+  }
+  if (authorization === "invalid") {
+    return jsonError("Unauthorized.", 401, "UNAUTHORIZED");
+  }
 
   const parsed = await parseJsonBody<InboundLeadPayload>(request);
   if (!parsed.ok) return jsonError(parsed.error, 400, parsed.code);
@@ -42,62 +188,70 @@ export async function POST(request: Request) {
     return jsonError("Request body must be a JSON object.", 400, "INVALID_BODY");
   }
 
-  const program = coerceLoanProgram(parsed.data.loanProgram);
-  const name = text(parsed.data.name, 160);
-  const email = text(parsed.data.email, 320);
-  const phone = text(parsed.data.phone, 40);
-  const timeline = text(parsed.data.timeline, 40);
-  const estimatedCreditBand = text(parsed.data.estimatedCreditBand, 40);
-
-  if (!program || !name || !email || !phone || !timeline || !estimatedCreditBand) {
+  const eventId = text(parsed.data.eventId, 200);
+  const mlo = normalizeMlo(parsed.data.mlo);
+  const answers = normalizeBorrower(parsed.data);
+  if (!eventId || !mlo || !answers) {
     return jsonError(
-      "name, email, phone, loanProgram, timeline, and estimatedCreditBand are required.",
+      "eventId, a valid MLO profile, and complete borrower data with explicit contactConsent are required.",
       400,
       "INCOMPLETE_LEAD",
     );
   }
 
-  const answers: BorrowerAnswers = {
-    loanProgram: program,
-    name,
-    email,
-    phone,
-    timeline,
-    estimatedCreditBand,
-    purchaseRefiIntent:
-      parsed.data.purchaseRefiIntent === "purchase" ||
-      parsed.data.purchaseRefiIntent === "refinance" ||
-      parsed.data.purchaseRefiIntent === "unsure"
-        ? parsed.data.purchaseRefiIntent
-        : "unsure",
-    contactConsent: parsed.data.contactConsent === true,
-    funnelSource: text(parsed.data.funnelSource, 160) ?? "lead_webhook",
-  };
+  const duplicate = readDb().mloLeadSubmissions.find((submission) => submission.eventId === eventId);
+  if (duplicate) {
+    return jsonOk({
+      duplicate: true,
+      borrowerLeadId: duplicate.borrowerLeadId,
+      crmLeadId: duplicate.crmLeadId,
+    });
+  }
 
   const session: IntakeSessionRecord = {
     id: generateId("sess"),
     createdAt: new Date().toISOString(),
     funnelSource: answers.funnelSource ?? "lead_webhook",
-    loanProgram: program,
+    loanProgram: answers.loanProgram,
     answers,
     status: "qualified",
   };
-  persistSession(session);
 
-  const result = await finalizeIntakeArtifacts(session);
-  if ("message" in result) {
-    return jsonError(result.message, 422, "LEAD_FINALIZATION_FAILED");
-  }
-
-  return jsonOk(
-    {
+  try {
+    const officer = upsertWebhookMlo(mlo);
+    persistSession(session);
+    const result = await finalizeIntakeArtifacts(session, { assignedLoId: officer.id });
+    if ("message" in result || !result.borrowerLeadId || !result.crmLeadId) {
+      return jsonError(
+        "message" in result ? result.message : "Lead finalization did not produce CRM records.",
+        422,
+        "LEAD_FINALIZATION_FAILED",
+      );
+    }
+    appendMloLeadSubmission({
+      eventId,
+      createdAt: new Date().toISOString(),
+      mlo,
+      borrower: answers,
+      intakeSessionId: session.id,
       borrowerLeadId: result.borrowerLeadId,
       crmLeadId: result.crmLeadId,
-      assignedOfficer: result.assignedOfficer,
-      qualification: result.qualification,
-      followUpsQueued: result.followUpsQueued ?? 0,
-      immediateOutreachSent: result.immediateOutreachSent ?? 0,
-    },
-    { status: 201 },
-  );
+    });
+
+    return jsonOk(
+      {
+        duplicate: false,
+        borrowerLeadId: result.borrowerLeadId,
+        crmLeadId: result.crmLeadId,
+        assignedOfficer: result.assignedOfficer,
+        qualification: result.qualification,
+        followUpsQueued: result.followUpsQueued ?? 0,
+        immediateOutreachSent: result.immediateOutreachSent ?? 0,
+      },
+      { status: 201 },
+    );
+  } catch (error) {
+    logApiError("/api/webhooks/leads", error);
+    return jsonError("Unable to process lead.", 500, "LEAD_PROCESSING_FAILED");
+  }
 }

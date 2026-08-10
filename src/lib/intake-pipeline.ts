@@ -19,6 +19,7 @@ export interface BorrowerFinalizeSnapshot {
 
 export async function finalizeIntakeArtifacts(
   session: IntakeSessionRecord,
+  options?: { assignedLoId?: string },
 ): Promise<BorrowerFinalizeSnapshot | { ok: false; message: string }> {
   const answers: BorrowerAnswers = {
     ...session.answers,
@@ -61,7 +62,15 @@ export async function finalizeIntakeArtifacts(
   }
 
   const qualification = buildQualification(answers);
-  const officerProfile = routeLoanOfficer(session.loanProgram);
+  const officerProfile = options?.assignedLoId
+    ? readDb().loanOfficers.find((officer) => officer.id === options.assignedLoId)
+    : routeLoanOfficer(session.loanProgram);
+  if (!officerProfile) {
+    return {
+      ok: false,
+      message: "The assigned MLO profile is unavailable.",
+    };
+  }
 
   const crm = logCrmActivity(
     answers,

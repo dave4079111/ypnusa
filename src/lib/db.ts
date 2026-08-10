@@ -4,12 +4,15 @@ import type {
   DbShape,
   AppointmentRecord,
   AnalyticsEventRecord,
+  AuthSessionRecord,
   BorrowerLeadRecord,
+  ConsumedSsoTokenRecord,
   CrmLeadRecord,
   DemoRequestRecord,
   IntakeSessionRecord,
   LoanOfficerRecord,
   LoAlertRecord,
+  MloLeadSubmissionRecord,
   PropertyEvaluationRecord,
   RevenueSubscriptionRecord,
   ScheduledFollowUpRecord,
@@ -144,6 +147,9 @@ const defaultRevenueSubscriptions: RevenueSubscriptionRecord[] = [
 
 const emptyDb = (): DbShape => ({
   loanOfficers: defaultLoanOfficers,
+  authSessions: [],
+  consumedSsoTokens: [],
+  mloLeadSubmissions: [],
   sessions: [],
   borrowerLeads: [],
   crmLeads: [],
@@ -179,6 +185,9 @@ function normalize(snapshot: unknown): DbShape {
 
   return {
     loanOfficers: loanOfficers.length > 0 ? loanOfficers : defaultLoanOfficers,
+    authSessions: arrayOrEmpty<AuthSessionRecord>(parsed.authSessions),
+    consumedSsoTokens: arrayOrEmpty<ConsumedSsoTokenRecord>(parsed.consumedSsoTokens),
+    mloLeadSubmissions: arrayOrEmpty<MloLeadSubmissionRecord>(parsed.mloLeadSubmissions),
     sessions: sessions.map((session) => ({
       ...session,
       status: session.status ?? "collecting",
@@ -298,6 +307,18 @@ export function persistSession(session: IntakeSessionRecord): void {
     if (idx >= 0) db.sessions[idx] = session;
     else db.sessions.push(session);
   });
+}
+
+export function upsertLoanOfficer(officer: LoanOfficerRecord): void {
+  writeDb((db) => {
+    const idx = db.loanOfficers.findIndex((item) => item.id === officer.id);
+    if (idx >= 0) db.loanOfficers[idx] = officer;
+    else db.loanOfficers.push(officer);
+  });
+}
+
+export function appendMloLeadSubmission(submission: MloLeadSubmissionRecord): void {
+  writeDb((db) => db.mloLeadSubmissions.push(submission));
 }
 
 export function appendBorrowerLead(lead: BorrowerLeadRecord): void {

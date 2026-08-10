@@ -91,6 +91,40 @@ export interface LoanOfficerRecord {
   calendlyUrl?: string;
 }
 
+export interface MloSubscriberProfile {
+  id: string;
+  name: string;
+  email: string;
+  paidAccess: true;
+  nmlsId?: string;
+  company?: string;
+  subscriptionTier?: string;
+  claimedZips: string[];
+}
+
+export interface AuthSessionRecord {
+  idHash: string;
+  createdAt: string;
+  expiresAt: string;
+  profile: MloSubscriberProfile;
+}
+
+export interface ConsumedSsoTokenRecord {
+  jtiHash: string;
+  consumedAt: string;
+  expiresAt: string;
+}
+
+export interface MloLeadSubmissionRecord {
+  eventId: string;
+  createdAt: string;
+  mlo: MloSubscriberProfile;
+  borrower: BorrowerAnswers;
+  intakeSessionId: string;
+  borrowerLeadId: string;
+  crmLeadId: string;
+}
+
 export interface BorrowerLeadRecord {
   id: string;
   createdAt: string;
@@ -234,6 +268,9 @@ export interface RevenueSubscriptionRecord {
 
 export interface DbShape {
   loanOfficers: LoanOfficerRecord[];
+  authSessions: AuthSessionRecord[];
+  consumedSsoTokens: ConsumedSsoTokenRecord[];
+  mloLeadSubmissions: MloLeadSubmissionRecord[];
   sessions: IntakeSessionRecord[];
   borrowerLeads: BorrowerLeadRecord[];
   crmLeads: CrmLeadRecord[];

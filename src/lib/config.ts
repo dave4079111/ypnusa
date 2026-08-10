@@ -64,6 +64,7 @@ export interface ProductionReadiness {
     persistentStorage: boolean;
     sharedRateLimit: boolean;
     calendar: boolean;
+    bookingTokens: boolean;
     reviews: boolean;
   };
 }
@@ -84,6 +85,7 @@ export function productionReadiness(): ProductionReadiness {
   requireCheck(strongSecret("ENTITLEMENT_SYNC_SECRET"), "ENTITLEMENT_SYNC_SECRET");
   requireCheck(strongSecret("ADMIN_TOKEN"), "ADMIN_TOKEN");
   requireCheck(strongSecret("CRON_SECRET"), "CRON_SECRET");
+  requireCheck(strongSecret("BOOKING_TOKEN_SECRET"), "BOOKING_TOKEN_SECRET");
   requireCheck(configured("LOANPILOT_DATA_DIR"), "LOANPILOT_DATA_DIR");
   requireCheck(httpsUrl("UPSTASH_REDIS_REST_URL"), "UPSTASH_REDIS_REST_URL");
   requireCheck(configured("UPSTASH_REDIS_REST_TOKEN"), "UPSTASH_REDIS_REST_TOKEN");
@@ -122,6 +124,7 @@ export function productionReadiness(): ProductionReadiness {
         httpsUrl("UPSTASH_REDIS_REST_URL") &&
         configured("UPSTASH_REDIS_REST_TOKEN"),
       calendar: productionCalendarsConfigured(),
+      bookingTokens: strongSecret("BOOKING_TOKEN_SECRET"),
       reviews: reviewsConfigured,
     },
   };

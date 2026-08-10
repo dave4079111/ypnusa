@@ -46,6 +46,7 @@ export interface BorrowerFinalizeClientSnapshot {
   routedPrograms?: LoanProgram[];
   followUpsQueued?: number;
   immediateOutreachSent?: number;
+  bookingToken?: string;
 }
 
 export interface IntakeTickResponse {

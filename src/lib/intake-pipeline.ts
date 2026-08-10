@@ -1,5 +1,6 @@
 import { appendAnalytics, persistSession, readDb } from "./db";
 import { processDueFollowUps, scheduleBorrowerJourney } from "./automation";
+import { createBookingToken } from "./booking-auth";
 import { logCrmActivity, routeLoanOfficer } from "./crm";
 import { buildQualification, recommendPrograms } from "./qualification";
 import type { BorrowerAnswers, IntakeSessionRecord, LoanProgram } from "./types";
@@ -16,6 +17,7 @@ export interface BorrowerFinalizeSnapshot {
   followUpsQueued?: number;
   immediateOutreachSent?: number;
   immediateOutreachFailed?: number;
+  bookingToken?: string;
 }
 
 export async function finalizeIntakeArtifacts(
@@ -59,6 +61,9 @@ export async function finalizeIntakeArtifacts(
         : undefined,
       routedPrograms: recommendPrograms(lead.answers),
       followUpsQueued: db.followUps.filter((job) => job.borrowerLeadId === lead.id).length,
+      bookingToken: officer
+        ? createBookingToken(lead.id, officer.id)
+        : undefined,
     };
   }
 
@@ -145,5 +150,6 @@ export async function finalizeIntakeArtifacts(
     followUpsQueued,
     immediateOutreachSent: immediateOutreach.processed,
     immediateOutreachFailed: immediateOutreach.failed,
+    bookingToken: createBookingToken(crm.borrowerLeadId, officerProfile.id),
   };
 }

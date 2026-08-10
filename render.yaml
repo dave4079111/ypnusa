@@ -51,6 +51,8 @@ services:
         sync: false
       - key: CRON_SECRET
         sync: false
+      - key: BOOKING_TOKEN_SECRET
+        sync: false
       - key: UPSTASH_REDIS_REST_URL
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN

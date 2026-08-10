@@ -289,7 +289,7 @@ export function MortgageIntakeChat(props: {
   }
 
   async function handleBook(startIso: string, loId: string) {
-    if (!crm?.borrowerLeadId || !crm?.assignedOfficer?.id) {
+    if (!crm?.borrowerLeadId || !crm?.assignedOfficer?.id || !crm.bookingToken) {
       pushSys("Complete intake routing before booking LOS consultations.");
       return;
     }
@@ -303,6 +303,7 @@ export function MortgageIntakeChat(props: {
           borrowerLeadId: crm.borrowerLeadId,
           loId,
           startIso,
+          bookingToken: crm.bookingToken,
           notes: "AI intake booking",
         }),
       });

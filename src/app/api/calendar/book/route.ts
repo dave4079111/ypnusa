@@ -1,4 +1,5 @@
 import { bookAppointment } from "@/lib/calendar";
+import { verifyBookingToken } from "@/lib/booking-auth";
 import { appendAnalytics, readDb } from "@/lib/db";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
 import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
@@ -45,10 +46,11 @@ export async function POST(request: Request) {
     const borrowerLeadId = requiredString(parsed.data.borrowerLeadId, 160);
     const loId = requiredString(parsed.data.loId, 160);
     const startIso = requiredString(parsed.data.startIso, 80);
+    const bookingToken = requiredString(parsed.data.bookingToken, 2048);
 
-    if (!borrowerLeadId || !loId || !startIso) {
+    if (!borrowerLeadId || !loId || !startIso || !bookingToken) {
       return jsonError(
-        "borrowerLeadId, loId, and startIso are required.",
+        "borrowerLeadId, loId, startIso, and bookingToken are required.",
         400,
         "MISSING_BOOKING_FIELDS",
       );
@@ -67,6 +69,9 @@ export async function POST(request: Request) {
 
     if (lead.assignedLoId !== loId) {
       return jsonError("Loan officer mismatch for this borrower.", 409, "LOAN_OFFICER_MISMATCH");
+    }
+    if (!verifyBookingToken(bookingToken, borrowerLeadId, loId)) {
+      return jsonError("Booking authorization is invalid or expired.", 403, "INVALID_BOOKING_TOKEN");
     }
 
     const appointment = await bookAppointment({

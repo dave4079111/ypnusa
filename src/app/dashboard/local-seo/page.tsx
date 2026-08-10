@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { GbpLinkingWidget } from "@/components/local-seo/gbp-linking-widget";
-import { getPublicBusinessProfile } from "@/lib/local-seo";
+import type { PublicBusinessProfile } from "@/lib/local-seo";
 import { requireMloSession } from "@/lib/server-auth";
 
 export const metadata: Metadata = {
@@ -11,8 +11,12 @@ export const metadata: Metadata = {
 };
 
 export default async function LocalSeoDashboardPage() {
-  await requireMloSession();
-  const business = getPublicBusinessProfile();
+  const session = await requireMloSession();
+  const business: PublicBusinessProfile = {
+    name: session.profile.name,
+    email: session.profile.email,
+    nmlsId: session.profile.nmlsId,
+  };
 
   return (
     <main className="min-h-full bg-slate-50 px-6 py-12 text-slate-900">

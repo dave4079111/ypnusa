@@ -131,7 +131,7 @@ export function EquitySnapshot() {
               onChange={(event) => setZip(event.target.value.replace(/\D/g, "").slice(0, 5))}
               inputMode="numeric"
               autoComplete="postal-code"
-              placeholder="93618"
+              placeholder="Enter 5-digit ZIP"
               required
               pattern="\d{5}"
               className="h-12 rounded-xl border border-white/10 bg-black/20 px-4 text-base text-white outline-none placeholder:text-white/25 focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20"

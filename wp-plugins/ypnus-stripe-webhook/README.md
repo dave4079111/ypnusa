@@ -78,7 +78,7 @@ prevents new app sessions; app sessions expire after 15 minutes by default.
 Every processed Stripe lifecycle event is also signed and posted to the app's
 entitlement endpoint. This updates real MRR records and immediately revokes app
 sessions on delinquency or cancellation. Stripe receives a retryable HTTP 500
-if this configured synchronization fails.
+if synchronization fails or `YPNUS_ENTITLEMENT_SYNC_SECRET` is missing.
 
 ## Stripe metadata
 

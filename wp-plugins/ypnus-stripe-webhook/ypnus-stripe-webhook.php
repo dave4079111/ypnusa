@@ -126,7 +126,7 @@ function ypnus_app_sso_handler() {
 		'exp' => $issued_at + 60,
 		'mlo' => array(
 			'id'                   => 'wp_' . $user_id,
-			'name'                 => sanitize_text_field( $user->display_name ),
+			'name'                 => sanitize_text_field( isset( $user->display_name ) && $user->display_name ? $user->display_name : $user->user_email ),
 			'email'                => sanitize_email( $user->user_email ),
 			'paidAccess'           => true,
 			'subscriptionStatus'   => $status,
@@ -161,7 +161,7 @@ function ypnus_app_sso_handler() {
 
 function ypnus_sync_entitlement_to_app( $event ) {
 	if ( ! defined( 'YPNUS_ENTITLEMENT_SYNC_SECRET' ) || ! is_string( YPNUS_ENTITLEMENT_SYNC_SECRET ) ) {
-		return true;
+		return false;
 	}
 	$secret = trim( YPNUS_ENTITLEMENT_SYNC_SECRET );
 	if ( strlen( $secret ) < 32 ) {
@@ -194,7 +194,7 @@ function ypnus_sync_entitlement_to_app( $event ) {
 			'eventId' => sanitize_text_field( $event['id'] ),
 			'mlo'     => array(
 				'id'                   => 'wp_' . $user_id,
-				'name'                 => sanitize_text_field( $user->display_name ),
+				'name'                 => sanitize_text_field( isset( $user->display_name ) && $user->display_name ? $user->display_name : $user->user_email ),
 				'email'                => sanitize_email( $user->user_email ),
 				'company'              => sanitize_text_field( get_user_meta( $user_id, 'ypnus_company', true ) ),
 				'tier'                 => $tier,

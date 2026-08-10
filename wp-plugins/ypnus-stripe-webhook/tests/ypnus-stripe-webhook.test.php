@@ -3,6 +3,7 @@
 define( 'ABSPATH', __DIR__ . '/wordpress/' );
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'YPNUS_STRIPE_WEBHOOK_SECRET', 'whsec_primary_test' );
+define( 'YPNUS_ENTITLEMENT_SYNC_SECRET', 'entitlement-test-secret-over-thirty-two-bytes' );
 define(
 	'YPNUS_STRIPE_PAYMENT_LINK_TIERS',
 	array(
@@ -89,6 +90,26 @@ function sanitize_key( $value ) {
 	return strtolower( preg_replace( '/[^a-z0-9_-]/i', '', (string) $value ) );
 }
 
+function esc_url_raw( $value ) {
+	return (string) $value;
+}
+
+function wp_parse_url( $value, $component = -1 ) {
+	return parse_url( $value, $component );
+}
+
+function wp_json_encode( $value ) {
+	return json_encode( $value );
+}
+
+function wp_remote_post() {
+	return array( 'response' => array( 'code' => 200 ) );
+}
+
+function wp_remote_retrieve_response_code( $response ) {
+	return isset( $response['response']['code'] ) ? $response['response']['code'] : 0;
+}
+
 function get_option( $key, $default = false ) {
 	return array_key_exists( $key, $GLOBALS['ypnus_test_options'] )
 		? $GLOBALS['ypnus_test_options'][ $key ]
@@ -148,6 +169,7 @@ function wp_insert_user( $data ) {
 		'ID'         => $user_id,
 		'user_login' => $data['user_login'],
 		'user_email' => $data['user_email'],
+		'display_name' => $data['user_email'],
 	);
 	$GLOBALS['ypnus_test_users'][ $user_id ] = $user;
 	return $user_id;

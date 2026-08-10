@@ -73,6 +73,15 @@ This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
 | `NEXT_PUBLIC_MARKETING_SITE_URL` | `https://ypnus.com` |
 | `YPNUS_WP_API_BASE` | `https://ypnus.com/wp-json/ypnus/v1` |
 | `LOANPILOT_DATA_DIR` | `/tmp/ypnus-data` |
+| `SESSION_SECRET` | random 32+ byte string — signs the `ypnus_session` cookie |
+| `YPNUS_SSO_SHARED_SECRET` | random secret shared with the WordPress SSO handoff (see `docs/sso-handoff.md`) |
+
+## Session / SSO architecture
+
+`ypnus.com` is public marketing + MLO lead-capture only. Authenticated sessions and
+dashboard routes (`/dashboard`, `/portal`, `/analytics`, `/admin`) live exclusively on
+`app.ypnus.com`, gated by `src/proxy.ts` and a host-only `ypnus_session` cookie that is
+never shared with `ypnus.com`. Full handoff contract: `docs/sso-handoff.md`.
 
 ### Option A — hPanel GitHub deploy (recommended)
 1. Remove the Cloudflare redirect (above).

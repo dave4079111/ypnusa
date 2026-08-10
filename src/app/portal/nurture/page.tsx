@@ -1,7 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+import { SessionBar } from "@/components/session-bar";
 import { buildNurtureDashboard } from "@/lib/nurture-dashboard";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 function dateTime(value?: string): string {
   if (!value) return "—";
@@ -46,12 +52,15 @@ export default function LeadNurturePortalPage() {
               conversions from one live ledger.
             </p>
           </div>
-          <Link
-            href="/"
-            className="w-fit rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10"
-          >
-            Back to YPN USA
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="w-fit rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10"
+            >
+              Back to YPN USA
+            </Link>
+            <SessionBar tone="dark" />
+          </div>
         </header>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

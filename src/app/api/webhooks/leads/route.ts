@@ -104,7 +104,6 @@ function normalizeMlo(value: unknown): MloLeadProfile | null {
     email: normalizedEmail,
     nmlsId: text(value.nmlsId, 40),
     company: text(value.company, 160),
-    subscriptionTier: text(value.subscriptionTier ?? value.tier, 40),
     claimedZips,
   };
 }

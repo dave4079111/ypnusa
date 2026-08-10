@@ -154,7 +154,11 @@ export function verifySsoToken(token: string, now = Date.now()): VerifiedSsoToke
   const nowSeconds = Math.floor(now / 1000);
   const exp = typeof payload.exp === "number" ? payload.exp : Number.NaN;
   const iat = typeof payload.iat === "number" ? payload.iat : Number.NaN;
-  const nbf = payload.nbf === undefined ? iat : payload.nbf;
+  const nbf = payload.nbf === undefined
+    ? iat
+    : typeof payload.nbf === "number"
+      ? payload.nbf
+      : Number.NaN;
   const maxTtl = configuredPositiveInteger(
     "SSO_JWT_MAX_TTL_SECONDS",
     DEFAULT_MAX_TOKEN_TTL_SECONDS,

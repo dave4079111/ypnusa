@@ -31,15 +31,6 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        source: "/_next/static/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: immutableCache,
-          },
-        ],
-      },
-      {
         source: "/assets/:path*",
         headers: [
           {

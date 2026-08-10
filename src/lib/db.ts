@@ -25,7 +25,7 @@ import type {
  * hydrated once from disk (if a snapshot exists) and written through to disk on
  * every mutation on a best-effort basis.
  *
- * Why in-memory-first: on serverless hosts (e.g. Vercel) the application
+ * Why in-memory-first: on read-only serverless hosts the application
  * directory is read-only, so file writes throw. Keeping state in memory means
  * multi-step flows (the intake chat posting several `tick`s) still work within a
  * warm instance even when disk persistence is unavailable. On a persistent Node

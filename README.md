@@ -110,7 +110,7 @@ State (sessions, leads, CRM notes, territory reservations, analytics) is held in
 best-effort basis. This means:
 
 - **Persistent Node host** (`next start`, a VPS, Docker) → the JSON snapshot survives restarts.
-- **Serverless host** (e.g. Vercel) → the app directory is read-only, so the snapshot can't
+- **Read-only serverless host** → the app directory is read-only, so the snapshot can't
   be written, but multi-step flows still work within a warm instance because state lives in
   memory. Data resets on cold start — fine for a demo/marketing surface. For durable
   production data, swap the storage layer in `src/lib/db.ts` for a database (Supabase,

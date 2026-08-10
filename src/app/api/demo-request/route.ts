@@ -1,8 +1,9 @@
-import { appendAnalytics } from "@/lib/db";
+import { appendAnalytics, appendDemoRequest } from "@/lib/db";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
 import { generateId } from "@/lib/id";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 import { appendDemoRequestWithTerritoryCheck, isValidZip, normalizeZip } from "@/lib/territory";
+import { fetchLiveTerritory } from "@/lib/live-territory";
 import type { DemoRequestRecord } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -19,7 +20,7 @@ function str(value: unknown, max = 500): string | undefined {
 
 export async function POST(request: Request) {
   try {
-    const limited = rateLimit(`demo:${clientKey(request)}`, 5, 60_000);
+    const limited = await distributedRateLimit(`demo:${clientKey(request)}`, 5, 60_000);
     if (!limited.ok) {
       return jsonError(
         "Too many requests — please slow down and try again shortly.",
@@ -71,7 +72,24 @@ export async function POST(request: Request) {
       status: "new",
     };
 
-    const territory = appendDemoRequestWithTerritoryCheck(record);
+    const liveTerritory =
+      process.env.NODE_ENV === "production" && zip
+        ? await fetchLiveTerritory(zip)
+        : null;
+    if (process.env.NODE_ENV === "production" && zip && !liveTerritory) {
+      return jsonError(
+        "Live territory availability could not be confirmed.",
+        503,
+        "LIVE_TERRITORY_UNAVAILABLE",
+      );
+    }
+    let territory;
+    if (process.env.NODE_ENV === "production") {
+      appendDemoRequest(record);
+      territory = liveTerritory;
+    } else {
+      territory = appendDemoRequestWithTerritoryCheck(record);
+    }
 
     appendAnalytics({
       type: "demo_requested",
@@ -91,7 +109,7 @@ export async function POST(request: Request) {
       message:
         territory && !territory.available
           ? "We've logged your request and added you to the waitlist for that territory."
-          : "You're in — a YPN USA specialist will reach out within one business day to activate your territory.",
+          : "Your request is in. Complete the verified signup and billing flow to activate the territory.",
     });
   } catch (error) {
     logApiError("/api/demo-request", error);

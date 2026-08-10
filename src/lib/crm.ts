@@ -15,8 +15,20 @@ function countAssignments(officerId: string): number {
   return total;
 }
 
-export function routeLoanOfficer(program: LoanProgram) {
+export function routeLoanOfficer(program: LoanProgram, propertyZip?: string) {
   const db = readDb();
+  if (propertyZip && /^\d{5}$/.test(propertyZip)) {
+    const territoryOwner = db.revenueSubscriptions.find(
+      (subscription) =>
+        (subscription.status === "active" || subscription.status === "trialing") &&
+        subscription.claimedZips.includes(propertyZip) &&
+        subscription.ownerLoId,
+    )?.ownerLoId;
+    const territoryOfficer = db.loanOfficers.find(
+      (officer) => officer.id === territoryOwner,
+    );
+    if (territoryOfficer) return territoryOfficer;
+  }
   const candidates = db.loanOfficers.filter((officer) => officer.specialties.includes(program));
 
   const pool = candidates.length > 0 ? candidates : db.loanOfficers;

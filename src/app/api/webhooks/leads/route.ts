@@ -15,13 +15,13 @@ import {
 import { generateId } from "@/lib/id";
 import { finalizeIntakeArtifacts } from "@/lib/intake-pipeline";
 import { coerceLoanProgram } from "@/lib/programs";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 import type {
   BorrowerAnswers,
   IntakeSessionRecord,
   LoanOfficerRecord,
   LoanProgram,
-  MloSubscriberProfile,
+  MloLeadProfile,
 } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -85,7 +85,7 @@ function isAuthorized(request: Request): "ok" | "missing" | "invalid" {
     : "invalid";
 }
 
-function normalizeMlo(value: unknown): MloSubscriberProfile | null {
+function normalizeMlo(value: unknown): MloLeadProfile | null {
   if (!isRecord(value)) return null;
   const id = text(value.id, 160);
   const name = text(value.name, 160);
@@ -102,7 +102,6 @@ function normalizeMlo(value: unknown): MloSubscriberProfile | null {
     id,
     name,
     email: normalizedEmail,
-    paidAccess: true,
     nmlsId: text(value.nmlsId, 40),
     company: text(value.company, 160),
     subscriptionTier: text(value.subscriptionTier ?? value.tier, 40),
@@ -118,6 +117,7 @@ function normalizeBorrower(payload: InboundLeadPayload): BorrowerAnswers | null 
   const normalizedPhone = phone(source.phone);
   const timeline = text(source.timeline, 40);
   const estimatedCreditBand = text(source.estimatedCreditBand, 40);
+  const propertyZip = text(source.propertyZip ?? source.zip, 5);
   if (
     !loanProgram ||
     !name ||
@@ -136,6 +136,7 @@ function normalizeBorrower(payload: InboundLeadPayload): BorrowerAnswers | null 
     phone: normalizedPhone,
     timeline,
     estimatedCreditBand,
+    propertyZip: propertyZip && /^\d{5}$/.test(propertyZip) ? propertyZip : undefined,
     purchaseRefiIntent:
       source.purchaseRefiIntent === "purchase" ||
       source.purchaseRefiIntent === "refinance" ||
@@ -147,7 +148,7 @@ function normalizeBorrower(payload: InboundLeadPayload): BorrowerAnswers | null 
   };
 }
 
-function upsertWebhookMlo(profile: MloSubscriberProfile): LoanOfficerRecord {
+function upsertWebhookMlo(profile: MloLeadProfile): LoanOfficerRecord {
   const existing = readDb().loanOfficers.find((officer) => officer.id === profile.id);
   const officer: LoanOfficerRecord = {
     id: profile.id,
@@ -167,7 +168,11 @@ function upsertWebhookMlo(profile: MloSubscriberProfile): LoanOfficerRecord {
 }
 
 export async function POST(request: Request) {
-  const limited = rateLimit(`lead-webhook:${clientKey(request)}`, 60, 60_000);
+  const limited = await distributedRateLimit(
+    `lead-webhook:${clientKey(request)}`,
+    60,
+    60_000,
+  );
   if (!limited.ok) {
     return jsonError("Too many webhook requests.", 429, "RATE_LIMITED", {
       headers: { "Retry-After": String(limited.retryAfter) },
@@ -199,7 +204,34 @@ export async function POST(request: Request) {
     );
   }
 
-  const duplicate = readDb().mloLeadSubmissions.find((submission) => submission.eventId === eventId);
+  const snapshot = readDb();
+  const entitlement = snapshot.revenueSubscriptions.find(
+    (subscription) =>
+      subscription.ownerLoId === mlo.id &&
+      (subscription.status === "active" || subscription.status === "trialing"),
+  );
+  if (!entitlement) {
+    return jsonError(
+      "The assigned MLO does not have an active subscription.",
+      403,
+      "MLO_SUBSCRIPTION_REQUIRED",
+    );
+  }
+  if (
+    answers.propertyZip &&
+    entitlement.claimedZips.length > 0 &&
+    !entitlement.claimedZips.includes(answers.propertyZip)
+  ) {
+    return jsonError(
+      "The borrower ZIP is outside the MLO's active territories.",
+      403,
+      "MLO_TERRITORY_MISMATCH",
+    );
+  }
+
+  const duplicate = snapshot.mloLeadSubmissions.find(
+    (submission) => submission.eventId === eventId,
+  );
   if (duplicate) {
     return jsonOk({
       duplicate: true,
@@ -247,6 +279,7 @@ export async function POST(request: Request) {
         qualification: result.qualification,
         followUpsQueued: result.followUpsQueued ?? 0,
         immediateOutreachSent: result.immediateOutreachSent ?? 0,
+        immediateOutreachFailed: result.immediateOutreachFailed ?? 0,
       },
       { status: 201 },
     );

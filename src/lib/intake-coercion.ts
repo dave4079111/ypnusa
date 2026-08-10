@@ -68,6 +68,13 @@ export function mergeStructuredAnswer(
     return { ok: true, answers: { ...answers, [step.fieldPath]: trimmed } as BorrowerAnswers };
   }
 
+  if (step.fieldPath === "propertyZip") {
+    if (!/^\d{5}$/.test(trimmed)) {
+      return { ok: false, error: "Enter the property's 5-digit ZIP code." };
+    }
+    return { ok: true, answers: { ...answers, propertyZip: trimmed } };
+  }
+
   /** text + tel share path */
   return { ok: true, answers: { ...answers, [step.fieldPath]: trimmed } as BorrowerAnswers };
 }

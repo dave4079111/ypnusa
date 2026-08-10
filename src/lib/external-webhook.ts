@@ -40,6 +40,17 @@ export async function mirrorIntakeToExternalWebhook(payload: ExternalWebhookPayl
     });
     return;
   }
+  if (process.env.NODE_ENV === "production" && url.protocol !== "https:") {
+    logWebhookWarning("Skipping non-HTTPS intake webhook URL.", { host: url.host });
+    return;
+  }
+  const token = process.env.INTAKE_EXTERNAL_WEBHOOK_TOKEN?.trim();
+  if (process.env.NODE_ENV === "production" && (!token || Buffer.byteLength(token) < 32)) {
+    logWebhookWarning("Skipping unauthenticated production intake webhook.", {
+      host: url.host,
+    });
+    return;
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort("intake webhook timeout"), TIMEOUT_MS);
@@ -47,7 +58,10 @@ export async function mirrorIntakeToExternalWebhook(payload: ExternalWebhookPayl
   try {
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(payload),
       signal: controller.signal,
     });

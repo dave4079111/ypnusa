@@ -113,7 +113,11 @@ export function buildNurtureDashboard(loId?: string) {
       ? 0
       : Math.round(rows.reduce((total, row) => total + row.score, 0) / rows.length);
   const equityReviews: EquityReviewRow[] = db.propertyEvaluations
-    .filter((evaluation) => evaluation.status === "new")
+    .filter(
+      (evaluation) =>
+        evaluation.status === "new" &&
+        (!loId || evaluation.assignedLoId === loId),
+    )
     .map((evaluation) => ({
       evaluationId: evaluation.id,
       borrowerName: safeDisplayName(evaluation.name),

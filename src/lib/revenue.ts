@@ -132,6 +132,12 @@ function leadPipelineValue(lead: BorrowerLeadRecord): number {
 
 function collectActiveSubscriptions(db: DbShape): RevenueSubscriptionRecord[] {
   const active = db.revenueSubscriptions.filter(isRevenueSubscriptionActive);
+  if (process.env.NODE_ENV === "production" && process.env.LOANPILOT_DEMO_MODE !== "1") {
+    return active.filter(
+      (subscription) =>
+        subscription.source === "stripe" || subscription.source === "admin_adjustment",
+    );
+  }
   const claimedExplicitZips = new Set(
     active
       .flatMap((subscription) => subscription.claimedZips.map((zip) => normalizeZip(zip)))
@@ -355,8 +361,12 @@ export function summarizeRevenuePulse(): RevenuePulseSummary {
     flow: buildRevenueFlow(db, subscriptions, mrrCents),
     ltvByMlo,
     assumptions: [
-      "No Stripe ledger exists yet; MRR uses active/trial demo subscriptions plus inferred ZIP claims.",
-      "Unmatched demo-request ZIPs become inferred subscriptions based on team-size wording.",
+      process.env.NODE_ENV === "production"
+        ? "MRR includes only synchronized Stripe subscriptions and explicit administrative adjustments."
+        : "Development MRR includes seeded subscriptions and inferred demo ZIP claims.",
+      process.env.NODE_ENV === "production"
+        ? "Demo requests never count as paid subscriptions."
+        : "Unmatched development demo-request ZIPs become inferred subscriptions.",
       "MLO LTV combines projected subscription months with attributed lead, booking, and demo pipeline value.",
       "County and ZIP revenue is allocated proportionally across each subscription's claimed coverage units.",
     ],

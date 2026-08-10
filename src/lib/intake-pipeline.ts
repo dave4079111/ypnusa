@@ -15,6 +15,7 @@ export interface BorrowerFinalizeSnapshot {
   routedPrograms?: LoanProgram[];
   followUpsQueued?: number;
   immediateOutreachSent?: number;
+  immediateOutreachFailed?: number;
 }
 
 export async function finalizeIntakeArtifacts(
@@ -64,7 +65,7 @@ export async function finalizeIntakeArtifacts(
   const qualification = buildQualification(answers);
   const officerProfile = options?.assignedLoId
     ? readDb().loanOfficers.find((officer) => officer.id === options.assignedLoId)
-    : routeLoanOfficer(session.loanProgram);
+    : routeLoanOfficer(session.loanProgram, answers.propertyZip);
   if (!officerProfile) {
     return {
       ok: false,
@@ -143,5 +144,6 @@ export async function finalizeIntakeArtifacts(
     routedPrograms: recommendPrograms(answers),
     followUpsQueued,
     immediateOutreachSent: immediateOutreach.processed,
+    immediateOutreachFailed: immediateOutreach.failed,
   };
 }

@@ -1,18 +1,27 @@
 import { getPublicBusinessProfile } from "@/lib/local-seo";
+import { requireBearerSecret } from "@/lib/http";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 import {
   buildReviewRequestMessage,
   parseReviewRequestInput,
 } from "@/lib/review-automation";
 
-function isAuthorized(request: Request): boolean {
-  const secret = process.env.REVIEW_REQUEST_API_SECRET?.trim();
-  if (!secret) return process.env.NODE_ENV !== "production";
-  return request.headers.get("authorization") === `Bearer ${secret}`;
-}
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  if (!isAuthorized(request)) {
-    return Response.json({ error: "Unauthorized review request event." }, { status: 401 });
+  const unauthorized = requireBearerSecret(request, "REVIEW_REQUEST_API_SECRET");
+  if (unauthorized) return unauthorized;
+  const limited = await distributedRateLimit(
+    `review-request:${clientKey(request)}`,
+    30,
+    60_000,
+  );
+  if (!limited.ok) {
+    return Response.json(
+      { error: "Too many review request events." },
+      { status: 429, headers: { "Retry-After": String(limited.retryAfter) } },
+    );
   }
 
   let payload: unknown;
@@ -43,6 +52,17 @@ export async function POST(request: Request) {
 
   const webhookUrl = process.env.REVIEW_REQUEST_WEBHOOK_URL?.trim();
   if (!webhookUrl) {
+    if (process.env.NODE_ENV === "production") {
+      return Response.json(
+        {
+          accepted: false,
+          delivered: false,
+          reason: "Review delivery is not configured.",
+          closingId: message.closingId,
+        },
+        { status: 503 },
+      );
+    }
     return Response.json({
       accepted: true,
       delivered: false,
@@ -50,6 +70,16 @@ export async function POST(request: Request) {
       reviewUrl: message.reviewUrl,
       closingId: message.closingId,
     });
+  }
+  if (process.env.NODE_ENV === "production") {
+    try {
+      if (new URL(webhookUrl).protocol !== "https:") throw new Error("insecure");
+    } catch {
+      return Response.json(
+        { accepted: false, delivered: false, reason: "Review delivery URL is invalid." },
+        { status: 503 },
+      );
+    }
   }
 
   try {

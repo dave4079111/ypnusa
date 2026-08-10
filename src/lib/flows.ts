@@ -116,6 +116,15 @@ const baseFlow: FlowStepDescriptor[] = [
     placeholder: "Choose timing",
   },
   {
+    id: "property_zip",
+    prompt:
+      "What 5-digit ZIP code is the property in, or where are you planning to purchase? This routes you to the correct exclusive local MLO.",
+    fieldPath: "propertyZip",
+    kind: "text",
+    placeholder: "e.g. 93720",
+    hint: "Use the property ZIP, not your current mailing ZIP.",
+  },
+  {
     id: "estimated_down_payment",
     prompt:
       "What down payment / equity infusion are you planning (USD estimate)? Tap $0 if refinancing and liquidity is the objective.",

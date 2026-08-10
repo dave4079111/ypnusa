@@ -91,10 +91,10 @@ export function calendarConnectionStatus(officer: LoanOfficerRecord): CalendarCo
   connected: boolean;
 } {
   const connection = configuredConnection(officer);
-  let connected = connection.provider === "local";
+  let connected = connection.provider === "local" && process.env.NODE_ENV !== "production";
   switch (connection.provider) {
     case "local":
-      connected = true;
+      connected = process.env.NODE_ENV !== "production";
       break;
     case "google":
       connected = Boolean(process.env.GOOGLE_CALENDAR_ACCESS_TOKEN && connection.calendarId);
@@ -266,6 +266,9 @@ export async function listSyncedAvailableSlots(
     const officerSlots = candidates.filter((slot) => slot.loId === officer.id);
     if (officerSlots.length === 0) continue;
     const connection = configuredConnection(officer);
+    if (connection.provider === "local" && process.env.NODE_ENV === "production") {
+      throw new Error(`Production calendar is not configured for ${officer.id}.`);
+    }
     const start = officerSlots[0].start;
     const end = officerSlots[officerSlots.length - 1].end;
 
@@ -289,6 +292,7 @@ export async function listSyncedAvailableSlots(
       );
     } catch (error) {
       console.error(`[calendar] live availability failed for ${officer.id}`, error);
+      if (process.env.NODE_ENV === "production") throw error;
       enriched.push(
         ...officerSlots.map((slot) => ({
           ...slot,
@@ -416,6 +420,9 @@ async function createProviderEvent(
       if (!connection.calendlyUrl) throw new Error("Calendly booking URL is not configured.");
       return { externalBookingUrl: connection.calendlyUrl };
     case "local":
+      if (process.env.NODE_ENV === "production") {
+        throw new Error("Local calendar booking is disabled in production.");
+      }
       return { meetingUrl: `https://meet.jit.si/${generateId("ypn")}` };
     default:
       return connection.provider satisfies never;

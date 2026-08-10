@@ -2,7 +2,8 @@ import { appendAnalytics, appendPropertyEvaluation } from "@/lib/db";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
 import { generateId } from "@/lib/id";
 import { calculatePropertyEquity } from "@/lib/property-equity";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { routeLoanOfficer } from "@/lib/crm";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 import type { PropertyEvaluationRecord } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
 
     const body = parsed.data;
     const wantsContact = body.contactConsent === true;
-    const limited = rateLimit(
+    const limited = await distributedRateLimit(
       `property:${wantsContact ? "lead" : "estimate"}:${clientKey(request)}`,
       wantsContact ? 5 : 20,
       60_000,
@@ -96,6 +97,14 @@ export async function POST(request: Request) {
       if (!EMAIL_RE.test(email)) {
         return jsonError("Enter a valid email address.", 400, "INVALID_EMAIL");
       }
+      const assignedOfficer = routeLoanOfficer("HELOC", zip);
+      if (!assignedOfficer) {
+        return jsonError(
+          "No active MLO is available for this territory.",
+          503,
+          "MLO_UNAVAILABLE",
+        );
+      }
 
       const record: PropertyEvaluationRecord = {
         id: generateId("equity"),
@@ -107,6 +116,7 @@ export async function POST(request: Request) {
         ...snapshot,
         contactConsent: true,
         source: text(body.source, 80) ?? "equity_snapshot",
+        assignedLoId: assignedOfficer.id,
         status: "new",
       };
       appendPropertyEvaluation(record);

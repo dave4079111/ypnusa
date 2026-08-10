@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { IntakeTickRequest } from "@/lib/intake-contracts";
 import { intakeTick } from "@/lib/intake-engine";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 import { isRecord, logApiError, parseJsonBody } from "@/lib/http";
 import type { BorrowerAnswers } from "@/lib/types";
 
@@ -100,7 +100,7 @@ function validateTickBody(data: unknown):
 }
 
 export async function POST(request: Request) {
-  const limited = rateLimit(`intake:${clientKey(request)}`, 60, 60_000);
+  const limited = await distributedRateLimit(`intake:${clientKey(request)}`, 60, 60_000);
   if (!limited.ok) {
     return intakeFailure(
       "Too many intake updates — please slow down and try again shortly.",

@@ -29,6 +29,14 @@ export async function GET(request: Request) {
       });
     }
 
+    if (process.env.NODE_ENV === "production") {
+      return jsonError(
+        "Live territory availability is temporarily unavailable.",
+        503,
+        "LIVE_TERRITORY_UNAVAILABLE",
+        { headers: { "Retry-After": "30" } },
+      );
+    }
     const local = checkTerritory(zip);
     return NextResponse.json({ ...local, source: "local_demo" });
   } catch (error) {

@@ -40,6 +40,12 @@ const SEED_CLAIMED = new Set<string>([
   "98101", "98004", "80202", "80206",
 ]);
 
+function seededClaims(): Set<string> {
+  return process.env.NODE_ENV !== "production" || process.env.LOANPILOT_DEMO_MODE === "1"
+    ? SEED_CLAIMED
+    : new Set<string>();
+}
+
 export interface TerritoryCheckResult {
   ok: boolean;
   zip: string;
@@ -77,13 +83,14 @@ function liveClaimedZipsFromRequests(
 }
 
 export function totalClaimedTerritories(): number {
-  const merged = new Set<string>([...SEED_CLAIMED, ...liveClaimedZips()]);
+  const merged = new Set<string>([...seededClaims(), ...liveClaimedZips()]);
   return merged.size;
 }
 
 /** Build a territory result from an already-computed set of live claims. */
 function buildResult(zip: string, claimedZips: Set<string>): TerritoryCheckResult {
-  const totalClaimed = new Set<string>([...SEED_CLAIMED, ...claimedZips]).size;
+  const seeds = seededClaims();
+  const totalClaimed = new Set<string>([...seeds, ...claimedZips]).size;
 
   if (!isValidZip(zip)) {
     return {
@@ -96,7 +103,7 @@ function buildResult(zip: string, claimedZips: Set<string>): TerritoryCheckResul
     };
   }
 
-  const claimed = SEED_CLAIMED.has(zip) || claimedZips.has(zip);
+  const claimed = seeds.has(zip) || claimedZips.has(zip);
   return {
     ok: true,
     zip,

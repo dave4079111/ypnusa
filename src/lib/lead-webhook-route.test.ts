@@ -10,7 +10,7 @@ process.env.MLO_LEAD_WEBHOOK_SECRET = "lead-webhook-test-secret-that-is-at-least
 
 describe("inbound lead webhook", async () => {
   const { POST } = await import("../app/api/webhooks/leads/route");
-  const { readDb } = await import("./db");
+  const { readDb, writeDb } = await import("./db");
 
   after(() => {
     fs.rmSync(dataDir, { recursive: true, force: true });
@@ -37,6 +37,21 @@ describe("inbound lead webhook", async () => {
   });
 
   it("normalizes, assigns, persists, nurtures, and deduplicates an MLO lead", async () => {
+    writeDb((db) => {
+      db.revenueSubscriptions.push({
+        id: "sub_mlo_ada",
+        createdAt: new Date().toISOString(),
+        startedAt: new Date().toISOString(),
+        tier: "pro",
+        status: "active",
+        source: "stripe",
+        stripeCustomerId: "cus_ada",
+        stripeSubscriptionId: "sub_ada",
+        ownerLoId: "mlo_ada",
+        ownerEmail: "ada@example.com",
+        claimedZips: ["78701"],
+      });
+    });
     const payload = {
       eventId: "webform_evt_1001",
       mlo: {
@@ -56,6 +71,7 @@ describe("inbound lead webhook", async () => {
         estimatedCreditBand: "740+",
         purchaseRefiIntent: "purchase",
         contactConsent: true,
+        propertyZip: "78701",
         funnelSource: "mlo_landing_page",
       },
     };

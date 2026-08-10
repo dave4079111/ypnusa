@@ -77,10 +77,14 @@ async function deliverWebhook(
   subject: string,
   body: string,
   url: string,
+  token?: string,
 ): Promise<OutreachDeliveryResult> {
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({
       event: "borrower.outreach",
       followUpId: job.id,
@@ -158,7 +162,19 @@ export async function deliverOutreach(
   const { subject, body } = composeOutreach(job.plan, context);
   const webhookUrl = process.env.OUTREACH_WEBHOOK_URL?.trim();
   if (webhookUrl) {
-    return deliverWebhook(job, context, subject, body, webhookUrl);
+    const token = process.env.OUTREACH_WEBHOOK_TOKEN?.trim();
+    if (process.env.NODE_ENV === "production") {
+      let secure = false;
+      try {
+        secure = new URL(webhookUrl).protocol === "https:";
+      } catch {
+        secure = false;
+      }
+      if (!secure || !token || Buffer.byteLength(token) < 32) {
+        throw new Error("Production outreach webhook is not securely configured.");
+      }
+    }
+    return deliverWebhook(job, context, subject, body, webhookUrl, token);
   }
 
   if (job.channel === "sms") {
@@ -176,5 +192,8 @@ export async function deliverOutreach(
     }
   }
 
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(`No production ${job.channel} outreach provider is configured.`);
+  }
   return { provider: "demo", messageId: `demo_${job.id}` };
 }

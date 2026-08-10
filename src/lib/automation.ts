@@ -49,11 +49,11 @@ const nurtureCopy: Record<FollowUpPlan, string> = {
   immediate_confirmation_email:
     "Thanks for trusting YPN USA—disclosures are staged and your loan officer inbox just lit up.",
   immediate_sms_ack:
-    "SMS handshake fired (Twilio-compatible placeholder)—borrower can reply STOP any time.",
+    "SMS confirmation sent with compliant opt-out instructions.",
   day_1_educational_email:
     "Education drip: underwriting checklist + video explainer comparing term vs amortization deltas.",
   day_3_book_call_email:
-    "Conversion nudge—highlight three live consultation blocks mirrored from LOS calendar placeholders.",
+    "Conversion nudge with the MLO's synchronized consultation availability.",
   day_5_urgency_email:
     "Momentum reminder—pair live pricing volatility with LOS-ready document requests.",
   day_30_check_in: "30-day borrower readiness check-in.",
@@ -66,9 +66,10 @@ export function scheduleBorrowerJourney(
   answers: BorrowerAnswers,
 ): ScheduledFollowUpRecord[] {
   if (answers.contactConsent !== true) return [];
+  if (!answers.email || !answers.phone) return [];
 
-  const email = answers.email ?? "borrower-not-provided@loanapilot.ai";
-  const phone = answers.phone ?? "+10005550199";
+  const email = answers.email;
+  const phone = answers.phone;
 
   const plans: FollowUpPlan[] = [
     "immediate_confirmation_email",

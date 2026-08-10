@@ -1,7 +1,7 @@
 import { bookAppointment } from "@/lib/calendar";
 import { appendAnalytics, readDb } from "@/lib/db";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +19,11 @@ function optionalString(value: unknown, max: number): string | undefined {
 
 export async function POST(request: Request) {
   try {
-    const limited = rateLimit(`calendar-book:${clientKey(request)}`, 10, 60_000);
+    const limited = await distributedRateLimit(
+      `calendar-book:${clientKey(request)}`,
+      10,
+      60_000,
+    );
     if (!limited.ok) {
       return jsonError(
         "Too many booking attempts — please slow down and try again shortly.",

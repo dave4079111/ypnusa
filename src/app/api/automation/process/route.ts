@@ -1,16 +1,20 @@
 import { processDueFollowUps } from "@/lib/automation";
-import { jsonError, jsonOk, logApiError, requireConfiguredSecret } from "@/lib/http";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { jsonError, jsonOk, logApiError, requireBearerSecret } from "@/lib/http";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const unauthorized = requireConfiguredSecret(request);
+    const unauthorized = requireBearerSecret(request, "CRON_SECRET");
     if (unauthorized) return unauthorized;
 
-    const limited = rateLimit(`automation:${clientKey(request)}`, 10, 60_000);
+    const limited = await distributedRateLimit(
+      `automation:${clientKey(request)}`,
+      10,
+      60_000,
+    );
     if (!limited.ok) {
       return jsonError(
         "Too many automation runs — please slow down and try again shortly.",

@@ -203,7 +203,7 @@ export interface RevenueSubscriptionRecord {
   startedAt: string;
   tier: PricingTierId;
   status: "trialing" | "active" | "cancelled";
-  source: "seed" | "demo_request" | "admin_adjustment";
+  source: "seed" | "demo_request" | "admin_adjustment" | "stripe";
   ownerLoId?: string;
   ownerEmail?: string;
   company?: string;
@@ -212,6 +212,8 @@ export interface RevenueSubscriptionRecord {
   monthlyPriceCents?: number;
   lifetimeMonths?: number;
   attributedDemoRequestIds?: string[];
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
 }
 
 export interface DbShape {

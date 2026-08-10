@@ -1,5 +1,5 @@
 import { readDb, writeDb } from "./db";
-import type { DemoRequestRecord } from "./types";
+import type { DemoRequestRecord, RevenueSubscriptionRecord } from "./types";
 
 /**
  * Exclusive ZIP-code territory logic.
@@ -62,17 +62,31 @@ export function isValidZip(zip: string): boolean {
 
 function liveClaimedZips(): Set<string> {
   const db = readDb();
-  return liveClaimedZipsFromRequests(db.demoRequests);
+  return mergeClaimedZips(db.demoRequests, db.revenueSubscriptions);
 }
 
-function liveClaimedZipsFromRequests(
+/**
+ * ZIP scarcity must reflect paid, durable claims (active/trialing Stripe subscriptions)
+ * as well as the softer demo-request signal — otherwise a ZIP someone already paid for
+ * would still show "available" to the next visitor.
+ */
+function mergeClaimedZips(
   demoRequests: DemoRequestRecord[],
+  revenueSubscriptions: RevenueSubscriptionRecord[],
 ): Set<string> {
   const claimed = new Set<string>();
   demoRequests.forEach((request) => {
     const zip = normalizeZip(request.zip);
     if (isValidZip(zip)) claimed.add(zip);
   });
+  revenueSubscriptions
+    .filter((subscription) => subscription.status === "active" || subscription.status === "trialing")
+    .forEach((subscription) => {
+      subscription.claimedZips.forEach((rawZip) => {
+        const zip = normalizeZip(rawZip);
+        if (isValidZip(zip)) claimed.add(zip);
+      });
+    });
   return claimed;
 }
 
@@ -135,7 +149,7 @@ export function appendDemoRequestWithTerritoryCheck(
   let territory: TerritoryCheckResult | null = null;
 
   writeDb((db) => {
-    territory = buildResult(zip, liveClaimedZipsFromRequests(db.demoRequests));
+    territory = buildResult(zip, mergeClaimedZips(db.demoRequests, db.revenueSubscriptions));
     db.demoRequests.push(record);
   });
 

@@ -75,6 +75,9 @@ This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
 | `LOANPILOT_DATA_DIR` | `/tmp/ypnus-data` |
 | `SESSION_SECRET` | random 32+ byte string — signs the `ypnus_session` cookie |
 | `YPNUS_SSO_SHARED_SECRET` | random secret shared with the WordPress SSO handoff (see `docs/sso-handoff.md`) |
+| `STRIPE_SECRET_KEY` | Stripe secret key — required to create Checkout Sessions (`/api/billing/checkout`) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret — required for `/api/webhooks/stripe` to accept events (fails closed / 501 until set) |
+| `STRIPE_PRICE_ID_STARTER` / `STRIPE_PRICE_ID_PRO` / `STRIPE_PRICE_ID_ELITE` | Stripe Price IDs for the three paid tiers |
 
 ## Session / SSO architecture
 
@@ -82,6 +85,35 @@ This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
 dashboard routes (`/dashboard`, `/portal`, `/analytics`, `/admin`) live exclusively on
 `app.ypnus.com`, gated by `src/proxy.ts` and a host-only `ypnus_session` cookie that is
 never shared with `ypnus.com`. Full handoff contract: `docs/sso-handoff.md`.
+
+## Marketing lead capture (ypnus.com → app.ypnus.com)
+
+`ypnus.com`'s marketing forms should post directly to **`app.ypnus.com/api/demo-request`**
+(CORS-enabled for `https://ypnus.com`, `OPTIONS` preflight included) rather than a new
+endpoint — it already validates, rate-limits, checks territory availability, and persists
+the lead. There's no need for a separate `/api/webhooks/mlo-leads`; that would just
+duplicate this logic.
+
+## Stripe billing
+
+- `POST /api/billing/checkout` (requires an app session) creates a Stripe Checkout
+  Session for `starter` / `pro` / `elite`, passing the desired ZIP through as metadata.
+- `POST /api/webhooks/stripe` verifies the signature (Stripe's `t=…,v1=…` scheme,
+  implemented directly over `node:crypto` — no `stripe` SDK dependency) and turns
+  `checkout.session.completed` into the actual ZIP-allocation event: it writes a real
+  `RevenueSubscriptionRecord` (`source: "stripe"`) rather than the previous
+  demo-request-inferred heuristic. `customer.subscription.updated` / `.deleted` keep
+  status in sync.
+- ZIP scarcity (`src/lib/territory.ts`) now also honors active/trialing Stripe
+  subscriptions, not just demo requests — so a paid ZIP shows as taken.
+  **Caveat:** `/api/territory/check` (the public checker) prefers the *live WordPress*
+  ZIP ledger when reachable and only falls back to this local logic when WP is
+  unreachable — reflecting Stripe claims there too needs a corresponding WordPress-side
+  change, not made here.
+- Not wired: routing an inbound borrower lead to a *specific paying* MLO
+  (`src/lib/crm.ts`'s `routeLoanOfficer`) still load-balances across the fixed seed
+  roster by program specialty — there's no existing link between a Stripe customer and
+  an entry in that roster to gate on, and inventing one wasn't part of this change.
 
 ### Option A — hPanel GitHub deploy (recommended)
 1. Remove the Cloudflare redirect (above).

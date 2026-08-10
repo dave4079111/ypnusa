@@ -56,7 +56,12 @@ describe("Stripe entitlement synchronization", async () => {
     const active = await POST(signedRequest(event("evt_active", "active")));
     assert.equal(active.status, 200);
     assert.equal((await active.json()).duplicate, false);
-    assert.equal(readDb().revenueSubscriptions[0]?.source, "stripe");
+    assert.equal(
+      readDb().revenueSubscriptions.find(
+        (subscription) => subscription.stripeSubscriptionId === "sub_88",
+      )?.source,
+      "stripe",
+    );
 
     const duplicate = await POST(signedRequest(event("evt_active", "active")));
     assert.equal((await duplicate.json()).duplicate, true);
@@ -84,7 +89,12 @@ describe("Stripe entitlement synchronization", async () => {
     const cancelled = await POST(signedRequest(event("evt_cancelled", "canceled")));
     assert.equal(cancelled.status, 200);
     const db = readDb();
-    assert.equal(db.revenueSubscriptions[0]?.status, "cancelled");
+    assert.equal(
+      db.revenueSubscriptions.find(
+        (subscription) => subscription.stripeSubscriptionId === "sub_88",
+      )?.status,
+      "cancelled",
+    );
     assert.equal(db.authSessions.length, 0);
   });
 

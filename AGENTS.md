@@ -27,7 +27,7 @@ Local demo state persists to `data/store.json`. Live ZIP availability is read fr
 
 ### Key caveats
 
-- The project uses **Next.js 16.2.6** with React 19 and Tailwind CSS 4. Consult `node_modules/next/dist/docs/` for API guidance rather than relying on training-data assumptions.
-- No `.env` file is required; the app runs fully without environment variables. `INTAKE_EXTERNAL_WEBHOOK_URL` is optional for Zapier-style integrations.
+- The project uses **Next.js 16.3.0** with React 19 and Tailwind CSS 4. Consult `node_modules/next/dist/docs/` for API guidance rather than relying on training-data assumptions.
+- Public/demo surfaces run without environment variables. Production WordPress SSO and Stripe provisioning require `YPNUS_SSO_SECRET` and `STRIPE_WEBHOOK_SECRET`; `INTAKE_EXTERNAL_WEBHOOK_URL` remains optional.
 - The file-based DB at `data/store.json` is auto-created on first write. It can be deleted to reset state.
 - The `package-lock.json` is the lockfile; use `npm install` (not yarn/pnpm/bun).

@@ -40,6 +40,8 @@ interface InboundLeadPayload {
   purchaseRefiIntent?: unknown;
   funnelSource?: unknown;
   contactConsent?: unknown;
+  propertyZip?: unknown;
+  zip?: unknown;
 }
 
 const ALL_PROGRAMS: LoanProgram[] = [

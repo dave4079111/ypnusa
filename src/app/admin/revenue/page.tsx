@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { RevenueBreakdown } from "@/components/admin/revenue-breakdown";
 import { summarizeRevenuePulse } from "@/lib/revenue";
+import { requireAdminSession } from "@/lib/server-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export default function AdminRevenuePage() {
+export default async function AdminRevenuePage() {
+  await requireAdminSession();
   const revenue = summarizeRevenuePulse();
 
   return (

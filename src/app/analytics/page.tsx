@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { summarizeAnalyticsPulse } from "@/lib/analytics-core";
+import { requireAdminSession } from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
 
-export default function LoanPilotAnalytics() {
+export default async function LoanPilotAnalytics() {
+  await requireAdminSession();
   const pulse = summarizeAnalyticsPulse();
 
   return (

@@ -1,29 +1,21 @@
-import { AUTH_COOKIE_NAME, revokeSession } from "@/lib/auth";
+import { AUTH_COOKIE_NAME, revokeSession, sessionIdFromRequest } from "@/lib/auth";
 import { jsonError, jsonOk } from "@/lib/http";
+import { marketingUrl } from "@/lib/site";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function cookieValue(request: Request, name: string): string | undefined {
-  const cookie = request.headers.get("cookie");
-  if (!cookie) return undefined;
-  for (const item of cookie.split(";")) {
-    const separator = item.indexOf("=");
-    if (separator < 0 || item.slice(0, separator).trim() !== name) continue;
-    try {
-      return decodeURIComponent(item.slice(separator + 1).trim());
-    } catch {
-      return undefined;
-    }
-  }
-  return undefined;
-}
-
 function requestOriginIsAllowed(request: Request): boolean {
   const origin = request.headers.get("origin");
-  if (!origin) return request.headers.get("sec-fetch-site") !== "cross-site";
   const appOrigin =
     process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "") || "https://app.ypnus.com";
+  if (!origin) {
+    return (
+      process.env.NODE_ENV !== "production" &&
+      request.headers.get("sec-fetch-site") !== "cross-site"
+    );
+  }
   return origin === appOrigin;
 }
 
@@ -32,11 +24,14 @@ export function POST(request: Request) {
     return jsonError("Origin is not allowed.", 403, "ORIGIN_NOT_ALLOWED");
   }
 
-  revokeSession(cookieValue(request, AUTH_COOKIE_NAME));
-  const response = jsonOk(
-    { loggedOut: true },
-    { headers: { "Cache-Control": "no-store" } },
-  );
+  revokeSession(sessionIdFromRequest(request));
+  const response = request.headers.get("accept")?.includes("text/html")
+    ? NextResponse.redirect(marketingUrl("/"), 303)
+    : jsonOk(
+        { loggedOut: true },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+  response.headers.set("Cache-Control", "no-store");
   response.cookies.set(AUTH_COOKIE_NAME, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

@@ -9,6 +9,9 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ypn-auth-"));
 const secret = "sso-test-secret-that-is-longer-than-thirty-two-bytes";
 process.env.LOANPILOT_DATA_DIR = dataDir;
 process.env.SSO_JWT_SECRET = secret;
+process.env.SSO_JWT_ISSUER = "https://ypnus.com";
+process.env.SSO_JWT_AUDIENCE = "https://app.ypnus.com";
+process.env.SSO_ALLOWED_ORIGIN = "https://ypnus.com";
 process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3000";
 
 function jwt(payload: Record<string, unknown>, signingSecret = secret): string {
@@ -34,7 +37,11 @@ function claims(jti: string): Record<string, unknown> {
       name: "Morgan Loan Officer",
       email: "MORGAN@example.com",
       paidAccess: "1",
-      tier: "pro",
+      subscriptionStatus: "active",
+      subscriptionTier: "pro",
+      stripeCustomerId: "cus_42",
+      stripeSubscriptionId: "sub_42",
+      isAdmin: false,
       claimedZips: ["90210"],
     },
   };
@@ -45,6 +52,7 @@ describe("one-time SSO session flow", async () => {
   const sessionRoute = await import("../app/api/auth/session/route");
   const logoutRoute = await import("../app/api/auth/logout/route");
   const { AUTH_COOKIE_NAME } = await import("./auth");
+  const { readDb } = await import("./db");
 
   after(() => {
     fs.rmSync(dataDir, { recursive: true, force: true });
@@ -94,6 +102,12 @@ describe("one-time SSO session flow", async () => {
     const verifiedBody = await verified.json();
     assert.equal(verifiedBody.profile.email, "morgan@example.com");
     assert.equal(verifiedBody.profile.paidAccess, true);
+    assert.equal(verifiedBody.profile.subscriptionTier, "pro");
+    const subscription = readDb().revenueSubscriptions.find(
+      (item) => item.stripeSubscriptionId === "sub_42",
+    );
+    assert.equal(subscription?.source, "stripe");
+    assert.equal(subscription?.ownerLoId, "mlo_42");
 
     const replay = await callback.POST(callbackRequest());
     assert.equal(replay.status, 409);

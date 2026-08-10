@@ -1,16 +1,16 @@
 import { AUTH_COOKIE_NAME, AuthError, createSessionFromSso, verifySsoToken } from "@/lib/auth";
 import { jsonError } from "@/lib/http";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 import { appUrl } from "@/lib/site";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60;
+const DEFAULT_SESSION_TTL_SECONDS = 15 * 60;
 
-function allowedOrigin(): string {
-  return process.env.SSO_ALLOWED_ORIGIN?.trim() || "https://ypnus.com";
+function allowedOrigin(): string | undefined {
+  return process.env.SSO_ALLOWED_ORIGIN?.trim() || undefined;
 }
 
 function corsHeaders(request: Request): HeadersInit {
@@ -25,7 +25,7 @@ function corsHeaders(request: Request): HeadersInit {
 
 function originIsAllowed(request: Request): boolean {
   const origin = request.headers.get("origin");
-  return !origin || origin === allowedOrigin();
+  return Boolean(allowedOrigin()) && (!origin || origin === allowedOrigin());
 }
 
 function errorResponse(request: Request, error: unknown) {
@@ -73,14 +73,19 @@ async function tokenFromPost(request: Request): Promise<string | undefined> {
   return undefined;
 }
 
-function establishSession(request: Request, token: string | undefined) {
+async function establishSession(request: Request, token: string | undefined) {
+  if (!allowedOrigin()) {
+    return jsonError("SSO is not configured.", 503, "SSO_NOT_CONFIGURED", {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
   if (!originIsAllowed(request)) {
     return jsonError("Origin is not allowed.", 403, "ORIGIN_NOT_ALLOWED", {
       headers: { "Cache-Control": "no-store" },
     });
   }
 
-  const limited = rateLimit(`sso:${clientKey(request)}`, 20, 60_000);
+  const limited = await distributedRateLimit(`sso:${clientKey(request)}`, 20, 60_000);
   if (!limited.ok) {
     return jsonError("Too many SSO attempts.", 429, "RATE_LIMITED", {
       headers: {
@@ -97,7 +102,7 @@ function establishSession(request: Request, token: string | undefined) {
     const configuredTtl = Number(process.env.MLO_SESSION_TTL_SECONDS ?? "");
     const maxAge =
       Number.isSafeInteger(configuredTtl) && configuredTtl > 0
-        ? configuredTtl
+        ? Math.min(configuredTtl, 24 * 60 * 60)
         : DEFAULT_SESSION_TTL_SECONDS;
     response.cookies.set(AUTH_COOKIE_NAME, sessionId, {
       httpOnly: true,
@@ -118,14 +123,14 @@ function establishSession(request: Request, token: string | undefined) {
   }
 }
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
   const token = new URL(request.url).searchParams.get("token") ?? undefined;
-  return establishSession(request, token);
+  return await establishSession(request, token);
 }
 
 export async function POST(request: Request) {
   try {
-    return establishSession(request, await tokenFromPost(request));
+    return await establishSession(request, await tokenFromPost(request));
   } catch {
     return jsonError("Request body is invalid.", 400, "INVALID_BODY", {
       headers: {

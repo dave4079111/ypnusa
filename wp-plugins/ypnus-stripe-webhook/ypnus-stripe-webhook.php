@@ -27,6 +27,204 @@ register_activation_hook( __FILE__, 'ypnus_stripe_activate' );
 register_deactivation_hook( __FILE__, 'ypnus_stripe_deactivate' );
 add_action( 'ypnus_stripe_cleanup', 'ypnus_stripe_cleanup_events' );
 add_action( 'rest_api_init', 'ypnus_stripe_register_route' );
+add_action( 'admin_post_ypnus_app_sso', 'ypnus_app_sso_handler' );
+if ( function_exists( 'add_shortcode' ) ) {
+	add_shortcode( 'ypnus_app_login', 'ypnus_app_login_shortcode' );
+}
+
+function ypnus_sso_base64url( $value ) {
+	return rtrim( strtr( base64_encode( $value ), '+/', '-_' ), '=' );
+}
+
+function ypnus_sso_callback_url() {
+	$url = defined( 'YPNUS_APP_SSO_CALLBACK' )
+		? YPNUS_APP_SSO_CALLBACK
+		: 'https://app.ypnus.com/api/auth/sso/callback';
+	$url = esc_url_raw( $url );
+	return 'https' === wp_parse_url( $url, PHP_URL_SCHEME ) ? $url : '';
+}
+
+function ypnus_sso_claimed_zips( $user_id ) {
+	$raw = get_user_meta( $user_id, 'ypnus_claimed_zips', true );
+	if ( is_string( $raw ) ) {
+		$raw = preg_split( '/[\s,]+/', $raw );
+	}
+	if ( ! is_array( $raw ) ) {
+		return array();
+	}
+	$zips = array();
+	foreach ( $raw as $zip ) {
+		$zip = preg_replace( '/\D/', '', (string) $zip );
+		if ( 5 === strlen( $zip ) ) {
+			$zips[ $zip ] = true;
+		}
+	}
+	return array_keys( $zips );
+}
+
+function ypnus_app_login_shortcode() {
+	if ( ! is_user_logged_in() ) {
+		return sprintf(
+			'<a href="%s">Sign in to YPN USA</a>',
+			esc_url( wp_login_url( get_permalink() ) )
+		);
+	}
+	$user_id = get_current_user_id();
+	if ( '1' !== (string) get_user_meta( $user_id, 'ypnus_paid_access', true ) ) {
+		return '<p>An active YPN USA subscription is required to open the MLO dashboard.</p>';
+	}
+	return sprintf(
+		'<form method="post" action="%s"><input type="hidden" name="action" value="ypnus_app_sso">%s<button type="submit">Open MLO dashboard</button></form>',
+		esc_url( admin_url( 'admin-post.php' ) ),
+		wp_nonce_field( 'ypnus_app_sso', '_ypnus_sso_nonce', true, false )
+	);
+}
+
+function ypnus_app_sso_handler() {
+	if ( ! is_user_logged_in() ) {
+		auth_redirect();
+	}
+	check_admin_referer( 'ypnus_app_sso', '_ypnus_sso_nonce' );
+
+	$secret = defined( 'YPNUS_SSO_JWT_SECRET' ) && is_string( YPNUS_SSO_JWT_SECRET )
+		? trim( YPNUS_SSO_JWT_SECRET )
+		: '';
+	$callback = ypnus_sso_callback_url();
+	if ( strlen( $secret ) < 32 || ! $callback ) {
+		wp_die( 'YPN USA app SSO is not configured.', '', array( 'response' => 503 ) );
+	}
+
+	$user       = wp_get_current_user();
+	$user_id    = (int) $user->ID;
+	$tier       = ypnus_stripe_allowed_tier( get_user_meta( $user_id, 'ypnus_tier', true ) );
+	$status     = sanitize_key( get_user_meta( $user_id, 'ypnus_subscription_status', true ) );
+	$customer   = sanitize_text_field( get_user_meta( $user_id, 'ypnus_stripe_customer_id', true ) );
+	$subscriber = sanitize_text_field( get_user_meta( $user_id, 'ypnus_stripe_subscription_id', true ) );
+	$has_access = '1' === (string) get_user_meta( $user_id, 'ypnus_paid_access', true );
+	if (
+		! $has_access
+		|| ! in_array( $status, array( 'active', 'trialing' ), true )
+		|| ! $tier
+		|| ! $customer
+		|| ! $subscriber
+	) {
+		wp_die( 'An active paid YPN USA subscription is required.', '', array( 'response' => 403 ) );
+	}
+
+	$issued_at = time();
+	$header    = array(
+		'alg' => 'HS256',
+		'typ' => 'JWT',
+	);
+	$payload   = array(
+		'iss' => 'https://ypnus.com',
+		'aud' => 'https://app.ypnus.com',
+		'sub' => 'wp_' . $user_id,
+		'jti' => bin2hex( random_bytes( 24 ) ),
+		'iat' => $issued_at,
+		'nbf' => $issued_at,
+		'exp' => $issued_at + 60,
+		'mlo' => array(
+			'id'                   => 'wp_' . $user_id,
+			'name'                 => sanitize_text_field( $user->display_name ),
+			'email'                => sanitize_email( $user->user_email ),
+			'paidAccess'           => true,
+			'subscriptionStatus'   => $status,
+			'subscriptionTier'     => $tier,
+			'stripeCustomerId'     => $customer,
+			'stripeSubscriptionId' => $subscriber,
+			'isAdmin'              => current_user_can( 'manage_options' ),
+			'nmlsId'               => sanitize_text_field( get_user_meta( $user_id, 'ypnus_nmls_id', true ) ),
+			'company'              => sanitize_text_field( get_user_meta( $user_id, 'ypnus_company', true ) ),
+			'claimedZips'          => ypnus_sso_claimed_zips( $user_id ),
+		),
+	);
+	$segments  = array(
+		ypnus_sso_base64url( wp_json_encode( $header ) ),
+		ypnus_sso_base64url( wp_json_encode( $payload ) ),
+	);
+	$segments[] = ypnus_sso_base64url(
+		hash_hmac( 'sha256', implode( '.', $segments ), $secret, true )
+	);
+	$token = implode( '.', $segments );
+
+	nocache_headers();
+	header( 'Referrer-Policy: no-referrer' );
+	header( "Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; form-action " . esc_url_raw( $callback ) );
+	echo '<!doctype html><html><head><meta charset="utf-8"><title>Opening YPN USA</title></head><body>';
+	echo '<form id="ypnus-sso" method="post" action="' . esc_url( $callback ) . '">';
+	echo '<input type="hidden" name="token" value="' . esc_attr( $token ) . '">';
+	echo '<noscript><button type="submit">Continue to the MLO dashboard</button></noscript></form>';
+	echo '<script>document.getElementById("ypnus-sso").submit();</script></body></html>';
+	exit;
+}
+
+function ypnus_sync_entitlement_to_app( $event ) {
+	if ( ! defined( 'YPNUS_ENTITLEMENT_SYNC_SECRET' ) || ! is_string( YPNUS_ENTITLEMENT_SYNC_SECRET ) ) {
+		return true;
+	}
+	$secret = trim( YPNUS_ENTITLEMENT_SYNC_SECRET );
+	if ( strlen( $secret ) < 32 ) {
+		return false;
+	}
+	$endpoint = defined( 'YPNUS_APP_ENTITLEMENT_ENDPOINT' )
+		? esc_url_raw( YPNUS_APP_ENTITLEMENT_ENDPOINT )
+		: 'https://app.ypnus.com/api/webhooks/entitlements';
+	if ( 'https' !== wp_parse_url( $endpoint, PHP_URL_SCHEME ) ) {
+		return false;
+	}
+
+	$object      = isset( $event['data']['object'] ) && is_array( $event['data']['object'] )
+		? $event['data']['object']
+		: array();
+	$customer_id = isset( $object['customer'] ) ? sanitize_text_field( $object['customer'] ) : '';
+	$user        = ypnus_stripe_find_user_by_meta( 'ypnus_stripe_customer_id', $customer_id );
+	if ( ! $user ) {
+		return true;
+	}
+	$user_id         = (int) $user->ID;
+	$subscription_id = sanitize_text_field( get_user_meta( $user_id, 'ypnus_stripe_subscription_id', true ) );
+	$tier            = ypnus_stripe_allowed_tier( get_user_meta( $user_id, 'ypnus_tier', true ) );
+	$status          = sanitize_key( get_user_meta( $user_id, 'ypnus_subscription_status', true ) );
+	if ( ! $customer_id || ! $subscription_id || ! $tier || ! $status ) {
+		return false;
+	}
+	$payload = wp_json_encode(
+		array(
+			'eventId' => sanitize_text_field( $event['id'] ),
+			'mlo'     => array(
+				'id'                   => 'wp_' . $user_id,
+				'name'                 => sanitize_text_field( $user->display_name ),
+				'email'                => sanitize_email( $user->user_email ),
+				'company'              => sanitize_text_field( get_user_meta( $user_id, 'ypnus_company', true ) ),
+				'tier'                 => $tier,
+				'status'               => $status,
+				'stripeCustomerId'     => $customer_id,
+				'stripeSubscriptionId' => $subscription_id,
+				'claimedZips'          => ypnus_sso_claimed_zips( $user_id ),
+			),
+		)
+	);
+	$timestamp = (string) time();
+	$signature = hash_hmac( 'sha256', $timestamp . '.' . $payload, $secret );
+	$response  = wp_remote_post(
+		$endpoint,
+		array(
+			'timeout' => 8,
+			'headers' => array(
+				'Content-Type'      => 'application/json',
+				'X-YPNUS-Timestamp' => $timestamp,
+				'X-YPNUS-Signature' => $signature,
+			),
+			'body'    => $payload,
+		)
+	);
+	if ( is_wp_error( $response ) ) {
+		return false;
+	}
+	$code = wp_remote_retrieve_response_code( $response );
+	return $code >= 200 && $code < 300;
+}
 
 function ypnus_stripe_events_table() {
 	global $wpdb;
@@ -923,6 +1121,12 @@ function ypnus_stripe_webhook_handler( WP_REST_Request $request ) {
 			array( 'error' => isset( $result['error'] ) ? $result['error'] : 'processing_failed' ),
 			500
 		);
+	}
+
+	if ( ! ypnus_sync_entitlement_to_app( $event ) ) {
+		ypnus_stripe_release_event( $event_id );
+		ypnus_stripe_log( 'entitlement_sync_failed', array( 'event_id' => $event_id ) );
+		return ypnus_stripe_response( array( 'error' => 'entitlement_sync_failed' ), 500 );
 	}
 
 	if ( ! ypnus_stripe_complete_event( $event_id ) ) {

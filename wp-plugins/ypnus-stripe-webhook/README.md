@@ -24,6 +24,10 @@ Never paste real Stripe secrets into source control, WordPress options, or chat.
 
 ```php
 define( 'YPNUS_STRIPE_WEBHOOK_SECRET', 'whsec_REPLACE_IN_WP_CONFIG' );
+define( 'YPNUS_SSO_JWT_SECRET', 'REPLACE_WITH_THE_SAME_32_PLUS_BYTE_SECRET_AS_THE_APP' );
+define( 'YPNUS_APP_SSO_CALLBACK', 'https://app.ypnus.com/api/auth/sso/callback' );
+define( 'YPNUS_ENTITLEMENT_SYNC_SECRET', 'REPLACE_WITH_A_SEPARATE_32_PLUS_BYTE_SECRET' );
+define( 'YPNUS_APP_ENTITLEMENT_ENDPOINT', 'https://app.ypnus.com/api/webhooks/entitlements' );
 
 define(
 	'YPNUS_STRIPE_PAYMENT_LINK_TIERS',
@@ -57,6 +61,24 @@ define(
 ```
 
 Remove the retired secret after Stripe's rotation grace period.
+
+## MLO app SSO
+
+Place the `[ypnus_app_login]` shortcode on the authenticated account page. It
+renders a nonce-protected POST button only for users whose current Stripe
+entitlement has `ypnus_paid_access=1`. The handler creates a 60-second,
+one-time HS256 JWT containing the current subscription and MLO profile, then
+auto-posts it to `app.ypnus.com` so the token does not enter URL logs.
+
+`YPNUS_SSO_JWT_SECRET` must exactly match the app's `SSO_JWT_SECRET`, be at
+least 32 random bytes, and must not be reused as a Stripe or API credential.
+Changing subscription status to anything other than `active` or `trialing`
+prevents new app sessions; app sessions expire after 15 minutes by default.
+
+Every processed Stripe lifecycle event is also signed and posted to the app's
+entitlement endpoint. This updates real MRR records and immediately revokes app
+sessions on delinquency or cancellation. Stripe receives a retryable HTTP 500
+if this configured synchronization fails.
 
 ## Stripe metadata
 

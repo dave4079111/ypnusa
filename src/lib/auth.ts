@@ -1,13 +1,15 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { readDb, writeDb } from "./db";
-import type { MloSubscriberProfile } from "./types";
+import type {
+  LoanOfficerRecord,
+  MloSubscriberProfile,
+  RevenueSubscriptionRecord,
+} from "./types";
 
 export const AUTH_COOKIE_NAME =
   process.env.NODE_ENV === "production" ? "__Host-ypnus_session" : "ypnus_session";
 
-const DEFAULT_ISSUER = "https://ypnus.com";
-const DEFAULT_AUDIENCE = "https://app.ypnus.com";
-const DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60;
+const DEFAULT_SESSION_TTL_SECONDS = 15 * 60;
 const DEFAULT_MAX_TOKEN_TTL_SECONDS = 5 * 60;
 
 export class AuthError extends Error {
@@ -66,9 +68,11 @@ function hash(value: string): string {
   return createHash("sha256").update(value).digest("base64url");
 }
 
-function configuredPositiveInteger(name: string, fallback: number): number {
+function configuredPositiveInteger(name: string, fallback: number, maximum: number): number {
   const value = Number(process.env[name] ?? "");
-  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+  return Number.isSafeInteger(value) && value > 0
+    ? Math.min(value, maximum)
+    : fallback;
 }
 
 function validateAudience(aud: unknown, expected: string): boolean {
@@ -89,6 +93,31 @@ function extractProfile(payload: JsonRecord): MloSubscriberProfile {
   if (paidAccess !== true && paidAccess !== "1" && paidAccess !== 1) {
     throw new AuthError("The MLO subscription is not active.", "SUBSCRIPTION_REQUIRED", 403);
   }
+  const subscriptionStatus = optionalText(
+    nested.subscriptionStatus ?? payload.subscriptionStatus,
+    30,
+  );
+  if (subscriptionStatus !== "active" && subscriptionStatus !== "trialing") {
+    throw new AuthError("The MLO subscription is not active.", "SUBSCRIPTION_REQUIRED", 403);
+  }
+  const subscriptionTier = optionalText(nested.subscriptionTier ?? nested.tier, 40);
+  if (
+    subscriptionTier !== "starter" &&
+    subscriptionTier !== "pro" &&
+    subscriptionTier !== "elite"
+  ) {
+    throw new AuthError("SSO token has an invalid subscription tier.", "INVALID_SSO_CLAIMS", 401);
+  }
+  const stripeCustomerId = requiredText(
+    nested.stripeCustomerId,
+    "mlo.stripeCustomerId",
+    255,
+  );
+  const stripeSubscriptionId = requiredText(
+    nested.stripeSubscriptionId,
+    "mlo.stripeSubscriptionId",
+    255,
+  );
 
   const claimedZips = Array.isArray(nested.claimedZips)
     ? [...new Set(nested.claimedZips.filter((zip): zip is string => typeof zip === "string"))]
@@ -102,9 +131,13 @@ function extractProfile(payload: JsonRecord): MloSubscriberProfile {
     name,
     email,
     paidAccess: true,
+    subscriptionStatus,
+    isAdmin: nested.isAdmin === true,
     nmlsId: optionalText(nested.nmlsId, 40),
     company: optionalText(nested.company, 160),
-    subscriptionTier: optionalText(nested.subscriptionTier ?? nested.tier, 40),
+    subscriptionTier,
+    stripeCustomerId,
+    stripeSubscriptionId,
     claimedZips,
   };
 }
@@ -145,8 +178,11 @@ export function verifySsoToken(token: string, now = Date.now()): VerifiedSsoToke
   }
 
   const payload = decodeJsonSegment(encodedPayload, "payload");
-  const issuer = process.env.SSO_JWT_ISSUER?.trim() || DEFAULT_ISSUER;
-  const audience = process.env.SSO_JWT_AUDIENCE?.trim() || DEFAULT_AUDIENCE;
+  const issuer = process.env.SSO_JWT_ISSUER?.trim();
+  const audience = process.env.SSO_JWT_AUDIENCE?.trim();
+  if (!issuer || !audience) {
+    throw new AuthError("SSO is not configured.", "SSO_NOT_CONFIGURED", 503);
+  }
   if (payload.iss !== issuer || !validateAudience(payload.aud, audience)) {
     throw new AuthError("SSO token issuer or audience is invalid.", "INVALID_SSO_CLAIMS", 401);
   }
@@ -162,6 +198,7 @@ export function verifySsoToken(token: string, now = Date.now()): VerifiedSsoToke
   const maxTtl = configuredPositiveInteger(
     "SSO_JWT_MAX_TTL_SECONDS",
     DEFAULT_MAX_TOKEN_TTL_SECONDS,
+    10 * 60,
   );
   if (
     !Number.isSafeInteger(exp) ||
@@ -188,6 +225,7 @@ export function createSessionFromSso(verified: VerifiedSsoToken, now = Date.now(
   const sessionTtl = configuredPositiveInteger(
     "MLO_SESSION_TTL_SECONDS",
     DEFAULT_SESSION_TTL_SECONDS,
+    24 * 60 * 60,
   );
   const jtiHash = hash(verified.jti);
   let replayed = false;
@@ -212,6 +250,61 @@ export function createSessionFromSso(verified: VerifiedSsoToken, now = Date.now(
       expiresAt: new Date(now + sessionTtl * 1000).toISOString(),
       profile: verified.profile,
     });
+    const officerIndex = db.loanOfficers.findIndex(
+      (officer) => officer.id === verified.profile.id,
+    );
+    const existingOfficer = officerIndex >= 0 ? db.loanOfficers[officerIndex] : undefined;
+    const officer: LoanOfficerRecord = {
+      id: verified.profile.id,
+      name: verified.profile.name,
+      email: verified.profile.email,
+      specialties:
+        existingOfficer?.specialties ??
+        ["FHA", "VA", "CONVENTIONAL", "DSCR", "HELOC", "REFI", "JUMBO"],
+      weeklyWindows:
+        existingOfficer?.weeklyWindows ??
+        [1, 2, 3, 4, 5].map((dow) => ({
+          dow,
+          startMin: 9 * 60,
+          endMin: 17 * 60,
+        })),
+      calendarProvider: existingOfficer?.calendarProvider,
+      calendarId: existingOfficer?.calendarId,
+      calendarTimeZone: existingOfficer?.calendarTimeZone,
+      calendlyUrl: existingOfficer?.calendlyUrl,
+    };
+    if (officerIndex >= 0) db.loanOfficers[officerIndex] = officer;
+    else db.loanOfficers.push(officer);
+
+    const subscriptionIndex = db.revenueSubscriptions.findIndex(
+      (subscription) =>
+        subscription.stripeSubscriptionId === verified.profile.stripeSubscriptionId,
+    );
+    const subscription: RevenueSubscriptionRecord = {
+      id:
+        subscriptionIndex >= 0
+          ? db.revenueSubscriptions[subscriptionIndex].id
+          : `sub_stripe_${hash(verified.profile.stripeSubscriptionId ?? "").slice(0, 24)}`,
+      createdAt:
+        subscriptionIndex >= 0
+          ? db.revenueSubscriptions[subscriptionIndex].createdAt
+          : new Date(now).toISOString(),
+      startedAt:
+        subscriptionIndex >= 0
+          ? db.revenueSubscriptions[subscriptionIndex].startedAt
+          : new Date(now).toISOString(),
+      tier: verified.profile.subscriptionTier,
+      status: verified.profile.subscriptionStatus,
+      source: "stripe" as const,
+      stripeCustomerId: verified.profile.stripeCustomerId,
+      stripeSubscriptionId: verified.profile.stripeSubscriptionId,
+      ownerLoId: verified.profile.id,
+      ownerEmail: verified.profile.email,
+      company: verified.profile.company,
+      claimedZips: verified.profile.claimedZips,
+    };
+    if (subscriptionIndex >= 0) db.revenueSubscriptions[subscriptionIndex] = subscription;
+    else db.revenueSubscriptions.push(subscription);
   });
 
   if (replayed) {
@@ -223,9 +316,32 @@ export function createSessionFromSso(verified: VerifiedSsoToken, now = Date.now(
 export function verifySession(sessionId: string | undefined, now = Date.now()) {
   if (!sessionId) return null;
   const idHash = hash(sessionId);
-  const session = readDb().authSessions.find((candidate) => candidate.idHash === idHash);
+  const db = readDb();
+  const session = db.authSessions.find((candidate) => candidate.idHash === idHash);
   if (!session || Date.parse(session.expiresAt) <= now) return null;
+  const entitlement = db.revenueSubscriptions.find(
+    (subscription) =>
+      subscription.ownerLoId === session.profile.id &&
+      subscription.stripeSubscriptionId === session.profile.stripeSubscriptionId &&
+      (subscription.status === "active" || subscription.status === "trialing"),
+  );
+  if (!entitlement) return null;
   return session;
+}
+
+export function sessionIdFromRequest(request: Request): string | undefined {
+  const cookie = request.headers.get("cookie");
+  if (!cookie) return undefined;
+  for (const item of cookie.split(";")) {
+    const separator = item.indexOf("=");
+    if (separator < 0 || item.slice(0, separator).trim() !== AUTH_COOKIE_NAME) continue;
+    try {
+      return decodeURIComponent(item.slice(separator + 1).trim());
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 export function revokeSession(sessionId: string | undefined): void {

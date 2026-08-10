@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { GbpLinkingWidget } from "@/components/local-seo/gbp-linking-widget";
 import { getPublicBusinessProfile } from "@/lib/local-seo";
+import { requireMloSession } from "@/lib/server-auth";
 
 export const metadata: Metadata = {
   title: "Local SEO & Google Business Profile",
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function LocalSeoDashboardPage() {
+export default async function LocalSeoDashboardPage() {
+  await requireMloSession();
   const business = getPublicBusinessProfile();
 
   return (

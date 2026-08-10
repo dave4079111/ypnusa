@@ -14,6 +14,7 @@ import type {
   LoAlertRecord,
   MloLeadSubmissionRecord,
   PropertyEvaluationRecord,
+  ProcessedEntitlementEventRecord,
   RevenueSubscriptionRecord,
   ScheduledFollowUpRecord,
 } from "./types";
@@ -145,10 +146,15 @@ const defaultRevenueSubscriptions: RevenueSubscriptionRecord[] = [
   },
 ];
 
+function demoSeedDataEnabled(): boolean {
+  return process.env.NODE_ENV !== "production" || process.env.LOANPILOT_DEMO_MODE === "1";
+}
+
 const emptyDb = (): DbShape => ({
-  loanOfficers: defaultLoanOfficers,
+  loanOfficers: demoSeedDataEnabled() ? defaultLoanOfficers : [],
   authSessions: [],
   consumedSsoTokens: [],
+  processedEntitlementEvents: [],
   mloLeadSubmissions: [],
   sessions: [],
   borrowerLeads: [],
@@ -159,7 +165,7 @@ const emptyDb = (): DbShape => ({
   analyticsEvents: [],
   demoRequests: [],
   propertyEvaluations: [],
-  revenueSubscriptions: defaultRevenueSubscriptions,
+  revenueSubscriptions: demoSeedDataEnabled() ? defaultRevenueSubscriptions : [],
 });
 
 function describeFsError(error: unknown): string {
@@ -184,9 +190,13 @@ function normalize(snapshot: unknown): DbShape {
   );
 
   return {
-    loanOfficers: loanOfficers.length > 0 ? loanOfficers : defaultLoanOfficers,
+    loanOfficers:
+      loanOfficers.length > 0 || !demoSeedDataEnabled() ? loanOfficers : defaultLoanOfficers,
     authSessions: arrayOrEmpty<AuthSessionRecord>(parsed.authSessions),
     consumedSsoTokens: arrayOrEmpty<ConsumedSsoTokenRecord>(parsed.consumedSsoTokens),
+    processedEntitlementEvents: arrayOrEmpty<ProcessedEntitlementEventRecord>(
+      parsed.processedEntitlementEvents,
+    ),
     mloLeadSubmissions: arrayOrEmpty<MloLeadSubmissionRecord>(parsed.mloLeadSubmissions),
     sessions: sessions.map((session) => ({
       ...session,
@@ -205,7 +215,9 @@ function normalize(snapshot: unknown): DbShape {
     demoRequests: arrayOrEmpty<DemoRequestRecord>(parsed.demoRequests),
     propertyEvaluations: arrayOrEmpty<PropertyEvaluationRecord>(parsed.propertyEvaluations),
     revenueSubscriptions:
-      revenueSubscriptions.length > 0 ? revenueSubscriptions : defaultRevenueSubscriptions,
+      revenueSubscriptions.length > 0 || !demoSeedDataEnabled()
+        ? revenueSubscriptions
+        : defaultRevenueSubscriptions,
   };
 }
 
@@ -217,8 +229,9 @@ let lastStorageError: string | undefined;
 function ensureDataDir(): boolean {
   try {
     if (!fs.existsSync(dataDir())) {
-      fs.mkdirSync(dataDir(), { recursive: true });
+      fs.mkdirSync(dataDir(), { recursive: true, mode: 0o700 });
     }
+    fs.chmodSync(dataDir(), 0o700);
     lastStorageError = undefined;
     return true;
   } catch (error) {
@@ -238,8 +251,9 @@ function flushToDisk(db: DbShape): void {
   const target = dbPath();
   const tmp = `${target}.${process.pid}.tmp`;
   try {
-    fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
+    fs.writeFileSync(tmp, JSON.stringify(db, null, 2), { mode: 0o600 });
     fs.renameSync(tmp, target);
+    fs.chmodSync(target, 0o600);
     lastStorageError = undefined;
   } catch (error) {
     // Read-only/serverless filesystem: keep serving from memory. Stop retrying

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { NurturePipeline } from "@/components/portal/nurture-pipeline";
 import { buildNurtureDashboard } from "@/lib/nurture-dashboard";
+import { requireMloSession } from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,9 @@ function shortDate(value: string): string {
   }).format(new Date(value));
 }
 
-export default function LeadNurturePortalPage() {
-  const dashboard = buildNurtureDashboard();
+export default async function LeadNurturePortalPage() {
+  const session = await requireMloSession();
+  const dashboard = buildNurtureDashboard(session.profile.id);
   const metricCards = [
     ["Active AI conversations", dashboard.totals.activeConversations],
     ["Upcoming appointments", dashboard.totals.upcomingAppointments],
@@ -46,12 +48,19 @@ export default function LeadNurturePortalPage() {
               conversions from one live ledger.
             </p>
           </div>
-          <Link
-            href="/"
-            className="w-fit rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10"
-          >
-            Back to YPN USA
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-white/60">
+              {session.profile.name} · {session.profile.subscriptionTier}
+            </span>
+            <form action="/api/auth/logout" method="post">
+              <button
+                type="submit"
+                className="w-fit rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/10"
+              >
+                Sign out
+              </button>
+            </form>
+          </div>
         </header>
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

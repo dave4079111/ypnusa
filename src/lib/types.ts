@@ -38,6 +38,7 @@ export interface BorrowerAnswers {
   employment?: string;
   veteranStatus?: "yes" | "no" | "unsure";
   propertyType?: string;
+  propertyZip?: string;
   purchaseRefiIntent?: "purchase" | "refinance" | "unsure";
   timeline?: string;
   estimatedDownPaymentUsd?: number;
@@ -91,15 +92,22 @@ export interface LoanOfficerRecord {
   calendlyUrl?: string;
 }
 
-export interface MloSubscriberProfile {
+export interface MloLeadProfile {
   id: string;
   name: string;
   email: string;
-  paidAccess: true;
   nmlsId?: string;
   company?: string;
-  subscriptionTier?: string;
   claimedZips: string[];
+}
+
+export interface MloSubscriberProfile extends MloLeadProfile {
+  paidAccess: true;
+  subscriptionStatus: "active" | "trialing";
+  isAdmin: boolean;
+  subscriptionTier: "starter" | "pro" | "elite";
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
 }
 
 export interface AuthSessionRecord {
@@ -115,10 +123,15 @@ export interface ConsumedSsoTokenRecord {
   expiresAt: string;
 }
 
+export interface ProcessedEntitlementEventRecord {
+  eventId: string;
+  processedAt: string;
+}
+
 export interface MloLeadSubmissionRecord {
   eventId: string;
   createdAt: string;
-  mlo: MloSubscriberProfile;
+  mlo: MloLeadProfile;
   borrower: BorrowerAnswers;
   intakeSessionId: string;
   borrowerLeadId: string;
@@ -246,6 +259,7 @@ export interface PropertyEvaluationRecord {
   estimatedLtvPct: number;
   contactConsent: true;
   source: string;
+  assignedLoId?: string;
   status: "new" | "contacted";
 }
 
@@ -254,8 +268,10 @@ export interface RevenueSubscriptionRecord {
   createdAt: string;
   startedAt: string;
   tier: PricingTierId;
-  status: "trialing" | "active" | "cancelled";
-  source: "seed" | "demo_request" | "admin_adjustment";
+  status: "trialing" | "active" | "past_due" | "cancelled";
+  source: "stripe" | "seed" | "demo_request" | "admin_adjustment";
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
   ownerLoId?: string;
   ownerEmail?: string;
   company?: string;
@@ -270,6 +286,7 @@ export interface DbShape {
   loanOfficers: LoanOfficerRecord[];
   authSessions: AuthSessionRecord[];
   consumedSsoTokens: ConsumedSsoTokenRecord[];
+  processedEntitlementEvents: ProcessedEntitlementEventRecord[];
   mloLeadSubmissions: MloLeadSubmissionRecord[];
   sessions: IntakeSessionRecord[];
   borrowerLeads: BorrowerLeadRecord[];

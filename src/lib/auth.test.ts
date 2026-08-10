@@ -13,11 +13,13 @@ describe("WordPress to app SSO", async () => {
   const {
     createAppSessionToken,
     createWordpressHandoffToken,
+    appSessionCookieName,
     verifyAppSessionToken,
     verifyWordpressHandoffToken,
   } = await import("./auth");
   const { consumeSsoExchange } = await import("./db");
   const { GET } = await import("../app/auth/callback/route");
+  const { proxy } = await import("../proxy");
 
   const handoffInput = {
     sub: "42",
@@ -108,5 +110,35 @@ describe("WordPress to app SSO", async () => {
     const replay = GET(request);
     assert.equal(replay.status, 307);
     assert.match(replay.headers.get("location") ?? "", /token_already_used/);
+  });
+
+  it("protects dashboard pages and operational APIs at the proxy boundary", () => {
+    const pageResponse = proxy(new NextRequest("http://localhost/dashboard"));
+    assert.equal(pageResponse.status, 307);
+    assert.equal(
+      pageResponse.headers.get("location"),
+      "https://ypnus.com/wp-admin/admin-post.php?action=ypnus_app_sso",
+    );
+
+    const apiResponse = proxy(new NextRequest("http://localhost/api/analytics/summary"));
+    assert.equal(apiResponse.status, 401);
+
+    const handoff = verifyWordpressHandoffToken(
+      createWordpressHandoffToken(
+        { ...handoffInput, jti: "proxy_session" },
+        undefined,
+        1_900_000_000,
+      ),
+      undefined,
+      1_900_000_010,
+    );
+    const session = createAppSessionToken(handoff, undefined, 1_900_000_010);
+    const authorized = proxy(
+      new NextRequest("http://localhost/dashboard", {
+        headers: { cookie: `${appSessionCookieName()}=${session}` },
+      }),
+    );
+    assert.equal(authorized.status, 200);
+    assert.equal(authorized.headers.get("x-middleware-next"), "1");
   });
 });

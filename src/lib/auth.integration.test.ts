@@ -56,7 +56,7 @@ describe("one-time SSO session flow", async () => {
     createSessionFromSso,
     verifySsoToken,
   } = await import("./auth");
-  const { readDb } = await import("./db");
+  const { readDb, writeDb } = await import("./db");
 
   after(() => {
     fs.rmSync(dataDir, { recursive: true, force: true });

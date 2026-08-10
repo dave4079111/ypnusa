@@ -88,6 +88,9 @@ limiting.
       values, webhook idempotency records, leads, and nurture jobs before
       horizontal scaling. The current JSON store is suitable only for one
       persistent Node process.
+- [ ] Keep exactly one application instance while the JSON adapter is active;
+      `render.yaml` enforces this. Do not enable autoscaling until the Postgres
+      schema is wired into the runtime adapter.
 - [ ] Set `LOANPILOT_DATA_DIR` to a persistent writable directory and verify
       `/api/health` reports persistent storage.
 - [ ] Back up the data store, encrypt it at rest, restrict filesystem

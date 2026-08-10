@@ -12,6 +12,7 @@ services:
     name: ypnusa
     runtime: node
     plan: starter
+    numInstances: 1
     branch: main
     autoDeploy: true
     buildCommand: npm ci && npm run build

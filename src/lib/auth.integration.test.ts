@@ -75,6 +75,26 @@ describe("one-time SSO session flow", async () => {
     assert.equal((await response.json()).code, "INVALID_SSO_SIGNATURE");
   });
 
+  it("rejects query-string tokens and POSTs without an origin", async () => {
+    const token = jwt(claims("transport-policy"));
+    const getResponse = callback.GET(
+      new Request(
+        `http://localhost:3000/api/auth/sso/callback?token=${encodeURIComponent(token)}`,
+      ),
+    );
+    assert.equal(getResponse.status, 405);
+
+    const postResponse = await callback.POST(
+      new Request("http://localhost:3000/api/auth/sso/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      }),
+    );
+    assert.equal(postResponse.status, 403);
+    assert.equal((await postResponse.json()).code, "ORIGIN_REQUIRED");
+  });
+
   it("creates an HTTP-only session, verifies it, prevents replay, and logs out", async () => {
     const token = jwt(claims("one-time-jti"));
     const callbackRequest = () =>
@@ -128,7 +148,7 @@ describe("one-time SSO session flow", async () => {
     assert.equal(logout.status, 200);
     assert.match(logout.headers.get("set-cookie") ?? "", /Max-Age=0/i);
 
-    const afterLogout = sessionRoute.GET(
+    const afterLogout = await sessionRoute.GET(
       new Request("http://localhost:3000/api/auth/session", {
         headers: { Cookie: `${AUTH_COOKIE_NAME}=${sessionId}` },
       }),

@@ -1,6 +1,6 @@
 import { calendarConnectionStatus } from "./calendar";
 import { readDb } from "./db";
-import type { FollowUpChannel, LoanProgram } from "./types";
+import type { FollowUpChannel, LoanProgram, Urgency } from "./types";
 
 export interface NurtureDashboardRow {
   leadId: string;
@@ -10,6 +10,7 @@ export interface NurtureDashboardRow {
   creditTier: string;
   score: number;
   quality: string;
+  urgency: Urgency;
   officerName: string;
   state: "Awaiting booking" | "Appointment booked" | "Nurture active" | "Outreach failed";
   nextFollowUp?: string;
@@ -17,6 +18,13 @@ export interface NurtureDashboardRow {
   appointmentStart?: string;
   meetingUrl?: string;
 }
+
+const urgencyRank: Record<Urgency, number> = {
+  critical: 0,
+  high: 1,
+  standard: 2,
+  low: 3,
+};
 
 function safeDisplayName(name?: string): string {
   const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -59,6 +67,7 @@ export function buildNurtureDashboard(loId?: string) {
         creditTier: lead.answers.estimatedCreditBand ?? "Not provided",
         score: Math.round(lead.qualification.programScores.overallScore ?? 0),
         quality: lead.qualification.leadQuality,
+        urgency: lead.qualification.urgency,
         officerName: officer?.name ?? "Unassigned",
         state,
         nextFollowUp: nextFollowUp?.scheduledAt,
@@ -68,8 +77,15 @@ export function buildNurtureDashboard(loId?: string) {
       };
     })
     .sort((a, b) => {
-      const aTime = a.appointmentStart ?? a.nextFollowUp ?? "";
-      const bTime = b.appointmentStart ?? b.nextFollowUp ?? "";
+      const urgencyDifference = urgencyRank[a.urgency] - urgencyRank[b.urgency];
+      if (urgencyDifference !== 0) return urgencyDifference;
+      if (a.score !== b.score) return b.score - a.score;
+
+      const aTime = a.appointmentStart ?? a.nextFollowUp;
+      const bTime = b.appointmentStart ?? b.nextFollowUp;
+      if (!aTime && !bTime) return a.leadId.localeCompare(b.leadId);
+      if (!aTime) return 1;
+      if (!bTime) return -1;
       return Date.parse(aTime) - Date.parse(bTime);
     });
 

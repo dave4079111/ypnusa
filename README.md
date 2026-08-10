@@ -26,6 +26,8 @@ Hostinger restore files for the currently-broken app homepage live in [`hostinge
 **Working product demo:**
 - `/embed/intake` — the borrower intake assistant in an iframe-friendly surface (embed on any MLO site)
 - The same assistant runs inline in the homepage "Live demo" section
+- `/portal/nurture` — urgency-ranked MLO borrower queue with search, program/state filters, outreach,
+  and appointment visibility
 - `/mortgage-broker/[city]-[state]` and `/zip/[zipcode]` — curated, source-aware local SEO
   territories (unknown locations 404 rather than generating thin pages)
 - `/dashboard/local-seo` — MLO NAP, Google Business Profile, review-feed, and review-link readiness

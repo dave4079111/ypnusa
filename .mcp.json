@@ -29,6 +29,9 @@
       "command": "npx",
       "args": ["--package=hostinger-api-mcp@latest", "hostinger-vps-mcp"],
       "env": { "HOSTINGER_API_TOKEN": "${HOSTINGER_API_TOKEN}" }
+    },
+    "wpvibe": {
+      "url": "https://mcp.wpvibe.ai/mcp"
     }
   }
 }

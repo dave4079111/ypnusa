@@ -93,6 +93,9 @@ CORS, persistence, nurture, and release checks in
    (or this PR branch for a preview).
 
 ### Option B — API archive deploy
+Install project dependencies with `npm ci` and ensure the system `zip` utility
+is available before using the API deploy script.
+
 ```bash
 export HOSTINGER_API_TOKEN=…   # hPanel → API
 npm run deploy:hostinger:list

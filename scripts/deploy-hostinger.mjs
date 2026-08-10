@@ -38,7 +38,7 @@ const APP_ENV = {
   NEXT_PUBLIC_SITE_URL: "https://app.ypnus.com",
   NEXT_PUBLIC_MARKETING_SITE_URL: "https://ypnus.com",
   YPNUS_WP_API_BASE: "https://ypnus.com/wp-json/ypnus/v1",
-  LOANPILOT_DATA_DIR: "/tmp/ypnus-data",
+  LOANPILOT_DATA_DIR: "SET_TO_PERSISTENT_PATH_OUTSIDE_RELEASE",
 };
 
 function die(msg, code = 1) {
@@ -109,14 +109,7 @@ async function resolveWebsite(domain) {
 
 function ensureTus() {
   if (tus) return tus;
-  console.log("Installing tus-js-client…");
-  const r = spawnSync("npm", ["install", "--no-save", "tus-js-client@4"], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
-  if (r.status !== 0) die("Failed to install tus-js-client");
-  tus = require("tus-js-client");
-  return tus;
+  die("tus-js-client is missing. Run npm ci before deploying.");
 }
 
 function makeArchive() {

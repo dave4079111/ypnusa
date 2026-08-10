@@ -205,6 +205,9 @@ function normalize(snapshot: unknown): DbShape {
     sessions: sessions.map((session) => ({
       ...session,
       status: session.status ?? "collecting",
+      expiresAt:
+        session.expiresAt ??
+        new Date(Date.parse(session.createdAt) + 24 * 60 * 60_000).toISOString(),
     })),
     borrowerLeads: arrayOrEmpty<BorrowerLeadRecord>(parsed.borrowerLeads),
     crmLeads: arrayOrEmpty<CrmLeadRecord>(parsed.crmLeads),

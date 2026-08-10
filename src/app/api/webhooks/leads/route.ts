@@ -259,6 +259,7 @@ export async function POST(request: Request) {
   const session: IntakeSessionRecord = {
     id: generateId("sess"),
     createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
     funnelSource: answers.funnelSource ?? "lead_webhook",
     loanProgram: answers.loanProgram,
     answers,

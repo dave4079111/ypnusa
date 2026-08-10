@@ -1104,6 +1104,9 @@ function ypnus_stripe_webhook_handler( WP_REST_Request $request ) {
 	if ( ! is_string( $payload ) || '' === $payload ) {
 		return ypnus_stripe_response( array( 'error' => 'empty_payload' ), 400 );
 	}
+	if ( strlen( $payload ) > 1048576 ) {
+		return ypnus_stripe_response( array( 'error' => 'payload_too_large' ), 413 );
+	}
 
 	$verified = ypnus_stripe_verify_signature( $payload, $signature, $secrets );
 	if ( ! $verified['ok'] ) {

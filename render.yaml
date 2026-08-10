@@ -58,6 +58,8 @@ services:
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN
         sync: false
+      - key: TRUSTED_PROXY_MODE
+        value: render
       - key: OUTREACH_WEBHOOK_URL
         sync: false
       - key: OUTREACH_WEBHOOK_TOKEN

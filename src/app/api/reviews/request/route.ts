@@ -1,5 +1,5 @@
 import { getPublicBusinessProfile } from "@/lib/local-seo";
-import { requireBearerSecret } from "@/lib/http";
+import { parseJsonBody, requireBearerSecret } from "@/lib/http";
 import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 import {
   buildReviewRequestMessage,
@@ -24,12 +24,14 @@ export async function POST(request: Request) {
     );
   }
 
-  let payload: unknown;
-  try {
-    payload = (await request.json()) as unknown;
-  } catch {
-    return Response.json({ error: "Request body must be valid JSON." }, { status: 400 });
+  const parsed = await parseJsonBody(request, 65_536);
+  if (!parsed.ok) {
+    return Response.json(
+      { error: parsed.error },
+      { status: parsed.code === "BODY_TOO_LARGE" ? 413 : 400 },
+    );
   }
+  const payload = parsed.data;
 
   const input = parseReviewRequestInput(payload);
   if (!input) {

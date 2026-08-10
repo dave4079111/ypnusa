@@ -214,6 +214,7 @@ export interface AppointmentRecord {
 export interface IntakeSessionRecord {
   id: string;
   createdAt: string;
+  expiresAt?: string;
   funnelSource: string;
   loanProgram: LoanProgram;
   answers: BorrowerAnswers;

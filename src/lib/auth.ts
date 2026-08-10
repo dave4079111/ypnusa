@@ -229,12 +229,37 @@ export function createSessionFromSso(verified: VerifiedSsoToken, now = Date.now(
   );
   const jtiHash = hash(verified.jti);
   let replayed = false;
+  let entitlementRejected = false;
 
   writeDb((db) => {
     db.authSessions = db.authSessions.filter((session) => Date.parse(session.expiresAt) > now);
     db.consumedSsoTokens = db.consumedSsoTokens.filter(
       (consumed) => Date.parse(consumed.expiresAt) > now,
     );
+    const synchronizedSubscription = db.revenueSubscriptions.find(
+      (subscription) =>
+        subscription.stripeSubscriptionId === verified.profile.stripeSubscriptionId,
+    );
+    if (
+      process.env.NODE_ENV === "production" &&
+      (
+        !synchronizedSubscription ||
+        synchronizedSubscription.source !== "stripe" ||
+        synchronizedSubscription.ownerLoId !== verified.profile.id ||
+        synchronizedSubscription.stripeCustomerId !==
+          verified.profile.stripeCustomerId ||
+        synchronizedSubscription.tier !== verified.profile.subscriptionTier ||
+        (
+          synchronizedSubscription.status !== "active" &&
+          synchronizedSubscription.status !== "trialing"
+        ) ||
+        synchronizedSubscription.claimedZips.slice().sort().join(",") !==
+          verified.profile.claimedZips.slice().sort().join(",")
+      )
+    ) {
+      entitlementRejected = true;
+      return;
+    }
     if (db.consumedSsoTokens.some((consumed) => consumed.jtiHash === jtiHash)) {
       replayed = true;
       return;
@@ -276,10 +301,9 @@ export function createSessionFromSso(verified: VerifiedSsoToken, now = Date.now(
     if (officerIndex >= 0) db.loanOfficers[officerIndex] = officer;
     else db.loanOfficers.push(officer);
 
-    const subscriptionIndex = db.revenueSubscriptions.findIndex(
-      (subscription) =>
-        subscription.stripeSubscriptionId === verified.profile.stripeSubscriptionId,
-    );
+    const subscriptionIndex = synchronizedSubscription
+      ? db.revenueSubscriptions.indexOf(synchronizedSubscription)
+      : -1;
     const subscription: RevenueSubscriptionRecord = {
       id:
         subscriptionIndex >= 0
@@ -294,7 +318,8 @@ export function createSessionFromSso(verified: VerifiedSsoToken, now = Date.now(
           ? db.revenueSubscriptions[subscriptionIndex].startedAt
           : new Date(now).toISOString(),
       tier: verified.profile.subscriptionTier,
-      status: verified.profile.subscriptionStatus,
+      status:
+        synchronizedSubscription?.status ?? verified.profile.subscriptionStatus,
       source: "stripe" as const,
       stripeCustomerId: verified.profile.stripeCustomerId,
       stripeSubscriptionId: verified.profile.stripeSubscriptionId,
@@ -311,10 +336,16 @@ export function createSessionFromSso(verified: VerifiedSsoToken, now = Date.now(
           ? db.revenueSubscriptions[subscriptionIndex].currency
           : undefined,
     };
-    if (subscriptionIndex >= 0) db.revenueSubscriptions[subscriptionIndex] = subscription;
-    else db.revenueSubscriptions.push(subscription);
+    if (subscriptionIndex < 0) db.revenueSubscriptions.push(subscription);
   });
 
+  if (entitlementRejected) {
+    throw new AuthError(
+      "The synchronized subscription is inactive or does not match this SSO token.",
+      "SUBSCRIPTION_REQUIRED",
+      403,
+    );
+  }
   if (replayed) {
     throw new AuthError("SSO token has already been used.", "SSO_TOKEN_REPLAYED", 409);
   }

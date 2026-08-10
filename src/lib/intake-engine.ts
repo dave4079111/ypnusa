@@ -106,6 +106,15 @@ export async function intakeTick(payload: IntakeTickRequest): Promise<IntakeTick
         answers: { loanProgram: program },
       });
     }
+    if (
+      session.expiresAt &&
+      Date.parse(session.expiresAt) <= Date.now()
+    ) {
+      return baseFail("Session expired—restart the concierge.", {
+        loanProgram: program,
+        answers: { loanProgram: program },
+      });
+    }
 
     if (session.loanProgram !== program) {
       return baseFail("Program lanes lock per borrower session.", {
@@ -121,6 +130,7 @@ export async function intakeTick(payload: IntakeTickRequest): Promise<IntakeTick
     session = {
       id: generateId("sess"),
       createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
       funnelSource: resolveFunnel(payload.funnelSource),
       loanProgram: program,
       status: "collecting",

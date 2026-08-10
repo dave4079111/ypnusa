@@ -18,10 +18,10 @@ export async function GET(request: Request) {
       {
         service: "ypnusa-app",
         ready,
-        integrations: readiness.integrations,
-        issueCount: readiness.missing.length + (storage.persistent ? 0 : 1),
         ...(detailAuthorized
           ? {
+              integrations: readiness.integrations,
+              issueCount: readiness.missing.length + (storage.persistent ? 0 : 1),
               missing: readiness.missing,
               storage,
             }

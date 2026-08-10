@@ -81,7 +81,7 @@ export function MortgageIntakeChat(props: {
     if (hasHydratedFsRef.current) return;
     hasHydratedFsRef.current = true;
     try {
-      const stored = window.localStorage.getItem(STORAGE_KEY);
+      const stored = window.sessionStorage.getItem(STORAGE_KEY);
       if (stored) {
         sessionIdRef.current = stored;
         // Hydrate after SSR so server/client markup stay aligned until mount
@@ -126,7 +126,7 @@ export function MortgageIntakeChat(props: {
     sessionIdRef.current = id;
     setSessionIdState(id);
     try {
-      window.localStorage.setItem(STORAGE_KEY, id);
+      window.sessionStorage.setItem(STORAGE_KEY, id);
     } catch {
       /** noop */
     }
@@ -136,7 +136,7 @@ export function MortgageIntakeChat(props: {
     sessionIdRef.current = null;
     setSessionIdState(null);
     try {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.sessionStorage.removeItem(STORAGE_KEY);
     } catch {
       /** noop */
     }

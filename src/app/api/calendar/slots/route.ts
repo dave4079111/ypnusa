@@ -1,11 +1,22 @@
 import { listSyncedAvailableSlots } from "@/lib/calendar";
 import { jsonError, jsonOk, logApiError } from "@/lib/http";
+import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
+    const limited = await distributedRateLimit(
+      `calendar-slots:${clientKey(request)}`,
+      60,
+      60_000,
+    );
+    if (!limited.ok) {
+      return jsonError("Too many calendar requests.", 429, "RATE_LIMITED", {
+        headers: { "Retry-After": String(limited.retryAfter) },
+      });
+    }
     const { searchParams } = new URL(request.url);
     const loId = searchParams.get("loId")?.trim() || undefined;
     const horizon = Number(searchParams.get("horizon") ?? "12");

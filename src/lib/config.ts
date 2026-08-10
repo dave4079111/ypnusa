@@ -83,6 +83,7 @@ export interface ProductionReadiness {
     embeds: boolean;
     demoSafe: boolean;
     crmMirror: boolean;
+    trustedProxy: boolean;
   };
 }
 
@@ -106,6 +107,10 @@ export function productionReadiness(): ProductionReadiness {
   requireCheck(configured("LOANPILOT_DATA_DIR"), "LOANPILOT_DATA_DIR");
   requireCheck(httpsUrl("UPSTASH_REDIS_REST_URL"), "UPSTASH_REDIS_REST_URL");
   requireCheck(configured("UPSTASH_REDIS_REST_TOKEN"), "UPSTASH_REDIS_REST_TOKEN");
+  const trustedProxy = ["cloudflare", "hostinger", "render"].includes(
+    process.env.TRUSTED_PROXY_MODE?.trim().toLowerCase() ?? "",
+  );
+  requireCheck(trustedProxy, "TRUSTED_PROXY_MODE");
   requireCheck(productionCalendarsConfigured(), "MLO_CALENDAR_CONFIG_JSON");
   const reviewsConfigured =
     strongSecret("REVIEW_REQUEST_API_SECRET") &&
@@ -155,6 +160,7 @@ export function productionReadiness(): ProductionReadiness {
       embeds: embedOriginsConfigured(),
       demoSafe,
       crmMirror,
+      trustedProxy,
     },
   };
 }

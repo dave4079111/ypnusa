@@ -1,5 +1,5 @@
 import { AUTH_COOKIE_NAME, AuthError, createSessionFromSso, verifySsoToken } from "@/lib/auth";
-import { jsonError } from "@/lib/http";
+import { jsonError, readBodyWithLimit } from "@/lib/http";
 import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 import { appUrl } from "@/lib/site";
 import { NextResponse } from "next/server";
@@ -54,8 +54,12 @@ async function tokenFromPost(request: Request): Promise<string | undefined> {
   if (authorization) return authorization;
 
   const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  const raw = await readBodyWithLimit(request, 16_384);
+  if (!raw.ok) {
+    throw new AuthError(raw.error, raw.code, 413);
+  }
   if (contentType.includes("application/json")) {
-    const body = (await request.json()) as unknown;
+    const body = JSON.parse(raw.body) as unknown;
     return typeof body === "object" &&
       body !== null &&
       "token" in body &&
@@ -64,11 +68,9 @@ async function tokenFromPost(request: Request): Promise<string | undefined> {
       : undefined;
   }
   if (
-    contentType.includes("application/x-www-form-urlencoded") ||
-    contentType.includes("multipart/form-data")
+    contentType.includes("application/x-www-form-urlencoded")
   ) {
-    const token = (await request.formData()).get("token");
-    return typeof token === "string" ? token : undefined;
+    return new URLSearchParams(raw.body).get("token") ?? undefined;
   }
   return undefined;
 }
@@ -142,7 +144,8 @@ export async function POST(request: Request) {
   }
   try {
     return await establishSession(request, await tokenFromPost(request));
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthError) return errorResponse(request, error);
     return jsonError("Request body is invalid.", 400, "INVALID_BODY", {
       headers: {
         ...corsHeaders(request),

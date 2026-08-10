@@ -51,7 +51,11 @@ describe("one-time SSO session flow", async () => {
   const callback = await import("../app/api/auth/sso/callback/route");
   const sessionRoute = await import("../app/api/auth/session/route");
   const logoutRoute = await import("../app/api/auth/logout/route");
-  const { AUTH_COOKIE_NAME } = await import("./auth");
+  const {
+    AUTH_COOKIE_NAME,
+    createSessionFromSso,
+    verifySsoToken,
+  } = await import("./auth");
   const { readDb } = await import("./db");
 
   after(() => {
@@ -154,5 +158,32 @@ describe("one-time SSO session flow", async () => {
       }),
     );
     assert.equal(afterLogout.status, 401);
+  });
+
+  it("does not let a stale JWT resurrect a cancelled subscription", () => {
+    writeDb((db) => {
+      const subscription = db.revenueSubscriptions.find(
+        (item) => item.stripeSubscriptionId === "sub_42",
+      );
+      assert.ok(subscription);
+      subscription.status = "cancelled";
+    });
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      assert.throws(
+        () =>
+          createSessionFromSso(
+            verifySsoToken(jwt(claims("stale-after-cancellation"))),
+          ),
+        (error: unknown) =>
+          error instanceof Error &&
+          "code" in error &&
+          error.code === "SUBSCRIPTION_REQUIRED",
+      );
+    } finally {
+      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 });

@@ -12,6 +12,17 @@ const embedOrigins = (process.env.EMBED_ALLOWED_ORIGINS ?? "https://ypnus.com")
     }
   });
 const frameAncestors = ["'self'", ...new Set(embedOrigins)].join(" ");
+const resourcePolicy = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: https:",
+  "font-src 'self' data:",
+  "connect-src 'self'",
+  "frame-src https://www.google.com",
+  "base-uri 'self'",
+  "object-src 'none'",
+].join("; ");
 const securityHeaders = [
   {
     key: "X-Content-Type-Options",
@@ -40,7 +51,7 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value:
-      "base-uri 'self'; object-src 'none'; frame-ancestors 'self' https://ypnus.com; form-action 'self' https://ypnus.com",
+      `${resourcePolicy}; frame-ancestors 'self'; form-action 'self' https://ypnus.com`,
   },
 ];
 
@@ -73,7 +84,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: `base-uri 'self'; object-src 'none'; frame-ancestors ${frameAncestors}; form-action 'self' https://ypnus.com`,
+            value: `${resourcePolicy}; frame-ancestors ${frameAncestors}; form-action 'self' https://ypnus.com`,
           },
         ],
       },

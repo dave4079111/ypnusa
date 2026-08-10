@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { applyEntitlementSync, parseEntitlementSync } from "@/lib/entitlements";
-import { jsonError, jsonOk, logApiError } from "@/lib/http";
+import { jsonError, jsonOk, logApiError, readBodyWithLimit } from "@/lib/http";
 import { clientKey, distributedRateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -44,10 +44,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const rawBody = await request.text();
-    if (!rawBody || Buffer.byteLength(rawBody) > 262_144) {
-      return jsonError("Entitlement payload is missing or too large.", 400, "INVALID_BODY");
-    }
+    const body = await readBodyWithLimit(request, 262_144);
+    if (!body.ok) return jsonError(body.error, 413, body.code);
+    const rawBody = body.body;
+    if (!rawBody) return jsonError("Entitlement payload is missing.", 400, "INVALID_BODY");
     const timestamp = request.headers.get("x-ypnus-timestamp")?.trim() ?? "";
     const signature = request.headers.get("x-ypnus-signature")?.trim() ?? "";
     if (!signatureIsValid(rawBody, timestamp, signature)) {

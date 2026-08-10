@@ -38,4 +38,19 @@ describe("http helpers", () => {
       code: "INVALID_JSON",
     });
   });
+
+  it("stops reading request bodies at the configured byte ceiling", async () => {
+    const oversized = await parseJsonBody(
+      new Request("https://app.ypnus.com/api/test", {
+        method: "POST",
+        body: JSON.stringify({ value: "x".repeat(2048) }),
+      }),
+      1024,
+    );
+    assert.deepEqual(oversized, {
+      ok: false,
+      error: "Request body is too large.",
+      code: "BODY_TOO_LARGE",
+    });
+  });
 });

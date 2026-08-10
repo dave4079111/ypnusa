@@ -26,6 +26,11 @@ export function rateLimit(
     for (const [k, b] of buckets) {
       if (b.resetAt <= now) buckets.delete(k);
     }
+    while (buckets.size > 5000) {
+      const oldest = buckets.keys().next().value;
+      if (typeof oldest !== "string") break;
+      buckets.delete(oldest);
+    }
   }
 
   const existing = buckets.get(safeKey);
@@ -49,7 +54,11 @@ export async function distributedRateLimit(
 ): Promise<{ ok: boolean; retryAfter: number }> {
   const endpoint = process.env.UPSTASH_REDIS_REST_URL?.trim().replace(/\/$/, "");
   const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
-  if (!endpoint || !token) return rateLimit(key, limit, windowMs);
+  if (!endpoint || !token) {
+    return process.env.NODE_ENV === "production"
+      ? { ok: false, retryAfter: 60 }
+      : rateLimit(key, limit, windowMs);
+  }
 
   const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 1;
   const safeWindowMs = Number.isFinite(windowMs) && windowMs > 0 ? Math.floor(windowMs) : 60_000;
@@ -85,12 +94,20 @@ export async function distributedRateLimit(
 
 /** Best-effort client identifier from proxy headers. */
 export function clientKey(request: Request): string {
-  const cloudflare = request.headers.get("cf-connecting-ip")?.trim();
-  if (cloudflare) return cloudflare;
-  const xff = request.headers.get("x-forwarded-for");
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
+  const mode = process.env.TRUSTED_PROXY_MODE?.trim().toLowerCase();
+  if (mode === "cloudflare") {
+    return request.headers.get("cf-connecting-ip")?.trim() || "unknown";
   }
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
+  if (mode === "hostinger" || mode === "render") {
+    const first = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    return first || request.headers.get("x-real-ip")?.trim() || "unknown";
+  }
+  if (process.env.NODE_ENV !== "production") {
+    const cloudflare = request.headers.get("cf-connecting-ip")?.trim();
+    if (cloudflare) return cloudflare;
+    const first = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    if (first) return first;
+    return request.headers.get("x-real-ip")?.trim() || "unknown";
+  }
+  return "unknown";
 }

@@ -12,6 +12,10 @@ export type ParseJsonResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; code?: string };
 
+export type ReadBodyResult =
+  | { ok: true; body: string }
+  | { ok: false; error: string; code: string };
+
 export function jsonOk<T extends Record<string, unknown>>(
   body: T,
   init?: ResponseInit,
@@ -28,18 +32,52 @@ export function jsonError(
   return NextResponse.json({ ok: false, error, code }, { ...init, status });
 }
 
-export async function parseJsonBody<T = unknown>(request: Request): Promise<ParseJsonResult<T>> {
-  const maxBytes = 1_048_576;
+export async function readBodyWithLimit(
+  request: Request,
+  maxBytes: number,
+): Promise<ReadBodyResult> {
   const contentLength = Number(request.headers.get("content-length") ?? "");
   if (Number.isFinite(contentLength) && contentLength > maxBytes) {
     return { ok: false, error: "Request body is too large.", code: "BODY_TOO_LARGE" };
   }
+  if (!request.body) return { ok: true, body: "" };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
   try {
-    const body = await request.text();
-    if (Buffer.byteLength(body, "utf8") > maxBytes) {
-      return { ok: false, error: "Request body is too large.", code: "BODY_TOO_LARGE" };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel("body limit exceeded");
+        return {
+          ok: false,
+          error: "Request body is too large.",
+          code: "BODY_TOO_LARGE",
+        };
+      }
+      chunks.push(value);
     }
-    return { ok: true, data: JSON.parse(body) as T };
+    return {
+      ok: true,
+      body: Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString("utf8"),
+    };
+  } catch {
+    return { ok: false, error: "Request body could not be read.", code: "INVALID_BODY" };
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+export async function parseJsonBody<T = unknown>(
+  request: Request,
+  maxBytes = 1_048_576,
+): Promise<ParseJsonResult<T>> {
+  const body = await readBodyWithLimit(request, maxBytes);
+  if (!body.ok) return body;
+  try {
+    return { ok: true, data: JSON.parse(body.body) as T };
   } catch {
     return { ok: false, error: "Request body must be JSON.", code: "INVALID_JSON" };
   }

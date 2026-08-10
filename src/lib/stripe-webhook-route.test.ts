@@ -230,7 +230,15 @@ describe("Node Stripe webhook route", async () => {
         },
       },
     };
-    const response = await deliver(missingAccountEvent);
+    const originalConsoleError = console.error;
+    console.error = () => {};
+    const response = await (async () => {
+      try {
+        return await deliver(missingAccountEvent);
+      } finally {
+        console.error = originalConsoleError;
+      }
+    })();
     assert.equal(response.status, 500);
     assert.equal(
       stripeStoreSnapshot().events.some(

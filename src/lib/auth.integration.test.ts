@@ -62,7 +62,10 @@ describe("one-time SSO session flow", async () => {
     const response = await callback.POST(
       new Request("http://localhost:3000/api/auth/sso/callback", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "https://ypnus.com",
+        },
         body: JSON.stringify({
           token: jwt(claims("wrong-signature"), "a-different-secret-that-is-also-long-enough"),
         }),

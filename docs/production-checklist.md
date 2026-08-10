@@ -24,6 +24,9 @@ limiting.
       and revoke sessions immediately.
 - [ ] Generate a separate 32+ byte `MLO_LEAD_WEBHOOK_SECRET` and configure it
       as the MLO webform's Bearer credential.
+- [ ] Generate `BOOKING_TOKEN_SECRET` with 32+ random bytes. Borrower booking
+      requests require a 30-minute capability bound to the completed lead and
+      assigned MLO.
 - [ ] Set unique `ADMIN_TOKEN`, `CRON_SECRET`, and
       `REVIEW_REQUEST_API_SECRET` values. Do not reuse any SSO/webhook secret.
 - [ ] Configure `OUTREACH_WEBHOOK_URL`, Twilio, or SendGrid credentials before
@@ -40,9 +43,8 @@ limiting.
       `subscriptionTier`, `nmlsId`, and `claimedZips`.
 - [ ] Generate a cryptographically random, unique `jti` per login.
 - [ ] Prefer an auto-submitted HTTPS `POST` to
-      `https://app.ypnus.com/api/auth/sso/callback`. A query-string token is
-      supported for redirect compatibility but can appear in intermediary
-      access logs.
+      `https://app.ypnus.com/api/auth/sso/callback`. Query-string tokens are
+      rejected so JWTs do not enter browser history or intermediary logs.
 - [ ] Do not place the shared secret or a reusable app credential in the
       browser.
 
@@ -110,7 +112,8 @@ limiting.
 
 - [ ] Preserve structured API errors without returning stack traces, secrets,
       JWTs, borrower payloads, or session identifiers.
-- [ ] Redact query strings from proxy/access logs on the SSO callback.
+- [ ] Confirm proxy/access logs record only POST callback paths and never JWT
+      request bodies.
 - [ ] Send server errors and failed outreach attempts to centralized monitoring
       with request IDs, while excluding PII and credentials.
 - [ ] Alert on SSO signature failures, replay attempts, webhook authorization

@@ -123,12 +123,23 @@ async function establishSession(request: Request, token: string | undefined) {
   }
 }
 
-export async function GET(request: Request) {
-  const token = new URL(request.url).searchParams.get("token") ?? undefined;
-  return await establishSession(request, token);
+export function GET(request: Request) {
+  return jsonError("Use POST for SSO callbacks.", 405, "METHOD_NOT_ALLOWED", {
+    headers: {
+      "Allow": "POST, OPTIONS",
+      "Cache-Control": "no-store",
+      "Referrer-Policy": "no-referrer",
+      ...corsHeaders(request),
+    },
+  });
 }
 
 export async function POST(request: Request) {
+  if (!request.headers.get("origin")) {
+    return jsonError("Origin is required.", 403, "ORIGIN_REQUIRED", {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
   try {
     return await establishSession(request, await tokenFromPost(request));
   } catch {
@@ -150,7 +161,7 @@ export function OPTIONS(request: Request) {
     headers: {
       ...corsHeaders(request),
       "Access-Control-Allow-Headers": "Authorization, Content-Type",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Max-Age": "600",
     },
   });

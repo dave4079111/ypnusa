@@ -28,6 +28,7 @@ Hostinger restore files for the currently-broken app homepage live in [`hostinge
 - The same assistant runs inline in the homepage "Live demo" section
 - `/portal/nurture` — urgency-ranked MLO borrower queue with search, program/state filters, outreach,
   and appointment visibility
+- `/dashboard` — authenticated MLO workspace entered through a one-time WordPress SSO handoff
 - `/tools/equity` — private, borrower-entered home-equity snapshot with optional consented MLO review
 - `/mortgage-broker/[city]-[state]` and `/zip/[zipcode]` — curated, source-aware local SEO
   territories (unknown locations 404 rather than generating thin pages)
@@ -69,6 +70,7 @@ All environment variables are optional — see `.env.example`.
 | `NEXT_PUBLIC_SITE_URL` | Product app URL for SEO/canonical/sitemap. Defaults to `https://app.ypnus.com`. |
 | `NEXT_PUBLIC_MARKETING_SITE_URL` | WordPress marketing host. Defaults to `https://ypnus.com`. |
 | `YPNUS_WP_API_BASE` | Live territory/signup REST base. Defaults to `https://ypnus.com/wp-json/ypnus/v1`. |
+| `YPNUS_SSO_SECRET` | Shared HMAC secret for the WordPress auth bridge. At least 32 random characters; never public. |
 | `LOANPILOT_DATA_DIR` | Directory for the JSON data snapshot. Defaults to `./data`. Point at a writable path (e.g. `/tmp/ypnus`) on read-only hosts. |
 | `INTAKE_EXTERNAL_WEBHOOK_URL` | If set, completed intakes are POSTed here (Zapier/CRM). |
 | `LOANPILOT_DEMO_MODE` / `LOANPILOT_DEMO_DAY_MINUTES` | Compress the multi-day nurture ladder for live demos. |

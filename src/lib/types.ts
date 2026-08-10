@@ -215,6 +215,12 @@ export interface PropertyEvaluationRecord {
   status: "new" | "contacted";
 }
 
+export interface SsoExchangeRecord {
+  jti: string;
+  usedAt: string;
+  expiresAt: string;
+}
+
 export interface RevenueSubscriptionRecord {
   id: string;
   createdAt: string;
@@ -243,5 +249,6 @@ export interface DbShape {
   analyticsEvents: AnalyticsEventRecord[];
   demoRequests: DemoRequestRecord[];
   propertyEvaluations: PropertyEvaluationRecord[];
+  ssoExchanges: SsoExchangeRecord[];
   revenueSubscriptions: RevenueSubscriptionRecord[];
 }

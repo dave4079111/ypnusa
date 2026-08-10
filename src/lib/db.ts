@@ -13,6 +13,7 @@ import type {
   PropertyEvaluationRecord,
   RevenueSubscriptionRecord,
   ScheduledFollowUpRecord,
+  SsoExchangeRecord,
 } from "./types";
 
 /**
@@ -153,6 +154,7 @@ const emptyDb = (): DbShape => ({
   analyticsEvents: [],
   demoRequests: [],
   propertyEvaluations: [],
+  ssoExchanges: [],
   revenueSubscriptions: defaultRevenueSubscriptions,
 });
 
@@ -195,6 +197,7 @@ function normalize(snapshot: unknown): DbShape {
     analyticsEvents: arrayOrEmpty<AnalyticsEventRecord>(parsed.analyticsEvents),
     demoRequests: arrayOrEmpty<DemoRequestRecord>(parsed.demoRequests),
     propertyEvaluations: arrayOrEmpty<PropertyEvaluationRecord>(parsed.propertyEvaluations),
+    ssoExchanges: arrayOrEmpty<SsoExchangeRecord>(parsed.ssoExchanges),
     revenueSubscriptions:
       revenueSubscriptions.length > 0 ? revenueSubscriptions : defaultRevenueSubscriptions,
   };
@@ -332,6 +335,22 @@ export function appendDemoRequest(record: DemoRequestRecord): void {
 
 export function appendPropertyEvaluation(record: PropertyEvaluationRecord): void {
   writeDb((db) => db.propertyEvaluations.push(record));
+}
+
+export function consumeSsoExchange(jti: string, expiresAt: string): boolean {
+  let consumed = false;
+  writeDb((db) => {
+    const now = Date.now();
+    db.ssoExchanges = db.ssoExchanges.filter((exchange) => Date.parse(exchange.expiresAt) > now);
+    if (db.ssoExchanges.some((exchange) => exchange.jti === jti)) return;
+    db.ssoExchanges.push({
+      jti,
+      usedAt: new Date(now).toISOString(),
+      expiresAt,
+    });
+    consumed = true;
+  });
+  return consumed;
 }
 
 /** Keep the analytics log bounded so it can't grow (and slow disk writes) forever. */

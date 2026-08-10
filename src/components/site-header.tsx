@@ -37,7 +37,7 @@ export function SiteHeader() {
               {item.label}
             </a>
           ))}
-          <Link href="/portal/nurture" className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
+          <Link href="/dashboard" className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
             MLO portal
           </Link>
           <a href={marketingUrl("/")} className="transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
@@ -87,7 +87,7 @@ export function SiteHeader() {
               </a>
             ))}
             <Link
-              href="/portal/nurture"
+              href="/dashboard"
               className="rounded-2xl px-4 py-3 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300"
               onClick={() => setMobileOpen(false)}
             >

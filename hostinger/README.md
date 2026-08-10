@@ -62,6 +62,13 @@ signing secret and Payment Link / Price ID tier maps directly in `wp-config.php`
 paste live Stripe secrets into chat. The complete event list and sandbox verification sequence are
 documented in `wp-plugins/ypnus-stripe-webhook/README.md`.
 
+## WordPress → app authentication bridge
+
+Upload and activate `wp-plugins/ypnus-auth-bridge.zip`. Configure the same private
+`YPNUS_SSO_SECRET` in WordPress `wp-config.php` and the `app.ypnus.com` Node environment. WordPress
+keeps its own login cookie; the plugin sends a 90-second signed handoff that the app exchanges for
+a host-only `HttpOnly` session. See `wp-plugins/ypnus-auth-bridge/README.md`.
+
 ## Next.js app on Hostinger Cloud (Node.js web app)
 
 This repo is the **product app** for `https://app.ypnus.com` on a Hostinger

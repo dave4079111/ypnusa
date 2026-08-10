@@ -221,6 +221,29 @@ export interface SsoExchangeRecord {
   expiresAt: string;
 }
 
+export type StripeSubscriptionStatus = "active" | "trialing" | "past_due" | "canceled";
+
+export interface StripeEventRecord {
+  eventId: string;
+  type: string;
+  status: "processing" | "completed";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppAccountRecord {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  email: string;
+  name?: string;
+  stripeCustomerId: string;
+  stripeSubscriptionId: string;
+  tier: "starter" | "pro" | "elite";
+  subscriptionStatus: StripeSubscriptionStatus;
+  paidAccess: boolean;
+}
+
 export interface RevenueSubscriptionRecord {
   id: string;
   createdAt: string;
@@ -250,5 +273,7 @@ export interface DbShape {
   demoRequests: DemoRequestRecord[];
   propertyEvaluations: PropertyEvaluationRecord[];
   ssoExchanges: SsoExchangeRecord[];
+  stripeEvents: StripeEventRecord[];
+  appAccounts: AppAccountRecord[];
   revenueSubscriptions: RevenueSubscriptionRecord[];
 }

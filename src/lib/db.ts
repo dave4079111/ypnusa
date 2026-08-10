@@ -4,6 +4,7 @@ import type {
   DbShape,
   AppointmentRecord,
   AnalyticsEventRecord,
+  AppAccountRecord,
   BorrowerLeadRecord,
   CrmLeadRecord,
   DemoRequestRecord,
@@ -14,6 +15,7 @@ import type {
   RevenueSubscriptionRecord,
   ScheduledFollowUpRecord,
   SsoExchangeRecord,
+  StripeEventRecord,
 } from "./types";
 
 /**
@@ -155,6 +157,8 @@ const emptyDb = (): DbShape => ({
   demoRequests: [],
   propertyEvaluations: [],
   ssoExchanges: [],
+  stripeEvents: [],
+  appAccounts: [],
   revenueSubscriptions: defaultRevenueSubscriptions,
 });
 
@@ -198,6 +202,8 @@ function normalize(snapshot: unknown): DbShape {
     demoRequests: arrayOrEmpty<DemoRequestRecord>(parsed.demoRequests),
     propertyEvaluations: arrayOrEmpty<PropertyEvaluationRecord>(parsed.propertyEvaluations),
     ssoExchanges: arrayOrEmpty<SsoExchangeRecord>(parsed.ssoExchanges),
+    stripeEvents: arrayOrEmpty<StripeEventRecord>(parsed.stripeEvents),
+    appAccounts: arrayOrEmpty<AppAccountRecord>(parsed.appAccounts),
     revenueSubscriptions:
       revenueSubscriptions.length > 0 ? revenueSubscriptions : defaultRevenueSubscriptions,
   };

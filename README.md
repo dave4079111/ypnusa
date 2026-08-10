@@ -39,6 +39,7 @@ Hostinger restore files for the currently-broken app homepage live in [`hostinge
 - `GET  /api/territory/check?zip=NNNNN` — ZIP territory availability
 - `POST /api/demo-request` — officer territory reservation / waitlist capture
 - `POST /api/property/evaluate` — server-validated equity estimate and optional consented review request
+- `POST /api/webhooks/stripe` — raw-body Stripe signature verification, idempotent provisioning, and subscription lifecycle sync
 - `GET  /api/calendar/slots`, `POST /api/calendar/book` — consultation booking
 - `POST /api/automation/process` — processes due nurture follow-ups
 - `GET  /api/analytics/summary` — intake telemetry (also rendered at `/analytics`)
@@ -71,6 +72,7 @@ All environment variables are optional — see `.env.example`.
 | `NEXT_PUBLIC_MARKETING_SITE_URL` | WordPress marketing host. Defaults to `https://ypnus.com`. |
 | `YPNUS_WP_API_BASE` | Live territory/signup REST base. Defaults to `https://ypnus.com/wp-json/ypnus/v1`. |
 | `YPNUS_SSO_SECRET` | Shared HMAC secret for the WordPress auth bridge. At least 32 random characters; never public. |
+| `STRIPE_WEBHOOK_SECRET` | Stripe endpoint signing secret (`whsec_…`) for `/api/webhooks/stripe`. |
 | `LOANPILOT_DATA_DIR` | Directory for the JSON data snapshot. Defaults to `./data`. Point at a writable path (e.g. `/tmp/ypnus`) on read-only hosts. |
 | `INTAKE_EXTERNAL_WEBHOOK_URL` | If set, completed intakes are POSTed here (Zapier/CRM). |
 | `LOANPILOT_DEMO_MODE` / `LOANPILOT_DEMO_DAY_MINUTES` | Compress the multi-day nurture ladder for live demos. |

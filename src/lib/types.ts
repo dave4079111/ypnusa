@@ -250,6 +250,13 @@ export interface DemoRequestRecord {
   monthlyLeadVolume?: string;
   message?: string;
   source?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  clickId?: string;
+  referrer?: string;
+  landingPage?: string;
+  correlationId?: string;
   status: "new" | "contacted";
 }
 
@@ -286,6 +293,7 @@ export interface RevenueSubscriptionRecord {
   claimedZips: string[];
   countyTerritories?: string[];
   monthlyPriceCents?: number;
+  currency?: string;
   lifetimeMonths?: number;
   attributedDemoRequestIds?: string[];
 }

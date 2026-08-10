@@ -63,7 +63,11 @@ export async function POST(request: Request) {
     if (!input) {
       return jsonError("Entitlement payload is invalid.", 400, "INVALID_ENTITLEMENT");
     }
-    return jsonOk(applyEntitlementSync(input));
+    const result = applyEntitlementSync(input);
+    if (result.conflict) {
+      return jsonError(result.conflict, 409, "TERRITORY_CONFLICT");
+    }
+    return jsonOk(result);
   } catch (error) {
     logApiError("/api/webhooks/entitlements", error);
     return jsonError("Entitlement synchronization failed.", 500, "ENTITLEMENT_SYNC_FAILED");

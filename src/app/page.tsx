@@ -4,6 +4,7 @@ import { TerritoryClaim } from "@/components/territory-claim";
 import { MortgageCalculator } from "@/components/mortgage-calculator";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { PRICING_TIERS } from "@/lib/pricing";
 import { marketingUrl } from "@/lib/site";
 
 const LIFE_EVENTS = [
@@ -50,8 +51,8 @@ const CAPABILITIES = [
 const STEPS = [
   {
     n: "1",
-    title: "Claim your ZIP territory",
-    body: "Lock exclusive rights to the borrower demand in your ZIP codes. One MLO per territory — no bidding wars, no shared leads, no waiting on Realtors.",
+    title: "Choose your ZIP territory",
+    body: "Check demand free, then activate a paid plan to lock exclusive rights. One active MLO per territory — no bidding wars or shared leads.",
   },
   {
     n: "2",
@@ -85,72 +86,7 @@ const OWNERSHIP = [
 
 const PROGRAMS = ["FHA", "VA", "Conventional", "DSCR", "HELOC", "Refinance", "Jumbo"];
 
-const PRICING = [
-  {
-    name: "Free",
-    price: "$0",
-    cadence: "forever · no card",
-    tagline: "Prove demand on your first ZIP",
-    features: [
-      "1 exclusive ZIP to start",
-      "AI borrower intake assistant",
-      "Qualification + scoring",
-      "You own every lead you capture",
-      "Upgrade when pull-through is real",
-    ],
-    cta: "Start free",
-    plan: "free",
-    highlight: false,
-  },
-  {
-    name: "Starter",
-    price: "$29.99",
-    cadence: "/mo",
-    tagline: "Lock a small exclusive footprint",
-    features: [
-      "Up to 3 exclusive ZIPs",
-      "Branded borrower experience",
-      "AI intake + follow-up",
-      "Territory demand reports",
-      "Cancel anytime",
-    ],
-    cta: "Claim Starter",
-    plan: "starter",
-    highlight: false,
-  },
-  {
-    name: "Pro",
-    price: "$99.99",
-    cadence: "/mo",
-    tagline: "For the serious loan officer",
-    features: [
-      "Up to 5 exclusive ZIPs",
-      "Portable MLO website",
-      "SMS + email nurture ladders",
-      "Calendar booking + CRM mirroring",
-      "Keep leads & site if you switch",
-    ],
-    cta: "Claim Pro",
-    plan: "pro",
-    highlight: true,
-  },
-  {
-    name: "Elite",
-    price: "$299.99",
-    cadence: "/mo",
-    tagline: "Unlimited exclusive capacity",
-    features: [
-      "Unlimited exclusive ZIPs",
-      "Priority territory expansion",
-      "Advanced life-event signals",
-      "White-glove onboarding",
-      "Team / brokerage ready",
-    ],
-    cta: "Go Elite",
-    plan: "elite",
-    highlight: false,
-  },
-];
+const PRICING = PRICING_TIERS;
 
 const FAQ = [
   {
@@ -171,7 +107,7 @@ const FAQ = [
   },
   {
     q: "How much does it cost to start?",
-    a: "Nothing. Start free on one ZIP with no credit card. Paid plans are Starter $29.99/mo, Pro $99.99/mo, and Elite $299.99/mo when you're ready to lock more exclusive capacity.",
+    a: "Nothing to browse demand and preview the platform. Paid territory locks start with Starter at $29.99/mo, Pro is $99.99/mo, and Elite is $299.99/mo.",
   },
 ];
 
@@ -206,7 +142,7 @@ export default function Home() {
                 href="#territories"
                 className="inline-flex items-center justify-center rounded-full bg-amber-400 px-7 py-3.5 text-[#09081b] shadow-xl shadow-amber-500/30 transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
               >
-                Claim your ZIP — free
+                Check your ZIP — free
               </a>
               <a
                 href="#demo"
@@ -457,7 +393,7 @@ export default function Home() {
           <div className="mx-auto max-w-2xl text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-violet-600">Pricing</p>
             <h2 className="mt-3 text-3xl font-semibold lg:text-4xl">Start free. Upgrade when you&apos;re ready.</h2>
-            <p className="mt-4 text-slate-600">Reserve a ZIP, deploy your AI, and own the pipeline it builds.</p>
+            <p className="mt-4 text-slate-600">Check availability free, then activate a paid territory and own the pipeline it builds.</p>
           </div>
 
           <div className="mt-14 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
@@ -490,7 +426,7 @@ export default function Home() {
                   ))}
                 </ul>
                 <a
-                  href={signupHrefForPlan(tier.plan)}
+                  href={signupHrefForPlan(tier.id)}
                   className={`mt-8 inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 ${
                     tier.highlight
                       ? "bg-amber-400 text-[#09081b] shadow-lg shadow-amber-500/30"
@@ -548,13 +484,13 @@ export default function Home() {
         <div className="relative z-10 mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-3xl font-semibold lg:text-4xl">Stop giving your pipeline away.</h2>
           <p className="mt-4 text-lg text-white/85">
-            Reserve your ZIP codes, deploy your AI agent, and start capturing borrowers who are yours to keep.
+            Choose your ZIP codes, activate your territory, and start capturing borrowers who are yours to keep.
           </p>
           <a
             href="#territories"
             className="mt-8 inline-flex items-center justify-center rounded-full bg-amber-400 px-8 py-4 text-base font-semibold text-[#09081b] shadow-xl shadow-amber-500/30 transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
           >
-            Claim your ZIP territory
+            Check your ZIP territory
           </a>
           <p className="mt-4 text-xs text-white/60">
             Prefer analytics? <Link href="/analytics" className="underline hover:text-white">View the live intake ledger →</Link>
@@ -570,7 +506,7 @@ export default function Home() {
           href="#territories"
           className="flex w-full items-center justify-center gap-2 rounded-full bg-amber-400 px-6 py-3 text-sm font-semibold text-[#09081b] shadow-lg shadow-amber-500/30 transition active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
         >
-          Claim your ZIP territory — free
+          Check ZIP availability — free
         </a>
       </div>
     </div>

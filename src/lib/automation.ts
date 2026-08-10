@@ -67,6 +67,7 @@ const nurtureCopy: Record<FollowUpPlan, string> = {
 export function scheduleBorrowerJourney(
   borrowerLeadId: string,
   answers: BorrowerAnswers,
+  options?: { smsEnabled?: boolean },
 ): ScheduledFollowUpRecord[] {
   if (answers.contactConsent !== true) return [];
   if (!answers.email || !answers.phone) return [];
@@ -88,6 +89,7 @@ export function scheduleBorrowerJourney(
   const anchor = Date.now();
   const created: ScheduledFollowUpRecord[] = plans.flatMap((plan) => {
     const channel = plan === "immediate_sms_ack" ? "sms" : "email";
+    if (channel === "sms" && options?.smsEnabled === false) return [];
     if (channel === "sms" && answers.smsConsent === false) return [];
     if (channel === "email" && answers.emailConsent === false) return [];
     return [{

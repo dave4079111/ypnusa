@@ -159,6 +159,42 @@ function ypnus_app_sso_handler() {
 	exit;
 }
 
+function ypnus_stripe_monthly_billing_snapshot( $object ) {
+	$items = isset( $object['items']['data'] ) && is_array( $object['items']['data'] )
+		? $object['items']['data']
+		: array();
+	$total    = 0;
+	$currency = '';
+	foreach ( $items as $item ) {
+		$price = isset( $item['price'] ) && is_array( $item['price'] ) ? $item['price'] : array();
+		if ( ! isset( $price['unit_amount'], $price['recurring']['interval'] ) ) {
+			continue;
+		}
+		$unit           = (int) $price['unit_amount'];
+		$quantity       = isset( $item['quantity'] ) ? max( 1, (int) $item['quantity'] ) : 1;
+		$interval       = sanitize_key( $price['recurring']['interval'] );
+		$interval_count = isset( $price['recurring']['interval_count'] )
+			? max( 1, (int) $price['recurring']['interval_count'] )
+			: 1;
+		$item_currency  = isset( $price['currency'] ) ? strtolower( sanitize_text_field( $price['currency'] ) ) : '';
+		if ( $currency && $item_currency && $currency !== $item_currency ) {
+			return array();
+		}
+		$currency = $currency ? $currency : $item_currency;
+		if ( 'month' === $interval ) {
+			$total += ( $unit * $quantity ) / $interval_count;
+		} elseif ( 'year' === $interval ) {
+			$total += ( $unit * $quantity ) / ( 12 * $interval_count );
+		}
+	}
+	return $total > 0
+		? array(
+			'monthlyAmountCents' => (int) round( $total ),
+			'currency'           => $currency ? $currency : 'usd',
+		)
+		: array();
+}
+
 function ypnus_sync_entitlement_to_app( $event ) {
 	if ( ! defined( 'YPNUS_ENTITLEMENT_SYNC_SECRET' ) || ! is_string( YPNUS_ENTITLEMENT_SYNC_SECRET ) ) {
 		return false;
@@ -189,10 +225,12 @@ function ypnus_sync_entitlement_to_app( $event ) {
 	if ( ! $customer_id || ! $subscription_id || ! $tier || ! $status ) {
 		return false;
 	}
+	$billing = ypnus_stripe_monthly_billing_snapshot( $object );
 	$payload = wp_json_encode(
 		array(
 			'eventId' => sanitize_text_field( $event['id'] ),
-			'mlo'     => array(
+			'mlo'     => array_merge(
+				array(
 				'id'                   => 'wp_' . $user_id,
 				'name'                 => sanitize_text_field( isset( $user->display_name ) && $user->display_name ? $user->display_name : $user->user_email ),
 				'email'                => sanitize_email( $user->user_email ),
@@ -202,6 +240,8 @@ function ypnus_sync_entitlement_to_app( $event ) {
 				'stripeCustomerId'     => $customer_id,
 				'stripeSubscriptionId' => $subscription_id,
 				'claimedZips'          => ypnus_sso_claimed_zips( $user_id ),
+				),
+				$billing
 			),
 		)
 	);

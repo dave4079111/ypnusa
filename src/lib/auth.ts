@@ -302,6 +302,14 @@ export function createSessionFromSso(verified: VerifiedSsoToken, now = Date.now(
       ownerEmail: verified.profile.email,
       company: verified.profile.company,
       claimedZips: verified.profile.claimedZips,
+      monthlyPriceCents:
+        subscriptionIndex >= 0
+          ? db.revenueSubscriptions[subscriptionIndex].monthlyPriceCents
+          : undefined,
+      currency:
+        subscriptionIndex >= 0
+          ? db.revenueSubscriptions[subscriptionIndex].currency
+          : undefined,
     };
     if (subscriptionIndex >= 0) db.revenueSubscriptions[subscriptionIndex] = subscription;
     else db.revenueSubscriptions.push(subscription);

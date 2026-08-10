@@ -114,6 +114,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
     }
     setSubmit({ status: "submitting" });
     try {
+      const query = new URLSearchParams(window.location.search);
       const res = await fetch("/api/demo-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,6 +122,13 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
           ...form,
           zip: check.status === "result" ? check.zip : zip,
           source,
+          utmSource: query.get("utm_source") ?? undefined,
+          utmMedium: query.get("utm_medium") ?? undefined,
+          utmCampaign: query.get("utm_campaign") ?? undefined,
+          clickId: query.get("gclid") ?? query.get("fbclid") ?? undefined,
+          referrer: document.referrer || undefined,
+          landingPage: window.location.href,
+          correlationId: crypto.randomUUID(),
         }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
@@ -149,7 +157,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
   const resultTitle =
     check.status === "result"
       ? check.available
-        ? `${place} is open for exclusive claim`
+        ? `${place} is open for paid territory activation`
         : `${place} is claimed — join the waitlist`
       : "";
 
@@ -190,7 +198,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-sm text-white/70">
             <p className="font-medium text-white">Instant ZIP availability</p>
             <p className="mt-1 text-[13px]">
-              Enter a 5-digit ZIP to see whether it is still exclusive, then reserve in-app or continue to the full signup.
+              Enter a 5-digit ZIP to check availability, then request the territory or continue to verified signup and billing.
             </p>
           </div>
         ) : null}
@@ -252,7 +260,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
               href={signupHref}
               className="mt-3 inline-flex rounded-full bg-amber-400 px-4 py-2 text-xs font-bold uppercase tracking-wide text-[#09081b] transition duration-200 hover:-translate-y-0.5 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-200"
             >
-              {check.available ? "Claim this ZIP free →" : "Start free on a nearby ZIP →"}
+              {check.available ? "Request this ZIP →" : "Check a nearby ZIP →"}
             </a>
           </div>
         ) : null}
@@ -261,7 +269,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
       {showForm && submit.status !== "done" ? (
         <form onSubmit={submitReservation} className="mt-6 grid gap-3 sm:grid-cols-2">
           <p className="sm:col-span-2 text-sm font-semibold text-white">
-            {claimed ? "Join the waitlist for this territory" : `Reserve ZIP ${check.zip}`}
+            {claimed ? "Join the waitlist for this territory" : `Request ZIP ${check.zip}`}
           </p>
 
           <Field
@@ -340,7 +348,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
               ? "Submitting…"
               : claimed
                 ? "Join the waitlist"
-                : "Reserve my territory"}
+                : "Request this territory"}
           </button>
           <p className="sm:col-span-2 text-[11px] text-white/50">
             Prefer the full signup?{" "}
@@ -355,7 +363,7 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
       {submit.status === "done" ? (
         <div className="mt-6 rounded-2xl border border-emerald-300/40 bg-emerald-400/10 px-5 py-5 text-center">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-200">
-            {claimed ? "Waitlist request received" : "Reservation request received"}
+            {claimed ? "Waitlist request received" : "Territory request received"}
           </p>
           <p className="mt-2 text-sm font-semibold text-emerald-100">{submit.message}</p>
           <a

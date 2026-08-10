@@ -64,6 +64,14 @@ describe("borrower nurture and booking integration", async () => {
     assert.equal(scheduled.length, 0);
   });
 
+  it("omits SMS when the subscriber tier does not include it", () => {
+    const scheduled = scheduleBorrowerJourney("starter_email_only", answers, {
+      smsEnabled: false,
+    });
+    assert.equal(scheduled.length, 7);
+    assert.ok(scheduled.every((item) => item.channel === "email"));
+  });
+
   it("delivers both immediate touches and retains the 30/60/90-day sequence", async () => {
     const scheduled = scheduleBorrowerJourney(lead.id, answers);
     assert.equal(scheduled.length, 8);

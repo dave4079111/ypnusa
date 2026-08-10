@@ -119,6 +119,8 @@ function inferTierFromDemoRequest(request: DemoRequestRecord): PricingTierId {
 }
 
 function subscriptionMonthlyCents(subscription: RevenueSubscriptionRecord): number {
+  if (subscription.status !== "active") return 0;
+  if (subscription.source === "stripe") return subscription.monthlyPriceCents ?? 0;
   return subscription.monthlyPriceCents ?? getPricingTier(subscription.tier).priceMonthlyCents;
 }
 

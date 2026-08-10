@@ -95,7 +95,17 @@ export async function finalizeIntakeArtifacts(
     qualification,
   });
 
-  const followUpsQueued = scheduleBorrowerJourney(crm.borrowerLeadId, answers).length;
+  const assignedSubscription = readDb().revenueSubscriptions.find(
+    (subscription) =>
+      subscription.ownerLoId === officerProfile.id &&
+      (subscription.status === "active" || subscription.status === "trialing"),
+  );
+  const smsEnabled = assignedSubscription
+    ? assignedSubscription.tier === "pro" || assignedSubscription.tier === "elite"
+    : process.env.NODE_ENV !== "production";
+  const followUpsQueued = scheduleBorrowerJourney(crm.borrowerLeadId, answers, {
+    smsEnabled,
+  }).length;
   const immediateOutreach = await processDueFollowUps({
     borrowerLeadId: crm.borrowerLeadId,
     limit: 2,

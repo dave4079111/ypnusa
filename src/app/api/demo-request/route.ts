@@ -69,6 +69,13 @@ export async function POST(request: Request) {
       monthlyLeadVolume: str(body.monthlyLeadVolume, 40),
       message: str(body.message, 1000),
       source: str(body.source, 80) ?? "marketing_site",
+      utmSource: str(body.utmSource, 160),
+      utmMedium: str(body.utmMedium, 160),
+      utmCampaign: str(body.utmCampaign, 240),
+      clickId: str(body.clickId, 240),
+      referrer: str(body.referrer, 1000),
+      landingPage: str(body.landingPage, 1000),
+      correlationId: str(body.correlationId, 160),
       status: "new",
     };
 
@@ -98,6 +105,9 @@ export async function POST(request: Request) {
         company: record.company,
         zip: record.zip,
         territoryAvailable: territory?.available ?? null,
+        utmSource: record.utmSource,
+        utmCampaign: record.utmCampaign,
+        correlationId: record.correlationId,
       },
     });
 

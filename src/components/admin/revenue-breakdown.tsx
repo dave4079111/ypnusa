@@ -231,7 +231,7 @@ export function RevenueBreakdown({ initialData }: RevenueBreakdownProps) {
                 Visual Revenue Breakdown
               </h1>
               <p className="mt-4 text-sm leading-6 text-slate-300">
-                Real-time demo revenue from territory subscriptions, borrower demand, booked consults, and MLO
+                Synchronized billing revenue, territory subscriptions, borrower demand, booked consults, and MLO
                 lifetime value.
               </p>
             </div>
@@ -248,7 +248,7 @@ export function RevenueBreakdown({ initialData }: RevenueBreakdownProps) {
             <MetricCard
               label="MRR"
               value={money(summary.totals.mrrCents)}
-              detail={`${summary.totals.activeSubscriptions} active/trial subscriptions`}
+              detail={`${summary.totals.activeSubscriptions} active/trial entitlements; trials excluded from MRR`}
             />
             <MetricCard
               label="Territory coverage"

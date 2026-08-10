@@ -40,6 +40,8 @@ function event(eventId: string, status: string) {
       stripeCustomerId: "cus_88",
       stripeSubscriptionId: "sub_88",
       claimedZips: ["93720"],
+      monthlyAmountCents: 9999,
+      currency: "usd",
     },
   };
 }
@@ -62,9 +64,50 @@ describe("Stripe entitlement synchronization", async () => {
       )?.source,
       "stripe",
     );
+    assert.equal(
+      readDb().revenueSubscriptions.find(
+        (subscription) => subscription.stripeSubscriptionId === "sub_88",
+      )?.monthlyPriceCents,
+      9999,
+    );
 
     const duplicate = await POST(signedRequest(event("evt_active", "active")));
     assert.equal((await duplicate.json()).duplicate, true);
+
+    const conflictPayload = {
+      eventId: "evt_conflict",
+      mlo: {
+        id: "wp_89",
+        name: "Conflicting MLO",
+        email: "conflict@example.com",
+        company: "Other Lending",
+        tier: "starter",
+        status: "active",
+        stripeCustomerId: "cus_89",
+        stripeSubscriptionId: "sub_89",
+        claimedZips: ["93720"],
+      },
+    };
+    const conflict = await POST(signedRequest(conflictPayload));
+    assert.equal(conflict.status, 409);
+    assert.equal((await conflict.json()).code, "TERRITORY_CONFLICT");
+
+    const overCapacity = await POST(
+      signedRequest({
+        ...conflictPayload,
+        eventId: "evt_over_capacity",
+        mlo: {
+          ...conflictPayload.mlo,
+          id: "wp_90",
+          email: "capacity@example.com",
+          stripeCustomerId: "cus_90",
+          stripeSubscriptionId: "sub_90",
+          claimedZips: ["10001", "10002", "10003", "10004"],
+        },
+      }),
+    );
+    assert.equal(overCapacity.status, 400);
+    assert.equal((await overCapacity.json()).code, "INVALID_ENTITLEMENT");
 
     writeDb((db) => {
       db.authSessions.push({

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { writeDb } from "./db";
-import type { PricingTierId } from "./pricing";
+import { getPricingTier, type PricingTierId } from "./pricing";
 import type {
   LoanOfficerRecord,
   LoanProgram,
@@ -32,6 +32,8 @@ export interface EntitlementSyncInput {
     stripeCustomerId: string;
     stripeSubscriptionId: string;
     claimedZips: string[];
+    monthlyAmountCents?: number;
+    currency?: string;
   };
 }
 
@@ -78,6 +80,19 @@ export function parseEntitlementSync(value: unknown): EntitlementSyncInput | nul
         .filter((zip) => /^\d{5}$/.test(zip))
         .slice(0, 500)
     : [];
+  const capacity = getPricingTier(tier).zipCapacity;
+  if (capacity !== "unlimited" && claimedZips.length > capacity) return null;
+  const monthlyAmountCents =
+    typeof mlo.monthlyAmountCents === "number" &&
+    Number.isSafeInteger(mlo.monthlyAmountCents) &&
+    mlo.monthlyAmountCents >= 0 &&
+    mlo.monthlyAmountCents <= 10_000_000
+      ? mlo.monthlyAmountCents
+      : undefined;
+  const currency =
+    typeof mlo.currency === "string" && /^[a-zA-Z]{3}$/.test(mlo.currency)
+      ? mlo.currency.toLowerCase()
+      : undefined;
   return {
     eventId,
     mlo: {
@@ -90,17 +105,36 @@ export function parseEntitlementSync(value: unknown): EntitlementSyncInput | nul
       stripeCustomerId,
       stripeSubscriptionId,
       claimedZips,
+      monthlyAmountCents,
+      currency,
     },
   };
 }
 
-export function applyEntitlementSync(input: EntitlementSyncInput): { duplicate: boolean } {
+export function applyEntitlementSync(
+  input: EntitlementSyncInput,
+): { duplicate: boolean; conflict?: string } {
   let duplicate = false;
+  let conflict: string | undefined;
   const now = new Date().toISOString();
   writeDb((db) => {
     if (db.processedEntitlementEvents.some((event) => event.eventId === input.eventId)) {
       duplicate = true;
       return;
+    }
+    if (input.mlo.status === "active" || input.mlo.status === "trialing") {
+      const conflictingZip = input.mlo.claimedZips.find((zip) =>
+        db.revenueSubscriptions.some(
+          (subscription) =>
+            subscription.stripeSubscriptionId !== input.mlo.stripeSubscriptionId &&
+            (subscription.status === "active" || subscription.status === "trialing") &&
+            subscription.claimedZips.includes(zip),
+        ),
+      );
+      if (conflictingZip) {
+        conflict = `ZIP ${conflictingZip} already has an active owner.`;
+        return;
+      }
     }
 
     const officerIndex = db.loanOfficers.findIndex((officer) => officer.id === input.mlo.id);
@@ -150,6 +184,8 @@ export function applyEntitlementSync(input: EntitlementSyncInput): { duplicate: 
       ownerEmail: input.mlo.email,
       company: input.mlo.company,
       claimedZips: input.mlo.claimedZips,
+      monthlyPriceCents: input.mlo.monthlyAmountCents ?? existing?.monthlyPriceCents,
+      currency: input.mlo.currency ?? existing?.currency,
     };
     if (subscriptionIndex >= 0) db.revenueSubscriptions[subscriptionIndex] = subscription;
     else db.revenueSubscriptions.push(subscription);
@@ -167,5 +203,5 @@ export function applyEntitlementSync(input: EntitlementSyncInput): { duplicate: 
       );
     }
   });
-  return { duplicate };
+  return { duplicate, conflict };
 }

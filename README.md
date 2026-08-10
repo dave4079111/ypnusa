@@ -28,6 +28,7 @@ Hostinger restore files for the currently-broken app homepage live in [`hostinge
 - The same assistant runs inline in the homepage "Live demo" section
 - `/portal/nurture` — urgency-ranked MLO borrower queue with search, program/state filters, outreach,
   and appointment visibility
+- `/tools/equity` — private, borrower-entered home-equity snapshot with optional consented MLO review
 - `/mortgage-broker/[city]-[state]` and `/zip/[zipcode]` — curated, source-aware local SEO
   territories (unknown locations 404 rather than generating thin pages)
 - `/dashboard/local-seo` — MLO NAP, Google Business Profile, review-feed, and review-link readiness
@@ -36,6 +37,7 @@ Hostinger restore files for the currently-broken app homepage live in [`hostinge
 - `POST /api/intake/tick` — conversational intake engine (adaptive FHA/VA/DSCR/HELOC/REFI/JUMBO flows, scoring, CRM mirroring, officer routing, nurture scheduling)
 - `GET  /api/territory/check?zip=NNNNN` — ZIP territory availability
 - `POST /api/demo-request` — officer territory reservation / waitlist capture
+- `POST /api/property/evaluate` — server-validated equity estimate and optional consented review request
 - `GET  /api/calendar/slots`, `POST /api/calendar/book` — consultation booking
 - `POST /api/automation/process` — processes due nurture follow-ups
 - `GET  /api/analytics/summary` — intake telemetry (also rendered at `/analytics`)

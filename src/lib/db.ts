@@ -10,6 +10,7 @@ import type {
   IntakeSessionRecord,
   LoanOfficerRecord,
   LoAlertRecord,
+  PropertyEvaluationRecord,
   RevenueSubscriptionRecord,
   ScheduledFollowUpRecord,
 } from "./types";
@@ -151,6 +152,7 @@ const emptyDb = (): DbShape => ({
   appointments: [],
   analyticsEvents: [],
   demoRequests: [],
+  propertyEvaluations: [],
   revenueSubscriptions: defaultRevenueSubscriptions,
 });
 
@@ -192,6 +194,7 @@ function normalize(snapshot: unknown): DbShape {
     appointments: arrayOrEmpty<AppointmentRecord>(parsed.appointments),
     analyticsEvents: arrayOrEmpty<AnalyticsEventRecord>(parsed.analyticsEvents),
     demoRequests: arrayOrEmpty<DemoRequestRecord>(parsed.demoRequests),
+    propertyEvaluations: arrayOrEmpty<PropertyEvaluationRecord>(parsed.propertyEvaluations),
     revenueSubscriptions:
       revenueSubscriptions.length > 0 ? revenueSubscriptions : defaultRevenueSubscriptions,
   };
@@ -325,6 +328,10 @@ export function appendAppointment(record: AppointmentRecord): void {
 
 export function appendDemoRequest(record: DemoRequestRecord): void {
   writeDb((db) => db.demoRequests.push(record));
+}
+
+export function appendPropertyEvaluation(record: PropertyEvaluationRecord): void {
+  writeDb((db) => db.propertyEvaluations.push(record));
 }
 
 /** Keep the analytics log bounded so it can't grow (and slow disk writes) forever. */

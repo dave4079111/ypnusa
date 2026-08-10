@@ -19,6 +19,16 @@ export interface NurtureDashboardRow {
   meetingUrl?: string;
 }
 
+export interface EquityReviewRow {
+  evaluationId: string;
+  borrowerName: string;
+  zip: string;
+  estimatedEquityUsd: number;
+  illustrativeCashOutUsd: number;
+  estimatedLtvPct: number;
+  createdAt: string;
+}
+
 const urgencyRank: Record<Urgency, number> = {
   critical: 0,
   high: 1,
@@ -102,6 +112,18 @@ export function buildNurtureDashboard(loId?: string) {
     rows.length === 0
       ? 0
       : Math.round(rows.reduce((total, row) => total + row.score, 0) / rows.length);
+  const equityReviews: EquityReviewRow[] = db.propertyEvaluations
+    .filter((evaluation) => evaluation.status === "new")
+    .map((evaluation) => ({
+      evaluationId: evaluation.id,
+      borrowerName: safeDisplayName(evaluation.name),
+      zip: evaluation.zip,
+      estimatedEquityUsd: evaluation.estimatedEquityUsd,
+      illustrativeCashOutUsd: evaluation.illustrativeCashOutUsd,
+      estimatedLtvPct: evaluation.estimatedLtvPct,
+      createdAt: evaluation.createdAt,
+    }))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 
   return {
     totals: {
@@ -116,5 +138,6 @@ export function buildNurtureDashboard(loId?: string) {
       ...calendarConnectionStatus(officer),
     })),
     rows,
+    equityReviews,
   };
 }

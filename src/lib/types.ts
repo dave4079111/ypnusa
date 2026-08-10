@@ -175,7 +175,8 @@ export interface AnalyticsEventRecord {
     | "intake_completed"
     | "appointment_booked"
     | "followup_processed"
-    | "demo_requested";
+    | "demo_requested"
+    | "property_evaluation_saved";
   createdAt: string;
   payload: Record<string, unknown>;
 }
@@ -194,6 +195,23 @@ export interface DemoRequestRecord {
   monthlyLeadVolume?: string;
   message?: string;
   source?: string;
+  status: "new" | "contacted";
+}
+
+export interface PropertyEvaluationRecord {
+  id: string;
+  createdAt: string;
+  name: string;
+  email: string;
+  phone?: string;
+  zip: string;
+  estimatedHomeValueUsd: number;
+  currentMortgageBalanceUsd: number;
+  estimatedEquityUsd: number;
+  illustrativeCashOutUsd: number;
+  estimatedLtvPct: number;
+  contactConsent: true;
+  source: string;
   status: "new" | "contacted";
 }
 
@@ -224,5 +242,6 @@ export interface DbShape {
   appointments: AppointmentRecord[];
   analyticsEvents: AnalyticsEventRecord[];
   demoRequests: DemoRequestRecord[];
+  propertyEvaluations: PropertyEvaluationRecord[];
   revenueSubscriptions: RevenueSubscriptionRecord[];
 }

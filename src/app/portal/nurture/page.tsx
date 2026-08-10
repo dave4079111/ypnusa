@@ -4,6 +4,23 @@ import { buildNurtureDashboard } from "@/lib/nurture-dashboard";
 
 export const dynamic = "force-dynamic";
 
+function usd(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function shortDate(value: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 export default function LeadNurturePortalPage() {
   const dashboard = buildNurtureDashboard();
   const metricCards = [
@@ -47,6 +64,54 @@ export default function LeadNurturePortalPage() {
               <p className="mt-4 text-4xl font-semibold">{value}</p>
             </article>
           ))}
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 md:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Equity review requests</h2>
+              <p className="mt-1 text-sm text-white/50">
+                Consented borrowers asking an MLO to review their self-reported estimate.
+              </p>
+            </div>
+            <Link href="/tools/equity" className="text-sm font-semibold text-violet-300 hover:text-white">
+              Open borrower tool →
+            </Link>
+          </div>
+
+          {dashboard.equityReviews.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-white/10 px-5 py-8 text-center text-sm text-white/45">
+              No equity review requests yet.
+            </div>
+          ) : (
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {dashboard.equityReviews.slice(0, 6).map((review) => (
+                <article key={review.evaluationId} className="rounded-2xl bg-black/20 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{review.borrowerName}</p>
+                      <p className="mt-1 text-xs text-white/40">
+                        ZIP {review.zip} · {shortDate(review.createdAt)}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-amber-400/15 px-2.5 py-1 text-xs font-semibold text-amber-100">
+                      {review.estimatedLtvPct}% LTV
+                    </span>
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-xs text-white/40">Estimated equity</dt>
+                      <dd className="mt-1 font-semibold">{usd(review.estimatedEquityUsd)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-white/40">Cash-out illustration</dt>
+                      <dd className="mt-1 font-semibold">{usd(review.illustrativeCashOutUsd)}</dd>
+                    </div>
+                  </dl>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 md:p-6">

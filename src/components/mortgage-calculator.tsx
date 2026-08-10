@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 const usd = (n: number) =>
@@ -110,6 +111,12 @@ export function MortgageCalculator() {
         >
           Put this tool on my MLO site
         </a>
+        <Link
+          href="/tools/equity"
+          className="mt-3 inline-flex items-center justify-center text-sm font-semibold text-violet-100 underline decoration-white/30 underline-offset-4 hover:text-white"
+        >
+          Estimate equity in a current home →
+        </Link>
       </div>
     </div>
   );

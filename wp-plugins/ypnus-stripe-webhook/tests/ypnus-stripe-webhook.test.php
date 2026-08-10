@@ -47,6 +47,24 @@ class WP_REST_Response {
 	}
 }
 
+class WP_REST_Request {
+	private $body;
+	private $headers;
+
+	public function __construct( $body, $headers = array() ) {
+		$this->body    = $body;
+		$this->headers = $headers;
+	}
+
+	public function get_body() {
+		return $this->body;
+	}
+
+	public function get_header( $name ) {
+		return isset( $this->headers[ $name ] ) ? $this->headers[ $name ] : '';
+	}
+}
+
 function current_time( $type, $gmt = false ) {
 	return gmdate( 'Y-m-d H:i:s' );
 }
@@ -438,5 +456,66 @@ $deleted = ypnus_stripe_process_subscription(
 assert_same( true, $deleted['ok'], 'processes subscription deletion' );
 assert_same( 'canceled', get_user_meta( $paid_user_id, 'ypnus_subscription_status', true ), 'deactivates a canceled subscription' );
 assert_same( '0', get_user_meta( $paid_user_id, 'ypnus_paid_access', true ), 'removes paid access on cancellation' );
+
+$handler_event = array(
+	'id'      => 'evt_handler_unknown_tier',
+	'type'    => 'checkout.session.completed',
+	'created' => time(),
+	'data'    => array(
+		'object' => array(
+			'mode'            => 'subscription',
+			'payment_status'  => 'paid',
+			'customer'        => 'cus_handler',
+			'subscription'    => 'sub_handler',
+			'customer_email'  => 'handler@example.com',
+			'metadata'        => array( 'ypnus_tier' => 'enterprise' ),
+		),
+	),
+);
+$handler_payload = json_encode( $handler_event );
+$handler_request = new WP_REST_Request(
+	$handler_payload,
+	array(
+		'stripe_signature' => signed_header(
+			$handler_payload,
+			$handler_event['created'],
+			YPNUS_STRIPE_WEBHOOK_SECRET
+		),
+	)
+);
+$GLOBALS['wpdb']                = new FakeWpdb();
+$GLOBALS['wpdb']->query_results = array( 1 );
+$handler_response = ypnus_stripe_webhook_handler( $handler_request );
+assert_same( 500, $handler_response->status, 'handler fails closed for an unknown tier' );
+assert_same(
+	'evt_handler_unknown_tier',
+	$GLOBALS['wpdb']->deleted[0][1]['event_id'],
+	'handler releases its event lock after processing failure'
+);
+
+$duplicate_event             = $handler_event;
+$duplicate_event['id']       = 'evt_handler_duplicate';
+$duplicate_payload           = json_encode( $duplicate_event );
+$duplicate_request           = new WP_REST_Request(
+	$duplicate_payload,
+	array(
+		'stripe_signature' => signed_header(
+			$duplicate_payload,
+			$duplicate_event['created'],
+			YPNUS_STRIPE_WEBHOOK_SECRET
+		),
+	)
+);
+$GLOBALS['wpdb']                = new FakeWpdb();
+$GLOBALS['wpdb']->query_results = array( 0 );
+$GLOBALS['wpdb']->row_results   = array(
+	(object) array(
+		'status'     => 'completed',
+		'updated_at' => gmdate( 'Y-m-d H:i:s' ),
+	),
+);
+$duplicate_response = ypnus_stripe_webhook_handler( $duplicate_request );
+assert_same( 200, $duplicate_response->status, 'handler acknowledges a completed duplicate' );
+assert_same( true, $duplicate_response->data['duplicate'], 'duplicate response identifies the replay' );
 
 fwrite( STDOUT, "PASS: {$assertions} assertions\n" );

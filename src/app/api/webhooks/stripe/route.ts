@@ -42,7 +42,7 @@ type PreparedEvent =
 
 class StripeEventValidationError extends Error {}
 
-function expandableId(value: { id: string } | string | null | undefined): string {
+function expandableId(value: { id?: string } | string | null | undefined): string {
   if (typeof value === "string") return value.trim();
   return value?.id?.trim() ?? "";
 }

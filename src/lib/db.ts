@@ -216,7 +216,7 @@ let lastStorageError: string | undefined;
 
 function ensureDataDir(): boolean {
   try {
-    if (!fs.existsSync(dataDir())) {
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dataDir())) {
       fs.mkdirSync(dataDir(), { recursive: true });
     }
     lastStorageError = undefined;

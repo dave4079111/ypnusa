@@ -55,6 +55,13 @@ Then in Rank Math:
 - Review `/markets/` and near-duplicate city LO pages; noindex or consolidate thin ones
 - Keep conversion URLs: `/check-zip.html`, `/lo-signup.html`, `/pricing-plans/`
 
+## WordPress Stripe webhook (ypnus.com)
+
+Upload `wp-plugins/ypnus-stripe-webhook.zip` as a normal plugin and activate it. Configure the
+signing secret and Payment Link / Price ID tier maps directly in `wp-config.php`; never commit or
+paste live Stripe secrets into chat. The complete event list and sandbox verification sequence are
+documented in `wp-plugins/ypnus-stripe-webhook/README.md`.
+
 ## Next.js app on Hostinger Cloud (Node.js web app)
 
 This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
@@ -94,26 +101,21 @@ endpoint — it already validates, rate-limits, checks territory availability, a
 the lead. There's no need for a separate `/api/webhooks/mlo-leads`; that would just
 duplicate this logic.
 
-## Stripe billing
+## Stripe billing — lives on WordPress, not this app
 
-- `POST /api/billing/checkout` (requires an app session) creates a Stripe Checkout
-  Session for `starter` / `pro` / `elite`, passing the desired ZIP through as metadata.
-- `POST /api/webhooks/stripe` verifies the signature (Stripe's `t=…,v1=…` scheme,
-  implemented directly over `node:crypto` — no `stripe` SDK dependency) and turns
-  `checkout.session.completed` into the actual ZIP-allocation event: it writes a real
-  `RevenueSubscriptionRecord` (`source: "stripe"`) rather than the previous
-  demo-request-inferred heuristic. `customer.subscription.updated` / `.deleted` keep
-  status in sync.
-- ZIP scarcity (`src/lib/territory.ts`) now also honors active/trialing Stripe
-  subscriptions, not just demo requests — so a paid ZIP shows as taken.
-  **Caveat:** `/api/territory/check` (the public checker) prefers the *live WordPress*
-  ZIP ledger when reachable and only falls back to this local logic when WP is
-  unreachable — reflecting Stripe claims there too needs a corresponding WordPress-side
-  change, not made here.
-- Not wired: routing an inbound borrower lead to a *specific paying* MLO
-  (`src/lib/crm.ts`'s `routeLoanOfficer`) still load-balances across the fixed seed
-  roster by program specialty — there's no existing link between a Stripe customer and
-  an entry in that roster to gate on, and inventing one wasn't part of this change.
+`ypnus.com`'s **`ypnus-stripe-webhook`** plugin (`wp-plugins/ypnus-stripe-webhook.zip`) is
+the real Stripe receiver: `POST https://ypnus.com/wp-json/ypnus/v1/stripe-webhook`. It
+verifies signatures, atomically claims events (idempotent under Stripe retries), resolves
+the tier from Payment Link/Price metadata, provisions a WordPress user, and stores
+`ypnus_tier` / `ypnus_paid_access` / `ypnus_stripe_*` on that user. See
+`wp-plugins/ypnus-stripe-webhook/README.md` for the full setup (webhook secret and tier
+maps go in `wp-config.php` — never in chat or source control).
+
+An earlier app-side Stripe webhook (`/api/webhooks/stripe`, `/api/billing/checkout`) was
+removed to avoid two systems processing the same Stripe events with different entitlement
+state. If a future need arises for app.ypnus.com to know a user's paid tier (e.g. to gate a
+dashboard feature), pass `tier` / `subscription_status` through as claims on the SSO
+handoff (`docs/sso-handoff.md`) rather than re-deriving it from a second webhook.
 
 ### Option A — hPanel GitHub deploy (recommended)
 1. Remove the Cloudflare redirect (above).

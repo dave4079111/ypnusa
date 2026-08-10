@@ -99,4 +99,50 @@ describe("borrower nurture and booking integration", async () => {
     assert.equal(dashboard.totals.upcomingAppointments, 1);
     assert.equal(dashboard.rows[0].state, "Appointment booked");
   });
+
+  it("orders the portal queue by urgency and then lead score", () => {
+    const rankedLeads: BorrowerLeadRecord[] = [
+      lead,
+      {
+        ...lead,
+        id: "lead_low_score_99",
+        qualification: {
+          ...lead.qualification,
+          urgency: "low",
+          programScores: { overallScore: 99 },
+        },
+      },
+      {
+        ...lead,
+        id: "lead_critical_score_10",
+        qualification: {
+          ...lead.qualification,
+          urgency: "critical",
+          programScores: { overallScore: 10 },
+        },
+      },
+      {
+        ...lead,
+        id: "lead_high_score_90",
+        qualification: {
+          ...lead.qualification,
+          programScores: { overallScore: 90 },
+        },
+      },
+    ];
+    writeDb((db) => {
+      db.borrowerLeads = rankedLeads;
+    });
+
+    const dashboard = buildNurtureDashboard(lead.assignedLoId);
+    assert.deepEqual(
+      dashboard.rows.map((row) => row.leadId),
+      [
+        "lead_critical_score_10",
+        "lead_high_score_90",
+        "lead_nurture_test",
+        "lead_low_score_99",
+      ],
+    );
+  });
 });

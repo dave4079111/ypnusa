@@ -10,6 +10,7 @@ import type {
   IntakeSessionRecord,
   LoanOfficerRecord,
   LoAlertRecord,
+  PropertyEvaluationRecord,
   RevenueSubscriptionRecord,
   ScheduledFollowUpRecord,
 } from "./types";
@@ -151,6 +152,7 @@ const emptyDb = (): DbShape => ({
   appointments: [],
   analyticsEvents: [],
   demoRequests: [],
+  propertyEvaluations: [],
   revenueSubscriptions: defaultRevenueSubscriptions,
 });
 
@@ -192,6 +194,7 @@ function normalize(snapshot: unknown): DbShape {
     appointments: arrayOrEmpty<AppointmentRecord>(parsed.appointments),
     analyticsEvents: arrayOrEmpty<AnalyticsEventRecord>(parsed.analyticsEvents),
     demoRequests: arrayOrEmpty<DemoRequestRecord>(parsed.demoRequests),
+    propertyEvaluations: arrayOrEmpty<PropertyEvaluationRecord>(parsed.propertyEvaluations),
     revenueSubscriptions:
       revenueSubscriptions.length > 0 ? revenueSubscriptions : defaultRevenueSubscriptions,
   };
@@ -327,31 +330,8 @@ export function appendDemoRequest(record: DemoRequestRecord): void {
   writeDb((db) => db.demoRequests.push(record));
 }
 
-/** Insert or replace a subscription by Stripe subscription id (webhook-driven writes). */
-export function upsertRevenueSubscriptionByStripeId(record: RevenueSubscriptionRecord): void {
-  writeDb((db) => {
-    const idx = db.revenueSubscriptions.findIndex(
-      (sub) => sub.stripeSubscriptionId && sub.stripeSubscriptionId === record.stripeSubscriptionId,
-    );
-    if (idx >= 0) db.revenueSubscriptions[idx] = { ...db.revenueSubscriptions[idx], ...record };
-    else db.revenueSubscriptions.push(record);
-  });
-}
-
-export function findRevenueSubscriptionByStripeId(
-  stripeSubscriptionId: string,
-): RevenueSubscriptionRecord | undefined {
-  return readDb().revenueSubscriptions.find((sub) => sub.stripeSubscriptionId === stripeSubscriptionId);
-}
-
-export function setRevenueSubscriptionStatusByStripeId(
-  stripeSubscriptionId: string,
-  status: RevenueSubscriptionRecord["status"],
-): void {
-  writeDb((db) => {
-    const sub = db.revenueSubscriptions.find((item) => item.stripeSubscriptionId === stripeSubscriptionId);
-    if (sub) sub.status = status;
-  });
+export function appendPropertyEvaluation(record: PropertyEvaluationRecord): void {
+  writeDb((db) => db.propertyEvaluations.push(record));
 }
 
 /** Keep the analytics log bounded so it can't grow (and slow disk writes) forever. */

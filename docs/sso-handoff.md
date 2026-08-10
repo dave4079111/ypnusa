@@ -64,6 +64,14 @@ durable credential.
   `NODE_ENV=production`) so the dashboard gate can be exercised with `npm run dev`
   without a live WordPress handoff.
 
+## Billing
+
+Stripe billing/entitlement is handled entirely by `ypnus.com`'s `ypnus-stripe-webhook`
+plugin (see `hostinger/README.md`) — it is not part of this handoff. If a dashboard
+feature on app.ypnus.com ever needs to know a user's paid tier, the intended path is to
+add `tier` / `subscription_status` as extra claims on the SSO handoff above (signed the
+same way), not a second Stripe webhook on this app.
+
 ## Not yet done (needs a live WordPress change)
 
 The WordPress side (`ypnus-mlo-toolkit` plugin, which currently registers

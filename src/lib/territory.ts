@@ -66,9 +66,10 @@ function liveClaimedZips(): Set<string> {
 }
 
 /**
- * ZIP scarcity must reflect paid, durable claims (active/trialing Stripe subscriptions)
+ * ZIP scarcity must reflect paid, durable claims (active/trialing revenue subscriptions)
  * as well as the softer demo-request signal — otherwise a ZIP someone already paid for
- * would still show "available" to the next visitor.
+ * would still show "available" to the next visitor. Stripe billing/entitlement is owned
+ * by ypnus.com's ypnus-stripe-webhook plugin, not this local store — see docs/sso-handoff.md.
  */
 function mergeClaimedZips(
   demoRequests: DemoRequestRecord[],

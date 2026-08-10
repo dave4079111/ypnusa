@@ -175,7 +175,8 @@ export interface AnalyticsEventRecord {
     | "intake_completed"
     | "appointment_booked"
     | "followup_processed"
-    | "demo_requested";
+    | "demo_requested"
+    | "property_evaluation_saved";
   createdAt: string;
   payload: Record<string, unknown>;
 }
@@ -197,13 +198,30 @@ export interface DemoRequestRecord {
   status: "new" | "contacted";
 }
 
+export interface PropertyEvaluationRecord {
+  id: string;
+  createdAt: string;
+  name: string;
+  email: string;
+  phone?: string;
+  zip: string;
+  estimatedHomeValueUsd: number;
+  currentMortgageBalanceUsd: number;
+  estimatedEquityUsd: number;
+  illustrativeCashOutUsd: number;
+  estimatedLtvPct: number;
+  contactConsent: true;
+  source: string;
+  status: "new" | "contacted";
+}
+
 export interface RevenueSubscriptionRecord {
   id: string;
   createdAt: string;
   startedAt: string;
   tier: PricingTierId;
   status: "trialing" | "active" | "cancelled";
-  source: "seed" | "demo_request" | "admin_adjustment" | "stripe";
+  source: "seed" | "demo_request" | "admin_adjustment";
   ownerLoId?: string;
   ownerEmail?: string;
   company?: string;
@@ -212,8 +230,6 @@ export interface RevenueSubscriptionRecord {
   monthlyPriceCents?: number;
   lifetimeMonths?: number;
   attributedDemoRequestIds?: string[];
-  stripeCustomerId?: string;
-  stripeSubscriptionId?: string;
 }
 
 export interface DbShape {
@@ -226,5 +242,6 @@ export interface DbShape {
   appointments: AppointmentRecord[];
   analyticsEvents: AnalyticsEventRecord[];
   demoRequests: DemoRequestRecord[];
+  propertyEvaluations: PropertyEvaluationRecord[];
   revenueSubscriptions: RevenueSubscriptionRecord[];
 }

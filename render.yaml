@@ -62,3 +62,33 @@ services:
         sync: false
       - key: OUTREACH_WEBHOOK_TOKEN
         sync: false
+      - key: MLO_CALENDAR_CONFIG_JSON
+        sync: false
+      - key: GOOGLE_CALENDAR_ACCESS_TOKEN
+        sync: false
+      - key: MICROSOFT_GRAPH_ACCESS_TOKEN
+        sync: false
+      - key: REVIEW_REQUEST_API_SECRET
+        sync: false
+      - key: REVIEW_REQUEST_WEBHOOK_URL
+        sync: false
+      - key: REVIEW_REQUEST_WEBHOOK_TOKEN
+        sync: false
+      - key: GBP_PLACE_ID
+        sync: false
+      - key: EMBED_ALLOWED_ORIGINS
+        sync: false
+
+  - type: cron
+    name: ypnusa-nurture
+    runtime: node
+    plan: starter
+    schedule: "*/5 * * * *"
+    buildCommand: echo scheduler-ready
+    startCommand: >-
+      node -e "fetch(process.env.AUTOMATION_URL,{method:'POST',headers:{authorization:'Bearer '+process.env.CRON_SECRET}}).then(async r=>{if(!r.ok)throw new Error('automation '+r.status+' '+await r.text())})"
+    envVars:
+      - key: AUTOMATION_URL
+        value: https://app.ypnus.com/api/automation/process
+      - key: CRON_SECRET
+        sync: false

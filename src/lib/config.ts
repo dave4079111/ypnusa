@@ -52,6 +52,20 @@ function productionCalendarsConfigured(): boolean {
   }
 }
 
+function embedOriginsConfigured(): boolean {
+  const values = process.env.EMBED_ALLOWED_ORIGINS?.split(",") ?? [];
+  return (
+    values.length > 0 &&
+    values.every((candidate) => {
+      try {
+        return new URL(candidate.trim()).protocol === "https:";
+      } catch {
+        return false;
+      }
+    })
+  );
+}
+
 export interface ProductionReadiness {
   ready: boolean;
   missing: string[];
@@ -66,6 +80,7 @@ export interface ProductionReadiness {
     calendar: boolean;
     bookingTokens: boolean;
     reviews: boolean;
+    embeds: boolean;
   };
 }
 
@@ -95,6 +110,7 @@ export function productionReadiness(): ProductionReadiness {
     configured("GBP_PLACE_ID") &&
     httpsUrl("REVIEW_REQUEST_WEBHOOK_URL");
   requireCheck(reviewsConfigured, "REVIEW_AUTOMATION");
+  requireCheck(embedOriginsConfigured(), "EMBED_ALLOWED_ORIGINS");
 
   const genericOutreach =
     httpsUrl("OUTREACH_WEBHOOK_URL") && strongSecret("OUTREACH_WEBHOOK_TOKEN");
@@ -126,6 +142,7 @@ export function productionReadiness(): ProductionReadiness {
       calendar: productionCalendarsConfigured(),
       bookingTokens: strongSecret("BOOKING_TOKEN_SECRET"),
       reviews: reviewsConfigured,
+      embeds: embedOriginsConfigured(),
     },
   };
 }

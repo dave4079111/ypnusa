@@ -1,6 +1,17 @@
 import type { NextConfig } from "next";
 
 const publicAssetCache = "public, max-age=86400, stale-while-revalidate=604800";
+const embedOrigins = (process.env.EMBED_ALLOWED_ORIGINS ?? "https://ypnus.com")
+  .split(",")
+  .flatMap((candidate) => {
+    try {
+      const url = new URL(candidate.trim());
+      return url.protocol === "https:" ? [url.origin] : [];
+    } catch {
+      return [];
+    }
+  });
+const frameAncestors = ["'self'", ...new Set(embedOrigins)].join(" ");
 const securityHeaders = [
   {
     key: "X-Content-Type-Options",
@@ -56,6 +67,15 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: securityHeaders,
+      },
+      {
+        source: "/embed/:path*",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: `base-uri 'self'; object-src 'none'; frame-ancestors ${frameAncestors}; form-action 'self' https://ypnus.com`,
+          },
+        ],
       },
       {
         source: "/assets/:path*",

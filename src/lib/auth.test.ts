@@ -123,16 +123,17 @@ describe("WordPress to app SSO", async () => {
     const apiResponse = proxy(new NextRequest("http://localhost/api/analytics/summary"));
     assert.equal(apiResponse.status, 401);
 
+    const now = Math.floor(Date.now() / 1000);
     const handoff = verifyWordpressHandoffToken(
       createWordpressHandoffToken(
         { ...handoffInput, jti: "proxy_session" },
         undefined,
-        1_900_000_000,
+        now,
       ),
       undefined,
-      1_900_000_010,
+      now,
     );
-    const session = createAppSessionToken(handoff, undefined, 1_900_000_010);
+    const session = createAppSessionToken(handoff, undefined, now);
     const authorized = proxy(
       new NextRequest("http://localhost/dashboard", {
         headers: { cookie: `${appSessionCookieName()}=${session}` },

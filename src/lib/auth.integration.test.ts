@@ -169,7 +169,7 @@ describe("one-time SSO session flow", async () => {
       subscription.status = "cancelled";
     });
     const previousNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
+    Reflect.set(process.env, "NODE_ENV", "production");
     try {
       assert.throws(
         () =>
@@ -182,8 +182,8 @@ describe("one-time SSO session flow", async () => {
           error.code === "SUBSCRIPTION_REQUIRED",
       );
     } finally {
-      if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
-      else process.env.NODE_ENV = previousNodeEnv;
+      if (previousNodeEnv === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+      else Reflect.set(process.env, "NODE_ENV", previousNodeEnv);
     }
   });
 });

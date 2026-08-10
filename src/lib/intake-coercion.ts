@@ -22,7 +22,19 @@ function mergeBoolean(answer: BorrowerAnswers, raw: string, fieldPath: keyof Bor
   if (raw !== "true" && raw !== "false") {
     return { ok: false as const, error: "Select one of the provided quick replies" };
   }
-  const next = { ...answer, [fieldPath]: raw === "true" };
+  const permitted = raw === "true";
+  const next =
+    fieldPath === "contactConsent"
+      ? {
+          ...answer,
+          contactConsent: permitted,
+          emailConsent: permitted,
+          smsConsent: permitted,
+          contactConsentAt: new Date().toISOString(),
+          contactConsentSource: "borrower_intake",
+          contactConsentDisclosureVersion: "2026-08-10",
+        }
+      : { ...answer, [fieldPath]: permitted };
   return { ok: true as const, answers: next as BorrowerAnswers };
 }
 
@@ -54,8 +66,21 @@ export function mergeStructuredAnswer(
     if (!result.ok) return result;
     return {
       ok: true,
-      answers: { ...answers, [step.fieldPath]: Math.round(result.value) } as BorrowerAnswers,
+      answers: {
+        ...answers,
+        [step.fieldPath]:
+          step.fieldPath === "currentRatePct"
+            ? Math.round(result.value * 1000) / 1000
+            : Math.round(result.value),
+      } as BorrowerAnswers,
     };
+  }
+
+  if (step.kind === "select" && step.chips) {
+    const allowed = new Set(step.chips.map((chip) => chip.value));
+    if (!allowed.has(trimmed)) {
+      return { ok: false, error: "Select one of the provided options." };
+    }
   }
 
   if (step.kind === "email") {

@@ -146,7 +146,7 @@ const defaultRevenueSubscriptions: RevenueSubscriptionRecord[] = [
 ];
 
 function demoSeedDataEnabled(): boolean {
-  return process.env.NODE_ENV !== "production" || process.env.LOANPILOT_DEMO_MODE === "1";
+  return process.env.NODE_ENV !== "production";
 }
 
 const emptyDb = (): DbShape => ({

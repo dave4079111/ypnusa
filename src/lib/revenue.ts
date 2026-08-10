@@ -132,7 +132,7 @@ function leadPipelineValue(lead: BorrowerLeadRecord): number {
 
 function collectActiveSubscriptions(db: DbShape): RevenueSubscriptionRecord[] {
   const active = db.revenueSubscriptions.filter(isRevenueSubscriptionActive);
-  if (process.env.NODE_ENV === "production" && process.env.LOANPILOT_DEMO_MODE !== "1") {
+  if (process.env.NODE_ENV === "production") {
     return active.filter(
       (subscription) =>
         subscription.source === "stripe" || subscription.source === "admin_adjustment",

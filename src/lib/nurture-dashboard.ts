@@ -61,7 +61,11 @@ export function buildNurtureDashboard(loId?: string) {
       const nextFollowUp = followUps.find((item) => item.status === "pending");
       const failed = followUps.some((item) => item.status === "failed");
       const appointment = db.appointments
-        .filter((item) => item.borrowerLeadId === lead.id)
+        .filter(
+          (item) =>
+            item.borrowerLeadId === lead.id &&
+            (item.status === undefined || item.status === "booked"),
+        )
         .sort((a, b) => Date.parse(b.start) - Date.parse(a.start))[0];
 
       let state: NurtureDashboardRow["state"] = "Awaiting booking";

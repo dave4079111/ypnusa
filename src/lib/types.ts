@@ -32,6 +32,11 @@ export interface BorrowerAnswers {
   email?: string;
   phone?: string;
   contactConsent?: boolean;
+  emailConsent?: boolean;
+  smsConsent?: boolean;
+  contactConsentAt?: string;
+  contactConsentSource?: string;
+  contactConsentDisclosureVersion?: string;
   /** e.g. 620-679, prefer numeric midpoint for scoring when possible */
   estimatedCreditBand?: string;
   annualIncomeUsd?: number;
@@ -180,10 +185,11 @@ export interface ScheduledFollowUpRecord {
   channel: FollowUpChannel;
   recipient: string;
   scheduledAt: string;
-  status: "pending" | "sending" | "sent" | "failed";
+  status: "pending" | "sending" | "sent" | "failed" | "cancelled";
   bodySummary: string;
   createdAt: string;
   sentAt?: string;
+  claimedAt?: string;
   attemptCount?: number;
   deliveryProvider?: "twilio" | "sendgrid" | "webhook" | "demo";
   providerMessageId?: string;
@@ -197,6 +203,7 @@ export interface AppointmentRecord {
   start: string;
   end: string;
   createdAt: string;
+  status?: "reserved" | "booked" | "handoff";
   borrowerNotes?: string;
   provider?: CalendarProvider;
   externalEventId?: string;

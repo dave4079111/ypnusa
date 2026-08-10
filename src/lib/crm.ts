@@ -17,6 +17,23 @@ function countAssignments(officerId: string): number {
 
 export function routeLoanOfficer(program: LoanProgram, propertyZip?: string) {
   const db = readDb();
+  const activeOfficerIds = new Set(
+    db.revenueSubscriptions
+      .filter(
+        (subscription) =>
+          subscription.status === "active" || subscription.status === "trialing",
+      )
+      .flatMap((subscription) =>
+        subscription.ownerLoId ? [subscription.ownerLoId] : [],
+      ),
+  );
+  const activeOfficers = db.loanOfficers.filter((officer) =>
+    activeOfficerIds.has(officer.id),
+  );
+  const eligibleOfficers =
+    activeOfficers.length > 0 || process.env.NODE_ENV === "production"
+      ? activeOfficers
+      : db.loanOfficers;
   if (propertyZip && /^\d{5}$/.test(propertyZip)) {
     const territoryOwner = db.revenueSubscriptions.find(
       (subscription) =>
@@ -29,9 +46,11 @@ export function routeLoanOfficer(program: LoanProgram, propertyZip?: string) {
     );
     if (territoryOfficer) return territoryOfficer;
   }
-  const candidates = db.loanOfficers.filter((officer) => officer.specialties.includes(program));
+  const candidates = eligibleOfficers.filter((officer) =>
+    officer.specialties.includes(program),
+  );
 
-  const pool = candidates.length > 0 ? candidates : db.loanOfficers;
+  const pool = candidates.length > 0 ? candidates : eligibleOfficers;
 
   let choice = pool[0];
   let smallest = Number.POSITIVE_INFINITY;

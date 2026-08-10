@@ -1,4 +1,4 @@
-import { appendAppointment, readDb } from "./db";
+import { readDb, writeDb } from "./db";
 import { generateId } from "./id";
 import type {
   AppointmentRecord,
@@ -452,15 +452,6 @@ export async function bookAppointment(input: {
   }
 
   const connection = configuredConnection(officer);
-  const providerEvent = await createProviderEvent(
-    connection,
-    officer,
-    lead,
-    start,
-    end,
-    input.notes,
-  );
-
   const record: AppointmentRecord = {
     id: generateId("appt"),
     borrowerLeadId: input.borrowerLeadId,
@@ -468,13 +459,59 @@ export async function bookAppointment(input: {
     start: start.toISOString(),
     end: end.toISOString(),
     createdAt: new Date().toISOString(),
+    status: "reserved",
     borrowerNotes: input.notes,
     provider: connection.provider,
-    externalEventId: providerEvent.externalEventId,
-    meetingUrl: providerEvent.meetingUrl,
-    externalBookingUrl: providerEvent.externalBookingUrl,
   };
+  let reserved = false;
+  writeDb((current) => {
+    const conflict = current.appointments.some(
+      (appointment) =>
+        appointment.loId === input.loId &&
+        appointment.status !== "handoff" &&
+        Date.parse(appointment.start) < end.getTime() &&
+        Date.parse(appointment.end) > start.getTime(),
+    );
+    if (!conflict) {
+      current.appointments.push(record);
+      reserved = true;
+    }
+  });
+  if (!reserved) throw new Error("That appointment time was just reserved.");
 
-  appendAppointment(record);
-  return record;
+  try {
+    const providerEvent = await createProviderEvent(
+      connection,
+      officer,
+      lead,
+      start,
+      end,
+      input.notes,
+    );
+    const completed: AppointmentRecord = {
+      ...record,
+      status: connection.provider === "calendly" ? "handoff" : "booked",
+      externalEventId: providerEvent.externalEventId,
+      meetingUrl: providerEvent.meetingUrl,
+      externalBookingUrl: providerEvent.externalBookingUrl,
+    };
+    writeDb((current) => {
+      const index = current.appointments.findIndex(
+        (appointment) => appointment.id === record.id,
+      );
+      if (connection.provider === "calendly") {
+        if (index >= 0) current.appointments.splice(index, 1);
+      } else if (index >= 0) {
+        current.appointments[index] = completed;
+      }
+    });
+    return completed;
+  } catch (error) {
+    writeDb((current) => {
+      current.appointments = current.appointments.filter(
+        (appointment) => appointment.id !== record.id,
+      );
+    });
+    throw error;
+  }
 }

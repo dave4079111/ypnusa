@@ -25,10 +25,12 @@ function logWebhookWarning(message: string, detail?: Record<string, unknown>): v
   console.warn("[external-webhook]", message, detail ?? {});
 }
 
-export async function mirrorIntakeToExternalWebhook(payload: ExternalWebhookPayload): Promise<void> {
+export async function mirrorIntakeToExternalWebhook(
+  payload: ExternalWebhookPayload,
+): Promise<boolean> {
   const endpoint = process.env.INTAKE_EXTERNAL_WEBHOOK_URL;
   if (!endpoint || endpoint.includes("YOUR-WEBHOOK") || endpoint.includes("YOUR_WEBHOOK")) {
-    return;
+    return false;
   }
 
   let url: URL;
@@ -38,18 +40,18 @@ export async function mirrorIntakeToExternalWebhook(payload: ExternalWebhookPayl
     logWebhookWarning("Skipping invalid intake webhook URL.", {
       error: describeWebhookError(error),
     });
-    return;
+    return false;
   }
   if (process.env.NODE_ENV === "production" && url.protocol !== "https:") {
     logWebhookWarning("Skipping non-HTTPS intake webhook URL.", { host: url.host });
-    return;
+    return false;
   }
   const token = process.env.INTAKE_EXTERNAL_WEBHOOK_TOKEN?.trim();
   if (process.env.NODE_ENV === "production" && (!token || Buffer.byteLength(token) < 32)) {
     logWebhookWarning("Skipping unauthenticated production intake webhook.", {
       host: url.host,
     });
-    return;
+    return false;
   }
 
   const controller = new AbortController();
@@ -71,13 +73,16 @@ export async function mirrorIntakeToExternalWebhook(payload: ExternalWebhookPayl
         status: response.status,
         host: url.host,
       });
+      return false;
     }
+    return true;
   } catch (error) {
     // Intentionally do not throw — ingestion already persisted locally.
     logWebhookWarning("Intake webhook mirror failed.", {
       error: describeWebhookError(error),
       host: url.host,
     });
+    return false;
   } finally {
     clearTimeout(timer);
   }

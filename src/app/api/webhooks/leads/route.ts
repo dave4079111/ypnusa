@@ -74,6 +74,18 @@ function phone(value: unknown): string | undefined {
   return normalized && normalized.replace(/\D/g, "").length >= 7 ? normalized : undefined;
 }
 
+function creditBand(value: unknown): string | undefined {
+  const normalized = text(value, 40);
+  if (normalized === "740+") return "740-850";
+  return normalized === "740-850" ||
+    normalized === "670-739" ||
+    normalized === "620-669" ||
+    normalized === "580-619" ||
+    normalized === "unknown"
+    ? normalized
+    : undefined;
+}
+
 function isAuthorized(request: Request): "ok" | "missing" | "invalid" {
   const expected = process.env.MLO_LEAD_WEBHOOK_SECRET?.trim();
   if (!expected || Buffer.byteLength(expected) < 32) return "missing";
@@ -118,8 +130,14 @@ function normalizeBorrower(payload: InboundLeadPayload): BorrowerAnswers | null 
   const name = text(source.name, 160);
   const normalizedEmail = email(source.email);
   const normalizedPhone = phone(source.phone);
-  const timeline = text(source.timeline, 40);
-  const estimatedCreditBand = text(source.estimatedCreditBand, 40);
+  const timeline =
+    source.timeline === "lt_30" ||
+    source.timeline === "1_3_months" ||
+    source.timeline === "3_6_months" ||
+    source.timeline === "researching"
+      ? source.timeline
+      : undefined;
+  const estimatedCreditBand = creditBand(source.estimatedCreditBand);
   const propertyZip = text(source.propertyZip ?? source.zip, 5);
   if (
     !loanProgram ||
@@ -128,6 +146,8 @@ function normalizeBorrower(payload: InboundLeadPayload): BorrowerAnswers | null 
     !normalizedPhone ||
     !timeline ||
     !estimatedCreditBand ||
+    !propertyZip ||
+    !/^\d{5}$/.test(propertyZip) ||
     typeof source.contactConsent !== "boolean"
   ) {
     return null;
@@ -139,7 +159,7 @@ function normalizeBorrower(payload: InboundLeadPayload): BorrowerAnswers | null 
     phone: normalizedPhone,
     timeline,
     estimatedCreditBand,
-    propertyZip: propertyZip && /^\d{5}$/.test(propertyZip) ? propertyZip : undefined,
+    propertyZip,
     purchaseRefiIntent:
       source.purchaseRefiIntent === "purchase" ||
       source.purchaseRefiIntent === "refinance" ||
@@ -147,6 +167,11 @@ function normalizeBorrower(payload: InboundLeadPayload): BorrowerAnswers | null 
         ? source.purchaseRefiIntent
         : "unsure",
     contactConsent: source.contactConsent,
+    emailConsent: source.contactConsent,
+    smsConsent: source.contactConsent,
+    contactConsentAt: new Date().toISOString(),
+    contactConsentSource: "mlo_webhook",
+    contactConsentDisclosureVersion: "2026-08-10",
     funnelSource: text(source.funnelSource, 160) ?? "mlo_webform",
   };
 }
@@ -221,8 +246,7 @@ export async function POST(request: Request) {
     );
   }
   if (
-    answers.propertyZip &&
-    entitlement.claimedZips.length > 0 &&
+    !answers.propertyZip ||
     !entitlement.claimedZips.includes(answers.propertyZip)
   ) {
     return jsonError(
@@ -285,6 +309,7 @@ export async function POST(request: Request) {
         followUpsQueued: result.followUpsQueued ?? 0,
         immediateOutreachSent: result.immediateOutreachSent ?? 0,
         immediateOutreachFailed: result.immediateOutreachFailed ?? 0,
+        externalMirrorDelivered: result.externalMirrorDelivered ?? false,
       },
       { status: 201 },
     );

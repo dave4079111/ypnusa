@@ -9,6 +9,7 @@ type Bubble = { id: string; role: "assistant" | "user" | "system"; body: string 
 type IncomingPayload = { field: keyof BorrowerAnswers; rawValue: string };
 type BookedAppointment = {
   id: string;
+  status?: "reserved" | "booked" | "handoff";
   provider?: string;
   meetingUrl?: string;
   externalBookingUrl?: string;
@@ -320,7 +321,11 @@ export function MortgageIntakeChat(props: {
       }
 
       setBooked(body.appointment ?? null);
-      pushSys(`Consultation locked (${body.appointment?.id ?? "reference pending"}).`);
+      pushSys(
+        body.appointment?.status === "handoff"
+          ? "Continue in Calendly to confirm your consultation."
+          : `Consultation locked (${body.appointment?.id ?? "reference pending"}).`,
+      );
     } catch {
       pushSys("Booking transport failed.");
     } finally {

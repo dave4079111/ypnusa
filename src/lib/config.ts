@@ -81,6 +81,8 @@ export interface ProductionReadiness {
     bookingTokens: boolean;
     reviews: boolean;
     embeds: boolean;
+    demoSafe: boolean;
+    crmMirror: boolean;
   };
 }
 
@@ -111,6 +113,10 @@ export function productionReadiness(): ProductionReadiness {
     httpsUrl("REVIEW_REQUEST_WEBHOOK_URL");
   requireCheck(reviewsConfigured, "REVIEW_AUTOMATION");
   requireCheck(embedOriginsConfigured(), "EMBED_ALLOWED_ORIGINS");
+  const demoSafe =
+    process.env.LOANPILOT_DEMO_MODE !== "1" &&
+    !process.env.LOANPILOT_DEMO_DAY_MINUTES?.trim();
+  requireCheck(demoSafe, "DEMO_FLAGS_DISABLED");
 
   const genericOutreach =
     httpsUrl("OUTREACH_WEBHOOK_URL") && strongSecret("OUTREACH_WEBHOOK_TOKEN");
@@ -121,6 +127,10 @@ export function productionReadiness(): ProductionReadiness {
     configured("SENDGRID_API_KEY") &&
     configured("SENDGRID_FROM_EMAIL");
   requireCheck(genericOutreach || directOutreach, "OUTREACH_PROVIDER");
+  const crmMirror =
+    httpsUrl("INTAKE_EXTERNAL_WEBHOOK_URL") &&
+    strongSecret("INTAKE_EXTERNAL_WEBHOOK_TOKEN");
+  requireCheck(crmMirror, "INTAKE_EXTERNAL_WEBHOOK");
 
   return {
     ready: missing.length === 0,
@@ -143,6 +153,8 @@ export function productionReadiness(): ProductionReadiness {
       bookingTokens: strongSecret("BOOKING_TOKEN_SECRET"),
       reviews: reviewsConfigured,
       embeds: embedOriginsConfigured(),
+      demoSafe,
+      crmMirror,
     },
   };
 }

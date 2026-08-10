@@ -47,6 +47,7 @@ export interface BorrowerFinalizeClientSnapshot {
   followUpsQueued?: number;
   immediateOutreachSent?: number;
   bookingToken?: string;
+  externalMirrorDelivered?: boolean;
 }
 
 export interface IntakeTickResponse {

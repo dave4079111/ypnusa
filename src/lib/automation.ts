@@ -8,6 +8,9 @@ import type {
 } from "./types";
 
 export function demoDayMilliseconds(): number {
+  if (process.env.NODE_ENV === "production") {
+    return 86_400_000;
+  }
   if (process.env.LOANPILOT_DEMO_MODE === "1") {
     /** Two minutes substitutes for twenty-four hours in investor demos */
     return 120_000;
@@ -83,17 +86,22 @@ export function scheduleBorrowerJourney(
   ];
 
   const anchor = Date.now();
-  const created: ScheduledFollowUpRecord[] = plans.map((plan) => ({
-    id: generateId("fu"),
-    borrowerLeadId,
-    plan,
-    channel: plan === "immediate_sms_ack" ? "sms" : "email",
-    recipient: plan === "immediate_sms_ack" ? phone : email,
-    scheduledAt: new Date(anchor + offsetSinceNow(plan)).toISOString(),
-    status: "pending",
-    bodySummary: nurtureCopy[plan],
-    createdAt: new Date().toISOString(),
-  }));
+  const created: ScheduledFollowUpRecord[] = plans.flatMap((plan) => {
+    const channel = plan === "immediate_sms_ack" ? "sms" : "email";
+    if (channel === "sms" && answers.smsConsent === false) return [];
+    if (channel === "email" && answers.emailConsent === false) return [];
+    return [{
+      id: generateId("fu"),
+      borrowerLeadId,
+      plan,
+      channel,
+      recipient: channel === "sms" ? phone : email,
+      scheduledAt: new Date(anchor + offsetSinceNow(plan)).toISOString(),
+      status: "pending",
+      bodySummary: nurtureCopy[plan],
+      createdAt: new Date().toISOString(),
+    }];
+  });
 
   persistFollowUpsBatch(created);
   return created;
@@ -116,11 +124,29 @@ export async function processDueFollowUps(options?: {
   writeDb((db) => {
     const now = Date.now();
     for (const job of db.followUps) {
+      if (
+        job.status === "sending" &&
+        (!job.claimedAt || Date.parse(job.claimedAt) <= now - 10 * 60_000)
+      ) {
+        job.status = "pending";
+        job.claimedAt = undefined;
+      }
       if (claimedIds.length >= limit) break;
       if (job.status !== "pending") continue;
       if (options?.borrowerLeadId && job.borrowerLeadId !== options.borrowerLeadId) continue;
       if (new Date(job.scheduledAt).getTime() > now) continue;
+      const lead = db.borrowerLeads.find((item) => item.id === job.borrowerLeadId);
+      const channelPermitted =
+        lead?.answers.contactConsent === true &&
+        (job.channel === "sms"
+          ? lead.answers.smsConsent !== false
+          : lead.answers.emailConsent !== false);
+      if (!channelPermitted) {
+        job.status = "cancelled";
+        continue;
+      }
       job.status = "sending";
+      job.claimedAt = new Date(now).toISOString();
       job.attemptCount = (job.attemptCount ?? 0) + 1;
       claimedIds.push(job.id);
     }
@@ -153,6 +179,7 @@ export async function processDueFollowUps(options?: {
         const current = db.followUps.find((item) => item.id === jobId);
         if (!current) return;
         current.status = "sent";
+        current.claimedAt = undefined;
         current.sentAt = new Date().toISOString();
         current.deliveryProvider = delivery.provider;
         current.providerMessageId = delivery.messageId;
@@ -167,6 +194,7 @@ export async function processDueFollowUps(options?: {
         if (!current) return;
         const attempts = current.attemptCount ?? 1;
         current.status = attempts >= 3 ? "failed" : "pending";
+        current.claimedAt = undefined;
         current.scheduledAt = new Date(Date.now() + attempts * 60_000).toISOString();
         current.lastError = message.slice(0, 500);
       });

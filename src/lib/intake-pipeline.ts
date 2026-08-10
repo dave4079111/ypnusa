@@ -18,6 +18,7 @@ export interface BorrowerFinalizeSnapshot {
   immediateOutreachSent?: number;
   immediateOutreachFailed?: number;
   bookingToken?: string;
+  externalMirrorDelivered?: boolean;
 }
 
 export async function finalizeIntakeArtifacts(
@@ -118,7 +119,7 @@ export async function finalizeIntakeArtifacts(
     },
   });
 
-  void mirrorIntakeToExternalWebhook({
+  const externalMirrorDelivered = await mirrorIntakeToExternalWebhook({
     event: "intake.completed",
     receivedAt: new Date().toISOString(),
     borrowerLeadId: crm.borrowerLeadId,
@@ -151,5 +152,6 @@ export async function finalizeIntakeArtifacts(
     immediateOutreachSent: immediateOutreach.processed,
     immediateOutreachFailed: immediateOutreach.failed,
     bookingToken: createBookingToken(crm.borrowerLeadId, officerProfile.id),
+    externalMirrorDelivered,
   };
 }

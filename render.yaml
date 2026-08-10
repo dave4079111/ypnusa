@@ -62,6 +62,10 @@ services:
         sync: false
       - key: OUTREACH_WEBHOOK_TOKEN
         sync: false
+      - key: INTAKE_EXTERNAL_WEBHOOK_URL
+        sync: false
+      - key: INTAKE_EXTERNAL_WEBHOOK_TOKEN
+        sync: false
       - key: MLO_CALENDAR_CONFIG_JSON
         sync: false
       - key: GOOGLE_CALENDAR_ACCESS_TOKEN

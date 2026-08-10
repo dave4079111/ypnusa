@@ -53,7 +53,7 @@ function dataDir(): string {
   return cachedDataDir;
 }
 function dbPath(): string {
-  return path.join(dataDir(), "store.json");
+  return path.join(/*turbopackIgnore: true*/ dataDir(), "store.json");
 }
 
 const defaultLoanOfficers: LoanOfficerRecord[] = [
@@ -273,8 +273,10 @@ function hydrate(): DbShape {
 
   let snapshotUnreadable = false;
   try {
-    if (fs.existsSync(dbPath())) {
-      const parsed = JSON.parse(fs.readFileSync(dbPath(), "utf8")) as unknown;
+    if (fs.existsSync(/*turbopackIgnore: true*/ dbPath())) {
+      const parsed = JSON.parse(
+        fs.readFileSync(/*turbopackIgnore: true*/ dbPath(), "utf8"),
+      ) as unknown;
       memoryDb = normalize(parsed);
       return memoryDb;
     }

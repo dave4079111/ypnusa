@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+import { sessionIdFromRequest, verifySession } from "./auth";
 import { NextResponse } from "next/server";
 
 export interface ApiErrorEnvelope {
@@ -27,8 +29,17 @@ export function jsonError(
 }
 
 export async function parseJsonBody<T = unknown>(request: Request): Promise<ParseJsonResult<T>> {
+  const maxBytes = 1_048_576;
+  const contentLength = Number(request.headers.get("content-length") ?? "");
+  if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+    return { ok: false, error: "Request body is too large.", code: "BODY_TOO_LARGE" };
+  }
   try {
-    return { ok: true, data: (await request.json()) as T };
+    const body = await request.text();
+    if (Buffer.byteLength(body, "utf8") > maxBytes) {
+      return { ok: false, error: "Request body is too large.", code: "BODY_TOO_LARGE" };
+    }
+    return { ok: true, data: JSON.parse(body) as T };
   } catch {
     return { ok: false, error: "Request body must be JSON.", code: "INVALID_JSON" };
   }
@@ -39,27 +50,47 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function logApiError(route: string, error: unknown): void {
-  console.error(`[api] ${route} failed`, error);
+  const detail =
+    error instanceof Error
+      ? { name: error.name, message: error.message.slice(0, 500) }
+      : { name: "UnknownError" };
+  console.error(`[api] ${route} failed`, detail);
 }
 
-export function requireConfiguredSecret(request: Request): NextResponse<ApiErrorEnvelope> | null {
-  const adminToken = process.env.ADMIN_TOKEN?.trim();
-  const cronSecret = process.env.CRON_SECRET?.trim();
-  const required = [adminToken, cronSecret].filter((secret): secret is string => Boolean(secret));
-
-  if (required.length === 0) return null;
-
+function bearerValue(request: Request): string {
   const authorization = request.headers.get("authorization")?.trim() ?? "";
-  const bearer = authorization.toLowerCase().startsWith("bearer ")
+  return authorization.toLowerCase().startsWith("bearer ")
     ? authorization.slice(7).trim()
     : "";
-  const supplied = [
-    request.headers.get("x-admin-token")?.trim(),
-    request.headers.get("x-cron-secret")?.trim(),
-    bearer,
-  ].filter((secret): secret is string => Boolean(secret));
+}
 
-  if (supplied.some((secret) => required.includes(secret))) return null;
+function secretsEqual(expected: string, supplied: string): boolean {
+  const expectedBuffer = Buffer.from(expected);
+  const suppliedBuffer = Buffer.from(supplied);
+  return (
+    expectedBuffer.length === suppliedBuffer.length &&
+    timingSafeEqual(expectedBuffer, suppliedBuffer)
+  );
+}
 
-  return jsonError("Unauthorized.", 401, "UNAUTHORIZED");
+export function requireBearerSecret(
+  request: Request,
+  environmentName: string,
+): NextResponse<ApiErrorEnvelope> | null {
+  const expected = process.env[environmentName]?.trim();
+  if (!expected || Buffer.byteLength(expected) < 32) {
+    return jsonError("Service authentication is not configured.", 503, "AUTH_NOT_CONFIGURED");
+  }
+  if (!secretsEqual(expected, bearerValue(request))) {
+    return jsonError("Unauthorized.", 401, "UNAUTHORIZED");
+  }
+  return null;
+}
+
+export function requireAdminOrBearer(
+  request: Request,
+): NextResponse<ApiErrorEnvelope> | null {
+  const session = verifySession(sessionIdFromRequest(request));
+  if (session?.profile.isAdmin) return null;
+  return requireBearerSecret(request, "ADMIN_TOKEN");
 }

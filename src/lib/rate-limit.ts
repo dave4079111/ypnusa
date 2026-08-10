@@ -42,8 +42,51 @@ export function rateLimit(
   return { ok: true, retryAfter: 0 };
 }
 
+export async function distributedRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<{ ok: boolean; retryAfter: number }> {
+  const endpoint = process.env.UPSTASH_REDIS_REST_URL?.trim().replace(/\/$/, "");
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  if (!endpoint || !token) return rateLimit(key, limit, windowMs);
+
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 1;
+  const safeWindowMs = Number.isFinite(windowMs) && windowMs > 0 ? Math.floor(windowMs) : 60_000;
+  const redisKey = `ypnus:rate:${key.trim() || "unknown"}`;
+  try {
+    const response = await fetch(`${endpoint}/pipeline`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify([
+        ["INCR", redisKey],
+        ["PEXPIRE", redisKey, safeWindowMs, "NX"],
+        ["PTTL", redisKey],
+      ]),
+      signal: AbortSignal.timeout(2_000),
+    });
+    if (!response.ok) throw new Error(`Rate-limit store returned ${response.status}.`);
+    const result = (await response.json()) as Array<{ result?: unknown }>;
+    const count = Number(result[0]?.result);
+    const ttl = Number(result[2]?.result);
+    if (!Number.isFinite(count)) throw new Error("Rate-limit store returned an invalid count.");
+    return {
+      ok: count <= safeLimit,
+      retryAfter: count <= safeLimit ? 0 : Math.max(1, Math.ceil(ttl / 1000)),
+    };
+  } catch (error) {
+    console.error("[rate-limit] Shared limiter unavailable", error);
+    return { ok: false, retryAfter: Math.ceil(safeWindowMs / 1000) };
+  }
+}
+
 /** Best-effort client identifier from proxy headers. */
 export function clientKey(request: Request): string {
+  const cloudflare = request.headers.get("cf-connecting-ip")?.trim();
+  if (cloudflare) return cloudflare;
   const xff = request.headers.get("x-forwarded-for");
   if (xff) {
     const first = xff.split(",")[0]?.trim();

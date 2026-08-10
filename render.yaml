@@ -11,12 +11,16 @@ services:
   - type: web
     name: ypnusa
     runtime: node
-    plan: free
+    plan: starter
     branch: main
     autoDeploy: true
     buildCommand: npm ci && npm run build
     startCommand: npm run start
-    healthCheckPath: /
+    healthCheckPath: /api/health
+    disk:
+      name: ypnusa-data
+      mountPath: /var/data/ypnusa
+      sizeGB: 1
     envVars:
       # Product app host. Keep this on app.ypnus.com so SEO/canonicals don't
       # collide with the WordPress marketing site on ypnus.com.
@@ -28,4 +32,30 @@ services:
         value: https://ypnus.com/wp-json/ypnus/v1
       # Persist the lead store on Render's writable disk instead of the repo dir.
       - key: LOANPILOT_DATA_DIR
-        value: /tmp/ypnus-data
+        value: /var/data/ypnusa
+      - key: SSO_JWT_ISSUER
+        value: https://ypnus.com
+      - key: SSO_JWT_AUDIENCE
+        value: https://app.ypnus.com
+      - key: SSO_ALLOWED_ORIGIN
+        value: https://ypnus.com
+      - key: MLO_SESSION_TTL_SECONDS
+        value: "900"
+      - key: SSO_JWT_SECRET
+        sync: false
+      - key: MLO_LEAD_WEBHOOK_SECRET
+        sync: false
+      - key: ENTITLEMENT_SYNC_SECRET
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: OUTREACH_WEBHOOK_URL
+        sync: false
+      - key: OUTREACH_WEBHOOK_TOKEN
+        sync: false

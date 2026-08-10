@@ -11,6 +11,8 @@
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint",
     "test": "tsx --test src/**/*.test.ts",
+    "test:wp": "php wp-plugins/ypnus-stripe-webhook/tests/ypnus-stripe-webhook.test.php",
+    "test:all": "npm test && npm run test:wp",
     "deploy:hostinger:list": "node scripts/deploy-hostinger.mjs list",
     "deploy:hostinger:next": "node scripts/deploy-hostinger.mjs deploy-next",
     "deploy:hostinger:status": "node scripts/deploy-hostinger.mjs status",

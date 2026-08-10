@@ -1,6 +1,5 @@
 import type { NextConfig } from "next";
 
-const immutableCache = "public, max-age=31536000, immutable";
 const publicAssetCache = "public, max-age=86400, stale-while-revalidate=604800";
 const securityHeaders = [
   {
@@ -15,11 +14,29 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=()",
   },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains; preload",
+  },
+  {
+    key: "X-DNS-Prefetch-Control",
+    value: "off",
+  },
+  {
+    key: "X-Permitted-Cross-Domain-Policies",
+    value: "none",
+  },
+  {
+    key: "Content-Security-Policy",
+    value:
+      "base-uri 'self'; object-src 'none'; frame-ancestors 'self' https://ypnus.com; form-action 'self' https://ypnus.com",
+  },
 ];
 
 const nextConfig: NextConfig = {
   // Smaller Hostinger / Node host deploys; `next start` still works.
   output: "standalone",
+  poweredByHeader: false,
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 60 * 60 * 24 * 30,
@@ -31,20 +48,11 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
       {
-        source: "/_next/static/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: immutableCache,
-          },
-        ],
-      },
-      {
         source: "/assets/:path*",
         headers: [
           {
             key: "Cache-Control",
-            value: immutableCache,
+            value: publicAssetCache,
           },
         ],
       },
@@ -53,7 +61,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: "Cache-Control",
-            value: immutableCache,
+            value: publicAssetCache,
           },
         ],
       },

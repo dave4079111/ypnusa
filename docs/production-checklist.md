@@ -18,7 +18,10 @@ limiting.
 - [ ] Set `SSO_ALLOWED_ORIGIN=https://ypnus.com` and
       `NEXT_PUBLIC_SITE_URL=https://app.ypnus.com`.
 - [ ] Set `MLO_SESSION_TTL_SECONDS` to the approved session lifetime (the
-      default is eight hours).
+      default is 15 minutes so cancelled entitlements age out quickly).
+- [ ] Set a separate `ENTITLEMENT_SYNC_SECRET` in the app and
+      `YPNUS_ENTITLEMENT_SYNC_SECRET` in WordPress so billing changes update MRR
+      and revoke sessions immediately.
 - [ ] Generate a separate 32+ byte `MLO_LEAD_WEBHOOK_SECRET` and configure it
       as the MLO webform's Bearer credential.
 - [ ] Set unique `ADMIN_TOKEN`, `CRON_SECRET`, and
@@ -30,7 +33,8 @@ limiting.
 
 ## WordPress SSO issuer
 
-- [ ] Mint HS256 JWTs only after checking the current WordPress user and
+- [ ] Install the updated Stripe/SSO WordPress plugin, place
+      `[ypnus_app_login]` on the account page, and mint HS256 JWTs only after checking the current WordPress user and
       `ypnus_paid_access === "1"` at issuance time.
 - [ ] Put the profile in `mlo` with `id`, `name`, `email`, `paidAccess`,
       `subscriptionTier`, `nmlsId`, and `claimedZips`.
@@ -65,13 +69,14 @@ limiting.
       embedded intake page, analytics, maps, and webhook integrations. A global
       `frame-ancestors 'none'` would break `/embed/intake`, so scope framing
       policy by route.
-- [ ] Replace the process-local limiter in `src/lib/rate-limit.ts` with a shared
-      Redis/Upstash limiter before running multiple Node instances.
+- [ ] Configure `UPSTASH_REDIS_REST_URL` and
+      `UPSTASH_REDIS_REST_TOKEN`. Production requests fail closed when the
+      shared limiter is configured but unavailable.
 - [ ] Rate-limit SSO by IP and account identifier, and lead webhooks by trusted
       proxy IP plus credential. Configure trusted proxy behavior so clients
       cannot spoof `X-Forwarded-For`.
-- [ ] Restrict `/portal`, `/dashboard`, `/admin`, analytics, revenue, and
-      automation routes with server-side session or service-token checks.
+- [ ] Verify `/portal`, `/dashboard`, `/admin`, analytics, revenue, and
+      automation routes reject unauthenticated or under-privileged requests.
 - [ ] Add request body limits at Cloudflare/Hostinger and reject unsupported
       content types.
 

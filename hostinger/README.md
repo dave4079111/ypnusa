@@ -79,7 +79,7 @@ This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
 | `NEXT_PUBLIC_SITE_URL` | `https://app.ypnus.com` |
 | `NEXT_PUBLIC_MARKETING_SITE_URL` | `https://ypnus.com` |
 | `YPNUS_WP_API_BASE` | `https://ypnus.com/wp-json/ypnus/v1` |
-| `LOANPILOT_DATA_DIR` | `/tmp/ypnus-data` |
+| `LOANPILOT_DATA_DIR` | A writable persistent path outside the release directory, such as `/home/<account>/ypnus-data` |
 
 Before enabling SSO or MLO webform delivery, complete the security, secrets,
 CORS, persistence, nurture, and release checks in

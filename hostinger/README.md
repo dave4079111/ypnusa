@@ -55,6 +55,13 @@ Then in Rank Math:
 - Review `/markets/` and near-duplicate city LO pages; noindex or consolidate thin ones
 - Keep conversion URLs: `/check-zip.html`, `/lo-signup.html`, `/pricing-plans/`
 
+## WordPress Stripe webhook (ypnus.com)
+
+Upload `wp-plugins/ypnus-stripe-webhook.zip` as a normal plugin and activate it. Configure the
+signing secret and Payment Link / Price ID tier maps directly in `wp-config.php`; never commit or
+paste live Stripe secrets into chat. The complete event list and sandbox verification sequence are
+documented in `wp-plugins/ypnus-stripe-webhook/README.md`.
+
 ## Next.js app on Hostinger Cloud (Node.js web app)
 
 This repo is the **product app** for `https://app.ypnus.com` on a Hostinger

@@ -232,10 +232,13 @@ let lastStorageError: string | undefined;
 
 function ensureDataDir(): boolean {
   try {
-    if (!fs.existsSync(dataDir())) {
-      fs.mkdirSync(dataDir(), { recursive: true, mode: 0o700 });
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dataDir())) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ dataDir(), {
+        recursive: true,
+        mode: 0o700,
+      });
     }
-    fs.chmodSync(dataDir(), 0o700);
+    fs.chmodSync(/*turbopackIgnore: true*/ dataDir(), 0o700);
     lastStorageError = undefined;
     return true;
   } catch (error) {
@@ -255,9 +258,14 @@ function flushToDisk(db: DbShape): void {
   const target = dbPath();
   const tmp = `${target}.${process.pid}.tmp`;
   try {
-    fs.writeFileSync(tmp, JSON.stringify(db, null, 2), { mode: 0o600 });
-    fs.renameSync(tmp, target);
-    fs.chmodSync(target, 0o600);
+    fs.writeFileSync(/*turbopackIgnore: true*/ tmp, JSON.stringify(db, null, 2), {
+      mode: 0o600,
+    });
+    fs.renameSync(
+      /*turbopackIgnore: true*/ tmp,
+      /*turbopackIgnore: true*/ target,
+    );
+    fs.chmodSync(/*turbopackIgnore: true*/ target, 0o600);
     lastStorageError = undefined;
   } catch (error) {
     // Read-only/serverless filesystem: keep serving from memory. Stop retrying
@@ -265,7 +273,7 @@ function flushToDisk(db: DbShape): void {
     diskWritable = false;
     lastStorageError = `Unable to persist data snapshot: ${describeFsError(error)}`;
     try {
-      fs.rmSync(tmp, { force: true });
+      fs.rmSync(/*turbopackIgnore: true*/ tmp, { force: true });
     } catch {
       // Best effort only; persistence has already fallen back to memory.
     }

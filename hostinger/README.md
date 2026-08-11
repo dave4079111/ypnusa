@@ -82,9 +82,11 @@ This repo is the **product app** for `https://app.ypnus.com` on a Hostinger
 | `LOANPILOT_DATA_DIR` | `/tmp/ypnus-data` |
 | `SESSION_SECRET` | random 32+ byte string — signs the `ypnus_session` cookie |
 | `YPNUS_SSO_SHARED_SECRET` | random secret shared with the WordPress SSO handoff (see `docs/sso-handoff.md`) |
-| `STRIPE_SECRET_KEY` | Stripe secret key — required to create Checkout Sessions (`/api/billing/checkout`) |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret — required for `/api/webhooks/stripe` to accept events (fails closed / 501 until set) |
-| `STRIPE_PRICE_ID_STARTER` / `STRIPE_PRICE_ID_PRO` / `STRIPE_PRICE_ID_ELITE` | Stripe Price IDs for the three paid tiers |
+| `ADMIN_TOKEN` / `CRON_SECRET` | optional bearer secrets for machine-only endpoints (`/api/webhooks/leads`, `/api/automation/process`); `/api/analytics/summary` and `/api/revenue/summary` also accept either one **or** a valid `ypnus_session` cookie |
+
+Stripe billing lives entirely on `ypnus.com` — see "WordPress Stripe webhook" below. There is
+no `STRIPE_*` env var on this app; an earlier app-side webhook (`/api/billing/checkout`,
+`/api/webhooks/stripe`) was removed in favor of it.
 
 ## Session / SSO architecture
 

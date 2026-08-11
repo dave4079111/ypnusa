@@ -1,12 +1,13 @@
 import { summarizeAnalyticsPulse } from "@/lib/analytics-core";
-import { jsonError, jsonOk, logApiError, requireConfiguredSecret } from "@/lib/http";
+import { requireSessionOrSecret } from "@/lib/auth";
+import { jsonError, jsonOk, logApiError } from "@/lib/http";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   try {
-    const unauthorized = requireConfiguredSecret(request);
+    const unauthorized = await requireSessionOrSecret(request);
     if (unauthorized) return unauthorized;
 
     return jsonOk({ analytics: summarizeAnalyticsPulse() });

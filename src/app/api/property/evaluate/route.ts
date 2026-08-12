@@ -2,25 +2,13 @@ import { appendAnalytics, appendPropertyEvaluation } from "@/lib/db";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
 import { generateId } from "@/lib/id";
 import { calculatePropertyEquity } from "@/lib/property-equity";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { isValidZip } from "@/lib/territory";
 import type { PropertyEvaluationRecord } from "@/lib/types";
+import { isValidEmail, optionalText, roundedAmount } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ZIP_RE = /^\d{5}$/;
-
-function text(value: unknown, maxLength: number): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed ? trimmed.slice(0, maxLength) : undefined;
-}
-
-function amount(value: unknown): number | undefined {
-  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
-  return Math.round(value);
-}
 
 export async function POST(request: Request) {
   try {
@@ -32,25 +20,18 @@ export async function POST(request: Request) {
 
     const body = parsed.data;
     const wantsContact = body.contactConsent === true;
-    const limited = rateLimit(
-      `property:${wantsContact ? "lead" : "estimate"}:${clientKey(request)}`,
-      wantsContact ? 5 : 20,
-      60_000,
-    );
-    if (!limited.ok) {
-      return jsonError(
-        "Too many requests — please wait before trying again.",
-        429,
-        "RATE_LIMITED",
-        { headers: { "Retry-After": String(limited.retryAfter) } },
-      );
-    }
+    const limited = enforceRateLimit(request, {
+      scope: `property:${wantsContact ? "lead" : "estimate"}`,
+      limit: wantsContact ? 5 : 20,
+      message: "Too many requests — please wait before trying again.",
+    });
+    if (limited) return limited;
 
-    const zip = text(body.zip, 5);
-    const estimatedHomeValueUsd = amount(body.estimatedHomeValueUsd);
-    const currentMortgageBalanceUsd = amount(body.currentMortgageBalanceUsd);
+    const zip = optionalText(body.zip, 5);
+    const estimatedHomeValueUsd = roundedAmount(body.estimatedHomeValueUsd);
+    const currentMortgageBalanceUsd = roundedAmount(body.currentMortgageBalanceUsd);
 
-    if (!zip || !ZIP_RE.test(zip)) {
+    if (!zip || !isValidZip(zip)) {
       return jsonError("Enter a valid 5-digit ZIP code.", 400, "INVALID_ZIP");
     }
     if (
@@ -83,9 +64,9 @@ export async function POST(request: Request) {
     let evaluationId: string | undefined;
 
     if (wantsContact) {
-      const name = text(body.name, 120);
-      const email = text(body.email, 320);
-      const phone = text(body.phone, 40);
+      const name = optionalText(body.name, 120);
+      const email = optionalText(body.email, 320);
+      const phone = optionalText(body.phone, 40);
       if (!name || !email) {
         return jsonError(
           "Name and email are required to request an MLO review.",
@@ -93,7 +74,7 @@ export async function POST(request: Request) {
           "MISSING_CONTACT",
         );
       }
-      if (!EMAIL_RE.test(email)) {
+      if (!isValidEmail(email)) {
         return jsonError("Enter a valid email address.", 400, "INVALID_EMAIL");
       }
 
@@ -106,7 +87,7 @@ export async function POST(request: Request) {
         zip,
         ...snapshot,
         contactConsent: true,
-        source: text(body.source, 80) ?? "equity_snapshot",
+        source: optionalText(body.source, 80) ?? "equity_snapshot",
         status: "new",
       };
       appendPropertyEvaluation(record);

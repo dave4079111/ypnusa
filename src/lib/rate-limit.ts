@@ -7,6 +7,9 @@
  * Upstash, etc.).
  */
 
+import type { NextResponse } from "next/server";
+import { jsonError, type ApiErrorEnvelope } from "./http";
+
 type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
@@ -40,6 +43,26 @@ export function rateLimit(
 
   existing.count += 1;
   return { ok: true, retryAfter: 0 };
+}
+
+/**
+ * Fixed-window guard for a route: returns a 429 envelope when the caller is
+ * over budget, or `null` to continue.
+ */
+export function enforceRateLimit(
+  request: Request,
+  options: { scope: string; limit: number; message: string; windowMs?: number },
+): NextResponse<ApiErrorEnvelope> | null {
+  const limited = rateLimit(
+    `${options.scope}:${clientKey(request)}`,
+    options.limit,
+    options.windowMs ?? 60_000,
+  );
+  if (limited.ok) return null;
+
+  return jsonError(options.message, 429, "RATE_LIMITED", {
+    headers: { "Retry-After": String(limited.retryAfter) },
+  });
 }
 
 /** Best-effort client identifier from proxy headers. */

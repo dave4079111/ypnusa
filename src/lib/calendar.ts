@@ -1,4 +1,5 @@
 import { appendAppointment, readDb } from "./db";
+import { requestProviderJson } from "./outbound";
 import { generateId } from "./id";
 import type {
   AppointmentRecord,
@@ -185,21 +186,20 @@ async function fetchGoogleBusy(
 ): Promise<BusyWindow[]> {
   const token = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN?.trim();
   if (!token || !connection.calendarId) throw new Error("Google Calendar is not connected.");
-  const response = await fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
+  const payload = await requestProviderJson<{
+    calendars?: Record<string, { busy?: Array<{ start: string; end: string }> }>;
+  }>({
+    url: "https://www.googleapis.com/calendar/v3/freeBusy",
+    token,
+    failureLabel: "Google Calendar availability",
     method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
+    body: {
       timeMin: start,
       timeMax: end,
       timeZone: connection.timeZone,
       items: [{ id: connection.calendarId }],
-    }),
-    signal: AbortSignal.timeout(8_000),
+    },
   });
-  if (!response.ok) throw new Error(`Google Calendar availability failed (${response.status}).`);
-  const payload = (await response.json()) as {
-    calendars?: Record<string, { busy?: Array<{ start: string; end: string }> }>;
-  };
   return (payload.calendars?.[connection.calendarId]?.busy ?? []).map((window) => ({
     start: Date.parse(window.start),
     end: Date.parse(window.end),
@@ -214,17 +214,14 @@ async function fetchMicrosoftBusy(
   const token = process.env.MICROSOFT_GRAPH_ACCESS_TOKEN?.trim();
   if (!token || !connection.calendarId) throw new Error("Microsoft Calendar is not connected.");
   const params = new URLSearchParams({ startDateTime: start, endDateTime: end, $select: "start,end" });
-  const response = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(connection.calendarId)}/calendarView?${params}`,
-    {
-      headers: { Authorization: `Bearer ${token}`, Prefer: 'outlook.timezone="UTC"' },
-      signal: AbortSignal.timeout(8_000),
-    },
-  );
-  if (!response.ok) throw new Error(`Microsoft Calendar availability failed (${response.status}).`);
-  const payload = (await response.json()) as {
+  const payload = await requestProviderJson<{
     value?: Array<{ start?: { dateTime?: string }; end?: { dateTime?: string } }>;
-  };
+  }>({
+    url: `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(connection.calendarId)}/calendarView?${params}`,
+    token,
+    failureLabel: "Microsoft Calendar availability",
+    headers: { Prefer: 'outlook.timezone="UTC"' },
+  });
   return (payload.value ?? [])
     .map((event) => ({
       start: Date.parse(`${event.start?.dateTime ?? ""}Z`),
@@ -314,35 +311,29 @@ async function createGoogleEvent(
 ): Promise<ProviderEvent> {
   const token = process.env.GOOGLE_CALENDAR_ACCESS_TOKEN?.trim();
   if (!token || !connection.calendarId) throw new Error("Google Calendar is not connected.");
-  const response = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(connection.calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        summary: `Mortgage consultation with ${lead.answers.name ?? "YPN USA borrower"}`,
-        description: notes ?? "Booked by the YPN USA virtual assistant.",
-        start: { dateTime: start.toISOString(), timeZone: connection.timeZone },
-        end: { dateTime: end.toISOString(), timeZone: connection.timeZone },
-        attendees: [
-          { email: lead.answers.email },
-        ],
-        conferenceData: {
-          createRequest: {
-            requestId: generateId("meet"),
-            conferenceSolutionKey: { type: "hangoutsMeet" },
-          },
-        },
-      }),
-      signal: AbortSignal.timeout(8_000),
-    },
-  );
-  if (!response.ok) throw new Error(`Google Calendar booking failed (${response.status}).`);
-  const payload = (await response.json()) as {
+  const payload = await requestProviderJson<{
     id?: string;
     hangoutLink?: string;
     htmlLink?: string;
-  };
+  }>({
+    url: `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(connection.calendarId)}/events?conferenceDataVersion=1&sendUpdates=all`,
+    token,
+    failureLabel: "Google Calendar booking",
+    method: "POST",
+    body: {
+      summary: `Mortgage consultation with ${lead.answers.name ?? "YPN USA borrower"}`,
+      description: notes ?? "Booked by the YPN USA virtual assistant.",
+      start: { dateTime: start.toISOString(), timeZone: connection.timeZone },
+      end: { dateTime: end.toISOString(), timeZone: connection.timeZone },
+      attendees: [{ email: lead.answers.email }],
+      conferenceData: {
+        createRequest: {
+          requestId: generateId("meet"),
+          conferenceSolutionKey: { type: "hangoutsMeet" },
+        },
+      },
+    },
+  });
   return {
     externalEventId: payload.id,
     meetingUrl: payload.hangoutLink,
@@ -360,38 +351,34 @@ async function createMicrosoftEvent(
 ): Promise<ProviderEvent> {
   const token = process.env.MICROSOFT_GRAPH_ACCESS_TOKEN?.trim();
   if (!token || !connection.calendarId) throw new Error("Microsoft Calendar is not connected.");
-  const response = await fetch(
-    `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(connection.calendarId)}/events`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        subject: `Mortgage consultation with ${lead.answers.name ?? "YPN USA borrower"}`,
-        body: { contentType: "text", content: notes ?? "Booked by YPN USA." },
-        start: { dateTime: start.toISOString(), timeZone: "UTC" },
-        end: { dateTime: end.toISOString(), timeZone: "UTC" },
-        attendees: [
-          {
-            emailAddress: { address: lead.answers.email, name: lead.answers.name },
-            type: "required",
-          },
-          {
-            emailAddress: { address: officer.email, name: officer.name },
-            type: "required",
-          },
-        ],
-        isOnlineMeeting: true,
-        onlineMeetingProvider: "teamsForBusiness",
-      }),
-      signal: AbortSignal.timeout(8_000),
-    },
-  );
-  if (!response.ok) throw new Error(`Microsoft Calendar booking failed (${response.status}).`);
-  const payload = (await response.json()) as {
+  const payload = await requestProviderJson<{
     id?: string;
     webLink?: string;
     onlineMeeting?: { joinUrl?: string };
-  };
+  }>({
+    url: `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(connection.calendarId)}/events`,
+    token,
+    failureLabel: "Microsoft Calendar booking",
+    method: "POST",
+    body: {
+      subject: `Mortgage consultation with ${lead.answers.name ?? "YPN USA borrower"}`,
+      body: { contentType: "text", content: notes ?? "Booked by YPN USA." },
+      start: { dateTime: start.toISOString(), timeZone: "UTC" },
+      end: { dateTime: end.toISOString(), timeZone: "UTC" },
+      attendees: [
+        {
+          emailAddress: { address: lead.answers.email, name: lead.answers.name },
+          type: "required",
+        },
+        {
+          emailAddress: { address: officer.email, name: officer.name },
+          type: "required",
+        },
+      ],
+      isOnlineMeeting: true,
+      onlineMeetingProvider: "teamsForBusiness",
+    },
+  });
   return {
     externalEventId: payload.id,
     meetingUrl: payload.onlineMeeting?.joinUrl,

@@ -1,11 +1,10 @@
 import { createSession } from "@/lib/auth";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
 import type { SessionRole } from "@/lib/session";
+import { isValidEmail } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Local-dev-only session issuer so the dashboard/proxy gate can be exercised with
@@ -23,7 +22,7 @@ export async function POST(request: Request) {
     }
 
     const email = typeof parsed.data.email === "string" ? parsed.data.email.trim() : "";
-    if (!email || !EMAIL_RE.test(email)) {
+    if (!email || !isValidEmail(email)) {
       return jsonError("A valid email is required.", 400, "INVALID_EMAIL");
     }
     const role: SessionRole = parsed.data.role === "admin" ? "admin" : "mlo";

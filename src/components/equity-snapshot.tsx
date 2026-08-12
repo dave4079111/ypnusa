@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { postJson } from "@/lib/client-api";
+import { formatUsd } from "@/lib/format";
 
 interface Snapshot {
   estimatedHomeValueUsd: number;
@@ -16,14 +18,6 @@ interface EquityResponse {
   snapshot?: Snapshot;
   saved?: boolean;
   error?: string;
-}
-
-function usd(value: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
 }
 
 export function EquitySnapshot() {
@@ -54,14 +48,12 @@ export function EquitySnapshot() {
     setReviewError("");
 
     try {
-      const response = await fetch("/api/property/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-      const data = (await response.json()) as EquityResponse;
-      if (!response.ok || !data.ok || !data.snapshot) {
-        throw new Error(data.error ?? "The estimate could not be calculated.");
+      const { response, data } = await postJson<EquityResponse>(
+        "/api/property/evaluate",
+        requestBody,
+      );
+      if (!response.ok || !data?.ok || !data.snapshot) {
+        throw new Error(data?.error ?? "The estimate could not be calculated.");
       }
       setSnapshot(data.snapshot);
     } catch (error) {
@@ -82,21 +74,16 @@ export function EquitySnapshot() {
     setReviewState("saving");
     setReviewError("");
     try {
-      const response = await fetch("/api/property/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...requestBody,
-          name,
-          email,
-          phone,
-          contactConsent: true,
-          source: "equity_snapshot_tool",
-        }),
+      const { response, data } = await postJson<EquityResponse>("/api/property/evaluate", {
+        ...requestBody,
+        name,
+        email,
+        phone,
+        contactConsent: true,
+        source: "equity_snapshot_tool",
       });
-      const data = (await response.json()) as EquityResponse;
-      if (!response.ok || !data.ok || !data.saved) {
-        throw new Error(data.error ?? "Your review request could not be saved.");
+      if (!response.ok || !data?.ok || !data.saved) {
+        throw new Error(data?.error ?? "Your review request could not be saved.");
       }
       setReviewState("saved");
     } catch (error) {
@@ -216,7 +203,7 @@ export function EquitySnapshot() {
               <article className="rounded-2xl bg-black/20 p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-white/45">Estimated equity</p>
                 <p className={`mt-2 text-2xl font-semibold ${snapshot.estimatedEquityUsd < 0 ? "text-rose-300" : "text-white"}`}>
-                  {usd(snapshot.estimatedEquityUsd)}
+                  {formatUsd(snapshot.estimatedEquityUsd)}
                 </p>
               </article>
               <article className="rounded-2xl bg-black/20 p-4">
@@ -227,7 +214,7 @@ export function EquitySnapshot() {
                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-black/55">
                   Illustrative cash-out at 80% LTV
                 </p>
-                <p className="mt-2 text-3xl font-black">{usd(snapshot.illustrativeCashOutUsd)}</p>
+                <p className="mt-2 text-3xl font-black">{formatUsd(snapshot.illustrativeCashOutUsd)}</p>
               </article>
             </div>
 

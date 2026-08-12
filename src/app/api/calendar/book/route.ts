@@ -1,33 +1,20 @@
 import { bookAppointment } from "@/lib/calendar";
 import { appendAnalytics, readDb } from "@/lib/db";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit } from "@/lib/rate-limit";
+import { optionalText, requiredText } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function requiredString(value: unknown, max: number): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed.slice(0, max) : null;
-}
-
-function optionalString(value: unknown, max: number): string | undefined {
-  if (value === undefined) return undefined;
-  return requiredString(value, max) ?? undefined;
-}
-
 export async function POST(request: Request) {
   try {
-    const limited = rateLimit(`calendar-book:${clientKey(request)}`, 10, 60_000);
-    if (!limited.ok) {
-      return jsonError(
-        "Too many booking attempts — please slow down and try again shortly.",
-        429,
-        "RATE_LIMITED",
-        { headers: { "Retry-After": String(limited.retryAfter) } },
-      );
-    }
+    const limited = enforceRateLimit(request, {
+      scope: "calendar-book",
+      limit: 10,
+      message: "Too many booking attempts — please slow down and try again shortly.",
+    });
+    if (limited) return limited;
 
     const parsed = await parseJsonBody(request);
     if (!parsed.ok) {
@@ -38,9 +25,9 @@ export async function POST(request: Request) {
       return jsonError("Request body must be a JSON object.", 400, "INVALID_BODY");
     }
 
-    const borrowerLeadId = requiredString(parsed.data.borrowerLeadId, 160);
-    const loId = requiredString(parsed.data.loId, 160);
-    const startIso = requiredString(parsed.data.startIso, 80);
+    const borrowerLeadId = requiredText(parsed.data.borrowerLeadId, 160);
+    const loId = requiredText(parsed.data.loId, 160);
+    const startIso = requiredText(parsed.data.startIso, 80);
 
     if (!borrowerLeadId || !loId || !startIso) {
       return jsonError(
@@ -69,7 +56,7 @@ export async function POST(request: Request) {
       borrowerLeadId,
       loId,
       startIso: new Date(startMs).toISOString(),
-      notes: optionalString(parsed.data.notes, 1000),
+      notes: optionalText(parsed.data.notes, 1000),
     });
 
     appendAnalytics({

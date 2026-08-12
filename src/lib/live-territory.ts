@@ -1,3 +1,4 @@
+import { OUTBOUND_TIMEOUT_MS } from "./outbound";
 import { WP_API_BASE } from "./site";
 import { isValidZip, normalizeZip, type TerritoryCheckResult } from "./territory";
 
@@ -47,7 +48,7 @@ export async function fetchLiveTerritory(
       headers: { Accept: "application/json" },
       // Territory availability should stay fresh.
       cache: "no-store",
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as LiveZipCheckResponse;

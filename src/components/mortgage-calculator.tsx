@@ -2,11 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
-const usd = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(
-    Number.isFinite(n) ? n : 0,
-  );
+import { formatUsd } from "@/lib/format";
 
 const TERMS = [
   { value: 30, label: "30-year fixed" },
@@ -36,7 +32,7 @@ export function MortgageCalculator() {
             <label htmlFor="calc-amount" className="text-sm font-semibold text-slate-700">
               Loan amount
             </label>
-            <span className="text-lg font-bold text-violet-700">{usd(amount)}</span>
+            <span className="text-lg font-bold text-violet-700">{formatUsd(amount)}</span>
           </div>
           <input
             id="calc-amount"
@@ -91,18 +87,18 @@ export function MortgageCalculator() {
 
       <div className="flex min-h-[320px] flex-col justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-violet-800 p-6 text-center text-white sm:p-8">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-200">Estimated monthly payment</p>
-        <p className="mt-2 text-4xl font-black sm:text-5xl">{usd(monthly)}</p>
+        <p className="mt-2 text-4xl font-black sm:text-5xl">{formatUsd(monthly)}</p>
         <p className="mt-3 text-sm text-violet-100">
           Principal &amp; interest · {term}-year term
         </p>
         <div className="mt-6 border-t border-white/20 pt-4 text-sm text-violet-100">
           <div className="flex justify-between">
             <span>Total interest</span>
-            <span className="font-semibold text-white">{usd(totalInterest)}</span>
+            <span className="font-semibold text-white">{formatUsd(totalInterest)}</span>
           </div>
           <div className="mt-1 flex justify-between">
             <span>Total of payments</span>
-            <span className="font-semibold text-white">{usd(monthly * term * 12)}</span>
+            <span className="font-semibold text-white">{formatUsd(monthly * term * 12)}</span>
           </div>
         </div>
         <a

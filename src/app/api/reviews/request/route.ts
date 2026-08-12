@@ -1,4 +1,5 @@
 import { getPublicBusinessProfile } from "@/lib/local-seo";
+import { OUTBOUND_TIMEOUT_MS } from "@/lib/outbound";
 import {
   buildReviewRequestMessage,
   parseReviewRequestInput,
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
           : {}),
       },
       body: JSON.stringify(message),
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
     });
 
     if (!response.ok) {

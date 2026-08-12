@@ -10,6 +10,7 @@ import { generateId } from "@/lib/id";
 import { finalizeIntakeArtifacts } from "@/lib/intake-pipeline";
 import { coerceLoanProgram } from "@/lib/programs";
 import type { BorrowerAnswers, IntakeSessionRecord } from "@/lib/types";
+import { optionalText } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,12 +27,6 @@ interface InboundLeadPayload {
   contactConsent?: unknown;
 }
 
-function text(value: unknown, maxLength: number): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed ? trimmed.slice(0, maxLength) : undefined;
-}
-
 export async function POST(request: Request) {
   const unauthorized = requireConfiguredSecret(request);
   if (unauthorized) return unauthorized;
@@ -43,11 +38,11 @@ export async function POST(request: Request) {
   }
 
   const program = coerceLoanProgram(parsed.data.loanProgram);
-  const name = text(parsed.data.name, 160);
-  const email = text(parsed.data.email, 320);
-  const phone = text(parsed.data.phone, 40);
-  const timeline = text(parsed.data.timeline, 40);
-  const estimatedCreditBand = text(parsed.data.estimatedCreditBand, 40);
+  const name = optionalText(parsed.data.name, 160);
+  const email = optionalText(parsed.data.email, 320);
+  const phone = optionalText(parsed.data.phone, 40);
+  const timeline = optionalText(parsed.data.timeline, 40);
+  const estimatedCreditBand = optionalText(parsed.data.estimatedCreditBand, 40);
 
   if (!program || !name || !email || !phone || !timeline || !estimatedCreditBand) {
     return jsonError(
@@ -71,7 +66,7 @@ export async function POST(request: Request) {
         ? parsed.data.purchaseRefiIntent
         : "unsure",
     contactConsent: parsed.data.contactConsent === true,
-    funnelSource: text(parsed.data.funnelSource, 160) ?? "lead_webhook",
+    funnelSource: optionalText(parsed.data.funnelSource, 160) ?? "lead_webhook",
   };
 
   const session: IntakeSessionRecord = {

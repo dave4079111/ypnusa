@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { formatCompactUsdFromCents, formatUsdFromCents } from "@/lib/format";
 import type { PricingTierId } from "@/lib/pricing";
 import type { RevenueFlowStage, RevenuePulseSummary, RevenueTierSummary } from "@/lib/revenue";
 
@@ -15,24 +16,8 @@ interface RevenueSummaryResponse {
   data?: RevenuePulseSummary;
 }
 
-const moneyFormatter = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 2,
-});
-
-const compactFormatter = new Intl.NumberFormat("en-US", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
-
-function money(cents: number): string {
-  return moneyFormatter.format(cents / 100);
-}
-
-function compactMoney(cents: number): string {
-  return `$${compactFormatter.format(cents / 100)}`;
-}
+const money = formatUsdFromCents;
+const compactMoney = formatCompactUsdFromCents;
 
 function generatedTime(iso: string): string {
   return `${iso.slice(11, 19)} UTC`;

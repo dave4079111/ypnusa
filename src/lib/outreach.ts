@@ -4,8 +4,7 @@ import type {
   LoanOfficerRecord,
   ScheduledFollowUpRecord,
 } from "./types";
-
-const REQUEST_TIMEOUT_MS = 8_000;
+import { OUTBOUND_TIMEOUT_MS } from "./outbound";
 
 export interface OutreachContext {
   lead: BorrowerLeadRecord;
@@ -96,7 +95,7 @@ async function deliverWebhook(
       subject,
       body,
     }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
   });
   await assertSuccessful(response, "Outreach webhook");
   return { provider: "webhook", messageId: await responseMessageId(response) };
@@ -119,7 +118,7 @@ async function deliverTwilio(
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: form,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
     },
   );
   await assertSuccessful(response, "Twilio");
@@ -145,7 +144,7 @@ async function deliverSendGrid(
       subject,
       content: [{ type: "text/plain", value: body }],
     }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(OUTBOUND_TIMEOUT_MS),
   });
   await assertSuccessful(response, "SendGrid");
   return { provider: "sendgrid", messageId: await responseMessageId(response) };

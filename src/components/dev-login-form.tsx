@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { postJson } from "@/lib/client-api";
 
 export function DevLoginForm({ next }: { next: string }) {
   const router = useRouter();
@@ -15,14 +16,12 @@ export function DevLoginForm({ next }: { next: string }) {
     setError(null);
     setPending(true);
     try {
-      const response = await fetch("/api/auth/dev-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, role }),
+      const { response, data } = await postJson<{ error?: string }>("/api/auth/dev-login", {
+        email,
+        role,
       });
       if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        setError(body?.error ?? "Dev login failed.");
+        setError(data?.error ?? "Dev login failed.");
         return;
       }
       router.push(next);

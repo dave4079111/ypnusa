@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { postJson } from "@/lib/client-api";
 import { marketingUrl } from "@/lib/site";
 
 type CheckState =
@@ -114,18 +115,16 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
     }
     setSubmit({ status: "submitting" });
     try {
-      const res = await fetch("/api/demo-request", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { data } = await postJson<{ ok?: boolean; error?: string; message?: string }>(
+        "/api/demo-request",
+        {
           ...form,
           zip: check.status === "result" ? check.zip : zip,
           source,
-        }),
-      });
-      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
-      if (!data.ok) {
-        setSubmit({ status: "error", message: data.error ?? "Something went wrong — try again." });
+        },
+      );
+      if (!data?.ok) {
+        setSubmit({ status: "error", message: data?.error ?? "Something went wrong — try again." });
         return;
       }
       setSubmit({ status: "done", message: data.message ?? "You're in — we'll be in touch shortly." });

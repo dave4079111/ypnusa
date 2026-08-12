@@ -4,6 +4,7 @@ import { intakeTick } from "@/lib/intake-engine";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 import { isRecord, logApiError, parseJsonBody } from "@/lib/http";
 import type { BorrowerAnswers } from "@/lib/types";
+import { optionalText } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,13 +52,6 @@ function intakeFailure(error: string, status: number, code: string) {
   );
 }
 
-function optionalString(value: unknown, max: number): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  return trimmed ? trimmed.slice(0, max) : undefined;
-}
-
 function validateTickBody(data: unknown):
   | { ok: true; body: IntakeTickRequest }
   | { ok: false; error: string; code: string } {
@@ -65,15 +59,15 @@ function validateTickBody(data: unknown):
     return { ok: false, error: "Request body must be a JSON object.", code: "INVALID_BODY" };
   }
 
-  const loanProgram = optionalString(data.loanProgram, 20);
+  const loanProgram = optionalText(data.loanProgram, 20);
   if (!loanProgram) {
     return { ok: false, error: "loanProgram is required.", code: "MISSING_LOAN_PROGRAM" };
   }
 
   const body: IntakeTickRequest = {
     loanProgram,
-    sessionId: optionalString(data.sessionId, 160),
-    funnelSource: optionalString(data.funnelSource, 160),
+    sessionId: optionalText(data.sessionId, 160),
+    funnelSource: optionalText(data.funnelSource, 160),
   };
 
   if (data.incoming !== undefined) {
@@ -81,7 +75,7 @@ function validateTickBody(data: unknown):
       return { ok: false, error: "incoming must be an object.", code: "INVALID_INCOMING" };
     }
 
-    const field = optionalString(data.incoming.field, 80);
+    const field = optionalText(data.incoming.field, 80);
     if (!field || !BORROWER_FIELDS.has(field)) {
       return { ok: false, error: "incoming.field is not supported.", code: "INVALID_FIELD" };
     }

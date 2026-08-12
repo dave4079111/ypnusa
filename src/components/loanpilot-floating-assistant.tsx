@@ -2,6 +2,8 @@
 
 import type { BorrowerAnswers, LoanProgram } from "@/lib/types";
 import type { AssistantStep, IntakeTickResponse } from "@/lib/intake-contracts";
+import { postJson } from "@/lib/client-api";
+import { formatDateTime } from "@/lib/format";
 import { PROGRAM_LIST } from "@/lib/programs";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
@@ -22,13 +24,7 @@ function makeId(prefix: string) {
 }
 
 function slotPretty(iso: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(iso));
+  return formatDateTime(iso, { weekday: "short" }, undefined);
 }
 
 type IntakeBrand = "loanpilot" | "ypn";
@@ -198,24 +194,19 @@ export function MortgageIntakeChat(props: {
     setBusy(true);
     setLastError(null);
     try {
-      const res = await fetch("/api/intake/tick", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId: sessionIdRef.current ?? undefined,
-          loanProgram,
-          funnelSource: funnel,
-          incoming: payload,
-        }),
+      const { response, data } = await postJson<IntakeTickResponse>("/api/intake/tick", {
+        sessionId: sessionIdRef.current ?? undefined,
+        loanProgram,
+        funnelSource: funnel,
+        incoming: payload,
       });
 
-      if (!res.ok) {
+      if (!response.ok || !data) {
         throw new Error("Intake service unavailable.");
       }
 
-      const snapshot = (await res.json()) as IntakeTickResponse;
-      await applySnapshot(snapshot);
-      return snapshot;
+      await applySnapshot(data);
+      return data;
     } catch (error) {
       const message =
         brand === "ypn"
@@ -296,25 +287,19 @@ export function MortgageIntakeChat(props: {
 
     setBusy(true);
     try {
-      const res = await fetch("/api/calendar/book", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          borrowerLeadId: crm.borrowerLeadId,
-          loId,
-          startIso,
-          notes: "AI intake booking",
-        }),
-      });
-
-      const body = (await res.json()) as {
+      const { data: body } = await postJson<{
         ok?: boolean;
         error?: string;
         appointment?: BookedAppointment;
-      };
+      }>("/api/calendar/book", {
+        borrowerLeadId: crm.borrowerLeadId,
+        loId,
+        startIso,
+        notes: "AI intake booking",
+      });
 
-      if (!body.ok) {
-        pushSys(body.error ?? "Booking blocked—double-check slot availability.");
+      if (!body?.ok) {
+        pushSys(body?.error ?? "Booking blocked—double-check slot availability.");
         return;
       }
 

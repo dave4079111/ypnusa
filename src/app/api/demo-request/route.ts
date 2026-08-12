@@ -1,10 +1,11 @@
 import { appendAnalytics } from "@/lib/db";
 import { isRecord, jsonError, jsonOk, logApiError, parseJsonBody } from "@/lib/http";
 import { generateId } from "@/lib/id";
-import { clientKey, rateLimit } from "@/lib/rate-limit";
+import { enforceRateLimit } from "@/lib/rate-limit";
 import { MARKETING_SITE_URL } from "@/lib/site";
 import { appendDemoRequestWithTerritoryCheck, isValidZip, normalizeZip } from "@/lib/territory";
 import type { DemoRequestRecord } from "@/lib/types";
+import { isValidEmail, optionalText } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,15 +25,6 @@ export async function OPTIONS() {
   return new Response(null, { status: 204, headers: CORS_HEADERS });
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-function str(value: unknown, max = 500): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  return trimmed.slice(0, max);
-}
-
 export async function POST(request: Request) {
   const response = await handlePost(request);
   for (const [key, value] of Object.entries(CORS_HEADERS)) {
@@ -43,15 +35,12 @@ export async function POST(request: Request) {
 
 async function handlePost(request: Request) {
   try {
-    const limited = rateLimit(`demo:${clientKey(request)}`, 5, 60_000);
-    if (!limited.ok) {
-      return jsonError(
-        "Too many requests — please slow down and try again shortly.",
-        429,
-        "RATE_LIMITED",
-        { headers: { "Retry-After": String(limited.retryAfter) } },
-      );
-    }
+    const limited = enforceRateLimit(request, {
+      scope: "demo",
+      limit: 5,
+      message: "Too many requests — please slow down and try again shortly.",
+    });
+    if (limited) return limited;
 
     const parsed = await parseJsonBody(request);
     if (!parsed.ok) {
@@ -63,15 +52,15 @@ async function handlePost(request: Request) {
     }
 
     const body = parsed.data;
-    const name = str(body.name, 120);
-    const workEmail = str(body.workEmail, 160);
-    const company = str(body.company, 160);
+    const name = optionalText(body.name, 120);
+    const workEmail = optionalText(body.workEmail, 160);
+    const company = optionalText(body.company, 160);
 
     if (!name || !workEmail || !company) {
       return jsonError("Name, work email, and company are required.", 400, "MISSING_FIELDS");
     }
 
-    if (!EMAIL_RE.test(workEmail)) {
+    if (!isValidEmail(workEmail)) {
       return jsonError("Enter a valid work email address.", 400, "INVALID_EMAIL");
     }
 
@@ -86,12 +75,12 @@ async function handlePost(request: Request) {
       name,
       workEmail,
       company,
-      phone: str(body.phone, 40),
-      role: str(body.role, 80),
+      phone: optionalText(body.phone, 40),
+      role: optionalText(body.role, 80),
       zip: zip || undefined,
-      monthlyLeadVolume: str(body.monthlyLeadVolume, 40),
-      message: str(body.message, 1000),
-      source: str(body.source, 80) ?? "marketing_site",
+      monthlyLeadVolume: optionalText(body.monthlyLeadVolume, 40),
+      message: optionalText(body.message, 1000),
+      source: optionalText(body.source, 80) ?? "marketing_site",
       status: "new",
     };
 

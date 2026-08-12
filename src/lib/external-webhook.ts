@@ -1,3 +1,4 @@
+import { OUTBOUND_TIMEOUT_MS } from "./outbound";
 import type { BorrowerAnswers, LoanProgram } from "./types";
 
 export interface ExternalWebhookPayload {
@@ -14,8 +15,6 @@ export interface ExternalWebhookPayload {
   /** lets downstream systems tag source */
   ingestStack: "loanapilot_next";
 }
-
-const TIMEOUT_MS = 8_000;
 
 function describeWebhookError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -42,7 +41,7 @@ export async function mirrorIntakeToExternalWebhook(payload: ExternalWebhookPayl
   }
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort("intake webhook timeout"), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort("intake webhook timeout"), OUTBOUND_TIMEOUT_MS);
 
   try {
     const response = await fetch(url, {

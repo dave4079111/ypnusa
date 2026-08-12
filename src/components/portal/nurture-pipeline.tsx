@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatDateTime } from "@/lib/format";
 import type { NurtureDashboardRow } from "@/lib/nurture-dashboard";
 
 interface NurturePipelineProps {
@@ -11,13 +12,7 @@ const ALL = "all";
 
 function dateTime(value?: string): string {
   if (!value) return "—";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  }).format(new Date(value));
+  return formatDateTime(value, { timeZoneName: "short" });
 }
 
 function stateTone(state: NurtureDashboardRow["state"]): string {

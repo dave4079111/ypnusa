@@ -78,6 +78,7 @@ All environment variables are optional — see `.env.example`.
 | `GBP_REVIEWS_PROVIDER_URL` / `GBP_REVIEWS_PROVIDER_TOKEN` | Authorized server-side source for dynamic verified review records. |
 | `NEXT_PUBLIC_GOOGLE_MAPS_EMBED_KEY` | Optional browser-restricted key for lazy map embeds. |
 | `REVIEW_REQUEST_API_SECRET` | Bearer secret required by the closing-event endpoint in production. |
+| `ADMIN_TOKEN` / `CRON_SECRET` | Required by the lead-ingest, automation, and telemetry APIs (`/api/webhooks/leads`, `/api/automation/process`, `/api/analytics/summary`, `/api/revenue/summary`). Those routes reject all machine callers until one is set. |
 | `REVIEW_REQUEST_WEBHOOK_URL` / `REVIEW_REQUEST_WEBHOOK_TOKEN` | SMS/email provider handoff for post-closing review messages. |
 
 ## Local SEO deployment

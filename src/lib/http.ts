@@ -42,13 +42,25 @@ export function logApiError(route: string, error: unknown): void {
   console.error(`[api] ${route} failed`, error);
 }
 
-export function requireConfiguredSecret(request: Request): NextResponse<ApiErrorEnvelope> | null {
-  const adminToken = process.env.ADMIN_TOKEN?.trim();
-  const cronSecret = process.env.CRON_SECRET?.trim();
-  const required = [adminToken, cronSecret].filter((secret): secret is string => Boolean(secret));
+/**
+ * Machine-to-machine gate. Denies the request unless it presents ADMIN_TOKEN or
+ * CRON_SECRET — including when neither is configured, so an endpoint that mutates
+ * data or triggers outbound messaging is never open by default.
+ */
+export function requireSecret(request: Request): NextResponse<ApiErrorEnvelope> | null {
+  const configured = [process.env.ADMIN_TOKEN?.trim(), process.env.CRON_SECRET?.trim()].filter(
+    (secret): secret is string => Boolean(secret),
+  );
+  if (configured.length === 0) {
+    return jsonError("Unauthorized.", 401, "UNAUTHORIZED");
+  }
+  return matchSuppliedSecret(request, configured);
+}
 
-  if (required.length === 0) return null;
-
+function matchSuppliedSecret(
+  request: Request,
+  required: string[],
+): NextResponse<ApiErrorEnvelope> | null {
   const authorization = request.headers.get("authorization")?.trim() ?? "";
   const bearer = authorization.toLowerCase().startsWith("bearer ")
     ? authorization.slice(7).trim()

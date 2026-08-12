@@ -1,6 +1,31 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { jsonError, jsonOk, parseJsonBody } from "./http";
+import { jsonError, jsonOk, parseJsonBody, requireSecret } from "./http";
+
+function post(headers: Record<string, string> = {}): Request {
+  return new Request("https://app.ypnus.com/api/test", { method: "POST", headers });
+}
+
+describe("requireSecret", () => {
+  it("denies when no secret is configured", () => {
+    delete process.env.ADMIN_TOKEN;
+    delete process.env.CRON_SECRET;
+
+    const response = requireSecret(post());
+
+    assert.equal(response?.status, 401);
+  });
+
+  it("denies a wrong secret and allows the configured one", () => {
+    process.env.ADMIN_TOKEN = "top-secret";
+
+    assert.equal(requireSecret(post({ authorization: "Bearer nope" }))?.status, 401);
+    assert.equal(requireSecret(post({ authorization: "Bearer top-secret" })), null);
+    assert.equal(requireSecret(post({ "x-admin-token": "top-secret" })), null);
+
+    delete process.env.ADMIN_TOKEN;
+  });
+});
 
 describe("http helpers", () => {
   it("returns a structured success envelope", async () => {

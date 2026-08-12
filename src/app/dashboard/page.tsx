@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SessionBar } from "@/components/session-bar";
+import { requireSession } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -30,7 +31,9 @@ const SECTIONS = [
   },
 ] as const;
 
-export default function DashboardHubPage() {
+export default async function DashboardHubPage() {
+  await requireSession("/dashboard");
+
   return (
     <main className="min-h-full bg-slate-50 px-6 py-12 text-slate-900">
       <div className="mx-auto max-w-4xl">

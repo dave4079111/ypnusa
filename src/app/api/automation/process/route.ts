@@ -1,5 +1,5 @@
 import { processDueFollowUps } from "@/lib/automation";
-import { jsonError, jsonOk, logApiError, requireConfiguredSecret } from "@/lib/http";
+import { jsonError, jsonOk, logApiError, requireSecret } from "@/lib/http";
 import { clientKey, rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    const unauthorized = requireConfiguredSecret(request);
+    const unauthorized = requireSecret(request);
     if (unauthorized) return unauthorized;
 
     const limited = rateLimit(`automation:${clientKey(request)}`, 10, 60_000);

@@ -2,7 +2,7 @@
 
 import type { BorrowerAnswers, LoanProgram } from "@/lib/types";
 import type { AssistantStep, IntakeTickResponse } from "@/lib/intake-contracts";
-import { PROGRAM_LIST } from "@/lib/programs";
+import { PROGRAM_LIST, coerceLoanProgram } from "@/lib/programs";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 type Bubble = { id: string; role: "assistant" | "user" | "system"; body: string };
@@ -46,16 +46,16 @@ export function MortgageIntakeChat(props: {
     (brand === "ypn" ? "ypn_embed_canonical" : "loanpilot_ai_surface");
 
   const STORAGE_KEY = brand === "ypn" ? "ypn_intake_sess_v1" : "loanpilot_session_v2";
+  const LANE_STORAGE_KEY = `${STORAGE_KEY}_lane`;
 
   const [loanProgram, setLoanProgram] = useState<LoanProgram>("FHA");
   /** The lane locks on the first borrower answer, not on session creation. */
   const [laneLocked, setLaneLocked] = useState(false);
   const [open, setOpen] = useState(variant !== "fab");
 
-  const [sessionIdState, setSessionIdState] = useState<string | null>(() =>
-    typeof window === "undefined" ? null : null,
-  );
   const sessionIdRef = useRef<string | null>(null);
+  /** Ticks read the lane from a ref so a resumed session never posts a stale program. */
+  const loanProgramRef = useRef<LoanProgram>("FHA");
 
   const hasHydratedFsRef = useRef(false);
   const embedBootedRef = useRef(false);
@@ -77,21 +77,24 @@ export function MortgageIntakeChat(props: {
 
   const surfaceOpen = variant === "embed" || open;
 
-  /** Hydrate persisted session ids after mount without touching SSR */
+  /** Hydrate the persisted session id and its lane after mount without touching SSR */
   useEffect(() => {
     if (hasHydratedFsRef.current) return;
     hasHydratedFsRef.current = true;
     try {
       const stored = window.localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        sessionIdRef.current = stored;
+      if (!stored) return;
+      sessionIdRef.current = stored;
+      const storedLane = coerceLoanProgram(window.localStorage.getItem(LANE_STORAGE_KEY));
+      if (storedLane) {
+        loanProgramRef.current = storedLane;
         // Hydrate after SSR so server/client markup stay aligned until mount
-        setSessionIdState(stored); // eslint-disable-line react-hooks/set-state-in-effect
+        setLoanProgram(storedLane); // eslint-disable-line react-hooks/set-state-in-effect
       }
     } catch {
       /** noop */
     }
-  }, [STORAGE_KEY]);
+  }, [STORAGE_KEY, LANE_STORAGE_KEY]);
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -123,25 +126,27 @@ export function MortgageIntakeChat(props: {
     setMsgs((prev) => [...prev, { id: makeId("sy"), role: "system", body: b }]);
   }, []);
 
-  const rememberSession = useCallback((id: string) => {
+  const rememberSession = useCallback((id: string, program: LoanProgram) => {
     sessionIdRef.current = id;
-    setSessionIdState(id);
+    loanProgramRef.current = program;
+    setLoanProgram(program);
     try {
       window.localStorage.setItem(STORAGE_KEY, id);
+      window.localStorage.setItem(LANE_STORAGE_KEY, program);
     } catch {
       /** noop */
     }
-  }, [STORAGE_KEY]);
+  }, [STORAGE_KEY, LANE_STORAGE_KEY]);
 
   const purgeSession = useCallback(() => {
     sessionIdRef.current = null;
-    setSessionIdState(null);
     try {
       window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(LANE_STORAGE_KEY);
     } catch {
       /** noop */
     }
-  }, [STORAGE_KEY]);
+  }, [STORAGE_KEY, LANE_STORAGE_KEY]);
 
   async function hydrateSlots(preview?: IntakeTickResponse["slotPreview"], officerId?: string | null) {
     if (preview?.length) {
@@ -163,7 +168,7 @@ export function MortgageIntakeChat(props: {
 
   async function applySnapshot(snapshot: IntakeTickResponse) {
     setLastError(snapshot.ok ? null : snapshot.error ?? "The intake tick could not complete.");
-    rememberSession(snapshot.sessionId);
+    rememberSession(snapshot.sessionId, snapshot.loanProgram);
 
     const denominator = Math.max(1, snapshot.progress.totalApplicable);
     const numerator = snapshot.progress.completed;
@@ -209,7 +214,7 @@ export function MortgageIntakeChat(props: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: sessionIdRef.current ?? undefined,
-          loanProgram: programOverride ?? loanProgram,
+          loanProgram: programOverride ?? loanProgramRef.current,
           funnelSource: funnel,
           incoming: payload,
         }),
@@ -296,6 +301,7 @@ export function MortgageIntakeChat(props: {
   /** Switching lanes before the first answer restarts intake on the new program. */
   function handleLoanProgram(next: LoanProgram) {
     if (next === loanProgram || laneLocked || busy) return;
+    loanProgramRef.current = next;
     setLoanProgram(next);
     clearConversation();
     void postTick(undefined, next);

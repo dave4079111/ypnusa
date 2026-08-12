@@ -48,6 +48,8 @@ export function MortgageIntakeChat(props: {
   const STORAGE_KEY = brand === "ypn" ? "ypn_intake_sess_v1" : "loanpilot_session_v2";
 
   const [loanProgram, setLoanProgram] = useState<LoanProgram>("FHA");
+  /** The lane locks on the first borrower answer, not on session creation. */
+  const [laneLocked, setLaneLocked] = useState(false);
   const [open, setOpen] = useState(variant !== "fab");
 
   const [sessionIdState, setSessionIdState] = useState<string | null>(() =>
@@ -174,6 +176,10 @@ export function MortgageIntakeChat(props: {
     setCounts({ done: numerator, total: snapshot.progress.totalApplicable || denominator });
     setPhase(snapshot.phase);
 
+    if (numerator > 0 || snapshot.phase !== "collecting") {
+      setLaneLocked(true);
+    }
+
     if (snapshot.phase === "crm_synced") {
       setStep(null);
       setCrm(snapshot.crmArtifacts);
@@ -194,7 +200,7 @@ export function MortgageIntakeChat(props: {
     }
   }
 
-  async function postTick(payload?: IncomingPayload) {
+  async function postTick(payload?: IncomingPayload, programOverride?: LoanProgram) {
     setBusy(true);
     setLastError(null);
     try {
@@ -203,7 +209,7 @@ export function MortgageIntakeChat(props: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: sessionIdRef.current ?? undefined,
-          loanProgram,
+          loanProgram: programOverride ?? loanProgram,
           funnelSource: funnel,
           incoming: payload,
         }),
@@ -269,7 +275,7 @@ export function MortgageIntakeChat(props: {
     void bootConversation();
   }
 
-  function handleReset() {
+  function clearConversation() {
     purgeSession();
     setMsgs([]);
     setDraft("");
@@ -279,10 +285,24 @@ export function MortgageIntakeChat(props: {
     setCrm(undefined);
     setSlots([]);
     setLastError(null);
+    setLaneLocked(false);
+  }
+
+  function handleReset() {
+    clearConversation();
     void postTick();
   }
 
+  /** Switching lanes before the first answer restarts intake on the new program. */
+  function handleLoanProgram(next: LoanProgram) {
+    if (next === loanProgram || laneLocked || busy) return;
+    setLoanProgram(next);
+    clearConversation();
+    void postTick(undefined, next);
+  }
+
   async function submitAnswer(field: AssistantStep, raw: string, label?: string) {
+    setLaneLocked(true);
     pushUser(label ?? raw);
     await postTick({ field: field.field, rawValue: raw });
     setDraft("");
@@ -433,8 +453,8 @@ export function MortgageIntakeChat(props: {
                 labelTone={labelTone}
                 progressNote={progressNote}
                 loanProgram={loanProgram}
-                sessionIdState={sessionIdState}
-                onLoanProgram={(p) => setLoanProgram(p)}
+                laneLocked={laneLocked}
+                onLoanProgram={handleLoanProgram}
                 onClose={() => setOpen(false)}
                 onReset={handleReset}
                 onRetry={() => void postTick()}
@@ -476,8 +496,8 @@ export function MortgageIntakeChat(props: {
               labelTone={labelTone}
               progressNote={progressNote}
               loanProgram={loanProgram}
-              sessionIdState={sessionIdState}
-              onLoanProgram={(p) => setLoanProgram(p)}
+              laneLocked={laneLocked}
+              onLoanProgram={handleLoanProgram}
               onClose={() => setOpen(false)}
               onReset={handleReset}
               onRetry={() => void postTick()}
@@ -522,7 +542,7 @@ function InnerChrome(props: {
   labelTone: string;
   progressNote: string;
   loanProgram: LoanProgram;
-  sessionIdState: string | null;
+  laneLocked: boolean;
   onLoanProgram: (p: LoanProgram) => void;
   onClose: () => void;
   onReset: () => void;
@@ -561,7 +581,7 @@ function InnerChrome(props: {
     labelTone,
     progressNote,
     loanProgram,
-    sessionIdState,
+    laneLocked,
     onLoanProgram,
     onClose,
     onReset,
@@ -642,7 +662,7 @@ function InnerChrome(props: {
           <select
             className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-inner disabled:opacity-55"
             value={loanProgram}
-            disabled={Boolean(sessionIdState) || busy}
+            disabled={laneLocked || busy}
             onChange={(evt) => onLoanProgram(evt.target.value as LoanProgram)}
           >
             {PROGRAM_LIST.map((p) => (

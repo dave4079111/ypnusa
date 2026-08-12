@@ -53,17 +53,28 @@ function loadOrCreatePersistedSecret(): string {
       cachedSecret = existing;
       return cachedSecret;
     }
-  } catch {
+  } catch (error) {
     // Doesn't exist yet or unreadable — generate below.
+    if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") {
+      console.warn(
+        `[session] Unable to read the persisted session secret at ${file} — generating a new one; existing sessions will be invalidated.`,
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   const generated = randomBytes(32).toString("hex");
   try {
     fs.mkdirSync(dataDir(), { recursive: true });
     fs.writeFileSync(file, generated, { mode: 0o600 });
-  } catch {
+  } catch (error) {
     // Read-only/serverless filesystem: this process still works, but sessions won't
     // validate against other processes/instances until SESSION_SECRET is set.
+    console.warn(
+      `[session] Unable to persist the session secret to ${file} — sessions will not validate ` +
+        "across processes or instances. Set SESSION_SECRET explicitly.",
+      error instanceof Error ? error.message : error,
+    );
   }
   cachedSecret = generated;
   return cachedSecret;

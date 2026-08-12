@@ -60,7 +60,12 @@ async function responseMessageId(response: Response): Promise<string | undefined
   try {
     const body = (await response.json()) as { sid?: string; id?: string };
     return body.sid ?? body.id;
-  } catch {
+  } catch (error) {
+    // Delivery already succeeded; only the provider reference is unavailable.
+    console.warn(
+      "[outreach] Could not read a provider message id from the delivery response.",
+      error instanceof Error ? error.message : error,
+    );
     return undefined;
   }
 }

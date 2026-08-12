@@ -214,6 +214,7 @@ function ensureDataDir(): boolean {
     return true;
   } catch (error) {
     lastStorageError = `Unable to create data directory: ${describeFsError(error)}`;
+    console.error(`[db] ${lastStorageError}`, error);
     return false;
   }
 }
@@ -237,10 +238,15 @@ function flushToDisk(db: DbShape): void {
     // so we don't throw on every request.
     diskWritable = false;
     lastStorageError = `Unable to persist data snapshot: ${describeFsError(error)}`;
+    console.error(
+      `[db] ${lastStorageError} — continuing from memory only; state will be lost on restart.`,
+      error,
+    );
     try {
       fs.rmSync(tmp, { force: true });
-    } catch {
+    } catch (cleanupError) {
       // Best effort only; persistence has already fallen back to memory.
+      console.warn(`[db] Unable to remove temp snapshot ${tmp}: ${describeFsError(cleanupError)}`);
     }
   }
 }

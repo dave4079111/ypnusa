@@ -103,6 +103,8 @@ export async function finalizeIntakeArtifacts(
     },
   });
 
+  // Fire-and-forget mirror: it logs and never rejects for transport failures, but
+  // guard anyway so an unexpected rejection can't become an unhandled rejection.
   void mirrorIntakeToExternalWebhook({
     event: "intake.completed",
     receivedAt: new Date().toISOString(),
@@ -119,6 +121,8 @@ export async function finalizeIntakeArtifacts(
       email: officerProfile.email,
     },
     ingestStack: "loanapilot_next",
+  }).catch((error: unknown) => {
+    console.error("[intake-pipeline] Intake webhook mirror rejected unexpectedly.", error);
   });
 
   return {

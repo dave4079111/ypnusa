@@ -151,11 +151,16 @@ export function MortgageIntakeChat(props: {
     }
     try {
       const res = await fetch(`/api/calendar/slots?loId=${encodeURIComponent(officerId)}`);
+      if (!res.ok) {
+        throw new Error(`Calendar slots request failed with HTTP ${res.status}.`);
+      }
       const payload = (await res.json()) as { slots?: NonNullable<IntakeTickResponse["slotPreview"]> };
 
       setSlots((payload.slots ?? []).slice(0, 3));
-    } catch {
+    } catch (error) {
+      console.error("[loanpilot-assistant] Could not load consultation slots.", error);
       setSlots([]);
+      pushSys("Consultation times are unavailable right now — try again in a moment.");
     }
   }
 
@@ -320,7 +325,8 @@ export function MortgageIntakeChat(props: {
 
       setBooked(body.appointment ?? null);
       pushSys(`Consultation locked (${body.appointment?.id ?? "reference pending"}).`);
-    } catch {
+    } catch (error) {
+      console.error("[loanpilot-assistant] Booking request failed.", error);
       pushSys("Booking transport failed.");
     } finally {
       setBusy(false);

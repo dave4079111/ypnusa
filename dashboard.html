@@ -174,9 +174,10 @@
 <body>
   <div id="lock" class="lock-screen">
     <h1 style="margin-top:0">YPN AI Dashboard</h1>
-    <p class="sub" style="margin-bottom:0.75rem">Password required</p>
-    <input type="password" id="pwIn" placeholder="Enter password" autocomplete="current-password" />
-    <button type="button" id="pwGo">Unlock</button>
+    <p class="sub" style="margin-bottom:0.75rem">Sign in with your Supabase dashboard account</p>
+    <input type="email" id="emailIn" placeholder="you@example.com" autocomplete="username" />
+    <input type="password" id="pwIn" placeholder="Password" autocomplete="current-password" />
+    <button type="button" id="pwGo">Sign in</button>
     <p id="pwErr" class="err"></p>
   </div>
 
@@ -222,18 +223,17 @@
   <script>
     (function () {
       var CONFIG = {
-        DASHBOARD_PASSWORD: "ypn-dashboard-2026",
         SUPABASE_URL: "YOUR_SUPABASE_URL",
         SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY",
       };
 
-      var SESSION_KEY = "ypn_dash_ok";
-
       var lock = document.getElementById("lock");
       var app = document.getElementById("app");
+      var emailIn = document.getElementById("emailIn");
       var pwIn = document.getElementById("pwIn");
       var pwGo = document.getElementById("pwGo");
       var pwErr = document.getElementById("pwErr");
+      var client = null;
 
       function supaReady() {
         return (
@@ -242,14 +242,36 @@
         );
       }
 
-      function tryUnlock() {
-        pwErr.textContent = "";
-        if (pwIn.value === CONFIG.DASHBOARD_PASSWORD) {
-          sessionStorage.setItem(SESSION_KEY, "1");
-          showApp();
-        } else {
-          pwErr.textContent = "Incorrect password.";
+      /**
+       * Access is enforced by Supabase auth + row level security (only authenticated
+       * users may read `leads`), never by this page: any check in browser JavaScript
+       * can be bypassed by the visitor.
+       */
+      function supabaseClient() {
+        if (!client) {
+          client = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
         }
+        return client;
+      }
+
+      async function tryUnlock() {
+        pwErr.textContent = "";
+        if (!supaReady()) {
+          pwErr.textContent = "Set SUPABASE_URL and SUPABASE_ANON_KEY in this file's CONFIG first.";
+          return;
+        }
+
+        var res = await supabaseClient().auth.signInWithPassword({
+          email: emailIn.value.trim(),
+          password: pwIn.value,
+        });
+        pwIn.value = "";
+
+        if (res.error) {
+          pwErr.textContent = "Sign in failed. Check your credentials.";
+          return;
+        }
+        showApp();
       }
 
       function showApp() {
@@ -258,10 +280,12 @@
         loadData();
       }
 
-      if (sessionStorage.getItem(SESSION_KEY) === "1") {
-        lock.classList.add("hidden");
-        app.classList.remove("hidden");
-        loadData();
+      if (supaReady()) {
+        supabaseClient()
+          .auth.getSession()
+          .then(function (res) {
+            if (res.data && res.data.session) showApp();
+          });
       }
 
       pwGo.addEventListener("click", tryUnlock);
@@ -291,10 +315,7 @@
           return;
         }
 
-        var supa = window.supabase;
-        var client = supa.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
-
-        var res = await client
+        var res = await supabaseClient()
           .from("leads")
           .select(
             "name, loan_type, loan_program, lead_score, lead_quality, created_at"

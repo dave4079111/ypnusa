@@ -27,8 +27,15 @@ create table if not exists public.leads (
 
 alter table public.leads enable row level security;
 
+-- The public intake widget submits with the anon key, so anonymous inserts are
+-- required. Reads are not: the anon key ships in browser bundles, so an anon
+-- select policy would publish every borrower's name, phone, email and income to
+-- anyone who opens devtools. Only signed-in dashboard users may read leads.
+-- Existing deployments: remove the previously published anonymous read policy.
+drop policy if exists "Allow anon select leads" on public.leads;
+
 create policy "Allow anon insert leads"
 on public.leads for insert to anon with check (true);
 
-create policy "Allow anon select leads"
-on public.leads for select to anon using (true);
+create policy "Allow authenticated select leads"
+on public.leads for select to authenticated using (true);

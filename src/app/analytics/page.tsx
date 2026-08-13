@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SessionBar } from "@/components/session-bar";
+import { requireSession } from "@/lib/auth";
 import { summarizeAnalyticsPulse } from "@/lib/analytics-core";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function LoanPilotAnalytics() {
+export default async function LoanPilotAnalytics() {
+  await requireSession("/analytics");
   const pulse = summarizeAnalyticsPulse();
 
   return (

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { GbpLinkingWidget } from "@/components/local-seo/gbp-linking-widget";
 import { SessionBar } from "@/components/session-bar";
+import { requireSession } from "@/lib/auth";
 import { getPublicBusinessProfile } from "@/lib/local-seo";
 
 export const metadata: Metadata = {
@@ -10,7 +11,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function LocalSeoDashboardPage() {
+export default async function LocalSeoDashboardPage() {
+  await requireSession("/dashboard/local-seo");
   const business = getPublicBusinessProfile();
 
   return (

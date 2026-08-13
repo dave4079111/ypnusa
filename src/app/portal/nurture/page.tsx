@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { SessionBar } from "@/components/session-bar";
+import { requireSession } from "@/lib/auth";
 import { NurturePipeline } from "@/components/portal/nurture-pipeline";
 import { buildNurtureDashboard } from "@/lib/nurture-dashboard";
 
@@ -27,7 +28,8 @@ function shortDate(value: string): string {
   }).format(new Date(value));
 }
 
-export default function LeadNurturePortalPage() {
+export default async function LeadNurturePortalPage() {
+  await requireSession("/portal/nurture");
   const dashboard = buildNurtureDashboard();
   const metricCards = [
     ["Active AI conversations", dashboard.totals.activeConversations],

@@ -4,7 +4,7 @@ import {
   jsonError,
   jsonOk,
   parseJsonBody,
-  requireConfiguredSecret,
+  requireSecret,
 } from "@/lib/http";
 import { generateId } from "@/lib/id";
 import { finalizeIntakeArtifacts } from "@/lib/intake-pipeline";
@@ -33,7 +33,7 @@ function text(value: unknown, maxLength: number): string | undefined {
 }
 
 export async function POST(request: Request) {
-  const unauthorized = requireConfiguredSecret(request);
+  const unauthorized = requireSecret(request);
   if (unauthorized) return unauthorized;
 
   const parsed = await parseJsonBody<InboundLeadPayload>(request);

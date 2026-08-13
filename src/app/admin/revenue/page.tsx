@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { RevenueBreakdown } from "@/components/admin/revenue-breakdown";
 import { SessionBar } from "@/components/session-bar";
+import { requireAdminSession } from "@/lib/auth";
 import { summarizeRevenuePulse } from "@/lib/revenue";
 
 export const runtime = "nodejs";
@@ -11,7 +12,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function AdminRevenuePage() {
+export default async function AdminRevenuePage() {
+  await requireAdminSession("/admin/revenue");
   const revenue = summarizeRevenuePulse();
 
   return (

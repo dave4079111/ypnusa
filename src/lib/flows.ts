@@ -33,20 +33,6 @@ const creditChips: FlowChip[] = [
   { label: "Prefer not to say", value: "unknown" },
 ];
 
-const employmentChips: FlowChip[] = [
-  { label: "W-2 Employee", value: "w2" },
-  { label: "Self-employed", value: "self" },
-  { label: "Retired / fixed income", value: "retired" },
-  { label: "Investor income", value: "investor" },
-];
-
-const propertyChips: FlowChip[] = [
-  { label: "Single family", value: "single_family" },
-  { label: "Condo / townhome", value: "attached" },
-  { label: "2-4 unit", value: "small_multifamily" },
-  { label: "5+ multifamily / commercial mix", value: "commercialish" },
-];
-
 const intentChips: FlowChip[] = [
   { label: "Purchase", value: "purchase" },
   { label: "Refinance", value: "refinance" },
@@ -60,93 +46,64 @@ const timelineChips: FlowChip[] = [
   { label: "Exploring research mode", value: "researching" },
 ];
 
+/**
+ * Production conversational flow.
+ * Keep this intentionally short: one question at a time, with deeper
+ * program/underwriting questions deferred until after the initial lead capture.
+ */
 const baseFlow: FlowStepDescriptor[] = [
   {
     id: "borrower_goal",
-    prompt:
-      "Let’s personalize this. Are you leaning toward purchasing a new property or refinancing an existing mortgage?",
+    prompt: "Are you looking to purchase a home or refinance an existing mortgage?",
     fieldPath: "purchaseRefiIntent",
     kind: "select",
     chips: intentChips,
     placeholder: "Select your goal",
   },
   {
-    id: "property_type",
-    prompt:
-      "Describe the collateral you have in mind (we’ll tailor disclosures next).",
-    fieldPath: "propertyType",
-    kind: "select",
-    chips: propertyChips,
-    placeholder: "Select property profile",
-    hint: "If you aren’t certain, pick what’s closest—we can refine later.",
-  },
-  {
-    id: "credit_band",
-    prompt:
-      "What’s your best estimate for credit today? Bands help us benchmark without pulling a bureau yet.",
-    fieldPath: "estimatedCreditBand",
-    kind: "select",
-    chips: creditChips,
-    placeholder: "Choose a range",
-  },
-  {
-    id: "employment",
-    prompt: "How do you primarily earn qualifying income?",
-    fieldPath: "employment",
-    kind: "select",
-    chips: employmentChips,
-    placeholder: "Select employment type",
-  },
-  {
-    id: "annual_income",
-    prompt:
-      "Rough annual income available for underwriting (USD). Use pre-tax totals you’re comfortable stating.",
-    fieldPath: "annualIncomeUsd",
+    id: "target_amount",
+    prompt: "About what home price or loan amount are you targeting?",
+    fieldPath: "targetLoanAmountUsd",
     kind: "number",
-    placeholder: "e.g. 120000",
-    hint: "Round to the nearest thousand if needed.",
+    placeholder: "e.g. 500000",
+    hint: "A rough estimate is fine.",
   },
   {
     id: "timeline",
-    prompt:
-      "What timing best matches where you’re at? This fuels urgency cues for your YPN USA routing team.",
+    prompt: "When are you hoping to move forward?",
     fieldPath: "timeline",
     kind: "select",
     chips: timelineChips,
     placeholder: "Choose timing",
   },
   {
-    id: "estimated_down_payment",
-    prompt:
-      "What down payment / equity infusion are you planning (USD estimate)? Tap $0 if refinancing and liquidity is the objective.",
-    fieldPath: "estimatedDownPaymentUsd",
-    kind: "number",
-    placeholder: "e.g. 25000",
-    when: (_loan, answers) => answers.purchaseRefiIntent === "purchase",
+    id: "credit_band",
+    prompt: "What is your approximate credit score range?",
+    fieldPath: "estimatedCreditBand",
+    kind: "select",
+    chips: creditChips,
+    placeholder: "Choose a range",
   },
-];
-
-const identityFlow: FlowStepDescriptor[] = [
   {
     id: "borrower_full_name",
-    prompt: "What name should appear on disclosures and LOS handoffs?",
+    prompt: "Great. What is your full name?",
     fieldPath: "name",
     kind: "text",
     placeholder: "First & last name",
   },
   {
-    id: "borrower_email",
-    prompt: "Where can we securely send confirmations and disclosures?",
-    fieldPath: "email",
-    kind: "email",
-    placeholder: "name@company.com",
-  },
-  {
     id: "borrower_phone",
-    prompt: "What is the best mobile number for appointment updates?",
+    prompt: "What is the best phone number to reach you?",
     fieldPath: "phone",
     kind: "tel",
     placeholder: "(555) 123-9876",
+  },
+  {
+    id: "borrower_email",
+    prompt: "And what is the best email address for your request?",
+    fieldPath: "email",
+    kind: "email",
+    placeholder: "name@example.com",
   },
   {
     id: "contact_consent",
@@ -161,133 +118,22 @@ const identityFlow: FlowStepDescriptor[] = [
   },
 ];
 
+/**
+ * Program-specific qualification questions remain available for later use,
+ * but are intentionally not inserted into the initial production intake.
+ */
 export const programPrefaces: Record<LoanProgram, FlowStepDescriptor[]> = {
-  FHA: [
-    {
-      id: "fha_first_home",
-      prompt: "Will this FHA loan be utilized for your first FHA-insured financing?",
-      fieldPath: "firstTimeBuyer",
-      kind: "boolean",
-      chips: [
-        { label: "First-time FHA borrower", value: "true" },
-        { label: "Repeat FHA borrower", value: "false" },
-      ],
-    },
-  ],
-  VA: [
-    {
-      id: "va_eligibility",
-      prompt:
-        "Confirm service eligibility—we’ll prioritize VA purchase vs IRRRL coaching accordingly.",
-      fieldPath: "veteranStatus",
-      kind: "select",
-      chips: [
-        { label: "I’m VA eligible today", value: "yes" },
-        { label: "Not veteran / civilian path", value: "no" },
-        { label: "Need eligibility review", value: "unsure" },
-      ],
-    },
-    {
-      id: "va_coe",
-      prompt:
-        "Do you already have—or can quickly obtain—a Certificate of Eligibility?",
-      fieldPath: "vaCertificateOfEligibility",
-      kind: "select",
-      chips: [
-        { label: "COE ready", value: "yes" },
-        { label: "Need help obtaining COE", value: "no" },
-        { label: "Unsure—please audit", value: "unsure" },
-      ],
-    },
-  ],
+  FHA: [],
+  VA: [],
   CONVENTIONAL: [],
-  DSCR: [
-    {
-      id: "dscr_portfolio_depth",
-      prompt:
-        "How many financed investment properties appear on your schedules today?",
-      fieldPath: "portfolioPropertyCount",
-      kind: "number",
-      placeholder: "e.g. 3",
-      hint: "Approximate financed units—even if scattered across lenders.",
-    },
-    {
-      id: "dscr_rent_hypothesis",
-      prompt:
-        "What monthly market rent feels realistic for underwriting stress tests (USD)?",
-      fieldPath: "expectedMonthlyRentUsd",
-      kind: "number",
-      placeholder: "e.g. 3100",
-    },
-  ],
-  HELOC: [
-    {
-      id: "heloc_home_value",
-      prompt: "What’s your best estimate for current residential value?",
-      fieldPath: "estimatedHomeValueUsd",
-      kind: "number",
-      placeholder: "e.g. 540000",
-    },
-    {
-      id: "heloc_payoff_balance",
-      prompt: "Rough first-lien balance still outstanding?",
-      fieldPath: "currentMortgageBalanceUsd",
-      kind: "number",
-      placeholder: "e.g. 310000",
-    },
-  ],
-  REFI: [
-    {
-      id: "refi_current_rate",
-      prompt:
-        "What rate are you servicing today on the lien you want repriced?",
-      fieldPath: "currentRatePct",
-      kind: "number",
-      placeholder: "e.g. 7.125",
-      hint: "Include any temporary buydown—we’ll reconcile soon.",
-    },
-    {
-      id: "refi_balance",
-      prompt: "Outstanding balance we should model for payoff + savings math?",
-      fieldPath: "currentLoanBalanceUsd",
-      kind: "number",
-      placeholder: "e.g. 412000",
-    },
-    {
-      id: "refi_goal",
-      prompt: "What outcome matters most?",
-      fieldPath: "refinanceGoal",
-      kind: "select",
-      chips: [
-        { label: "Lower payment / rate & term", value: "lower_payment" },
-        { label: "Cash-out for reinvestment", value: "cash_out" },
-        { label: "Remove MI / streamline path", value: "remove_mi" },
-        { label: "Shorten amortization horizon", value: "shorten_term" },
-      ],
-      placeholder: "Choose primary outcome",
-    },
-  ],
-  JUMBO: [
-    {
-      id: "jumbo_target_amount",
-      prompt: "What super-conforming financing amount are we targeting?",
-      fieldPath: "targetLoanAmountUsd",
-      kind: "number",
-      placeholder: "e.g. 1250000",
-    },
-    {
-      id: "jumbo_reserve_depth",
-      prompt: "How much liquid reserves are immediately deployable?",
-      fieldPath: "liquidAssetsUsd",
-      kind: "number",
-      placeholder: "e.g. 240000",
-    },
-  ],
+  DSCR: [],
+  HELOC: [],
+  REFI: [],
+  JUMBO: [],
 };
 
 export function composeFlow(loan: LoanProgram): FlowStepDescriptor[] {
-  const preface = programPrefaces[loan];
-  return [...preface, ...baseFlow, ...identityFlow];
+  return [...baseFlow];
 }
 
 export function isUnset(value: unknown): boolean {
@@ -338,22 +184,5 @@ export function summarizeFlowProgress(loan: LoanProgram, answers: BorrowerAnswer
 }
 
 export function greetingForProgram(program: LoanProgram): string {
-  const flavor: Record<LoanProgram, string> = {
-    FHA:
-      "FHA playbook engaged—capture MI + residual income scaffolding while we personalize your underwriting path.",
-    VA:
-      "VA concierge mode—we will validate eligibility, IRRRL deltas, and COE checkpoints as we chat.",
-    CONVENTIONAL:
-      "Conventional lending mode—we will align credit, down payment, and timing with a practical approval path.",
-    DSCR:
-      "Rental-performance lens active—Debt Service Coverage underwriting starts with rents and portfolio breadth.",
-    HELOC:
-      "Equity choreography begins—tell me about property value stacks and payoff objectives.",
-    REFI:
-      "Refinance heatmap enabled—we will benchmark your current lien against LOS pricing ladders.",
-    JUMBO:
-      "White-glove jumbo strategist online—capturing supersized loan structuring + liquidity nuance.",
-  };
-
-  return `Hi there, I am the YPN USA ${program} intake assistant. ${flavor[program]} Ready when you are.`;
+  return `Hi there, I’m the YPN USA intake assistant. I’ll ask a few quick questions so we can understand what you’re looking for.`;
 }

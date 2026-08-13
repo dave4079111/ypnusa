@@ -6,9 +6,14 @@ export type AnswerResult =
   | { ok: false; error: string };
 
 function sanitizeNumber(raw: string, label: string) {
-  const normalized = raw.replace(/,/g, "").trim();
+  const normalized = raw.replace(/[$,\s]/g, "").trim().toLowerCase();
   if (!normalized) return { ok: false as const, error: `${label} cannot be blank` };
-  const value = Number(normalized);
+
+  const shorthand = normalized.match(/^(\d+(?:\.\d+)?)(k|m)$/);
+  const value = shorthand
+    ? Number(shorthand[1]) * (shorthand[2] === "m" ? 1_000_000 : 1_000)
+    : Number(normalized);
+
   if (!Number.isFinite(value)) {
     return { ok: false as const, error: `${label} must be numeric` };
   }

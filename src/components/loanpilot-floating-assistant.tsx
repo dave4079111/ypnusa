@@ -75,7 +75,6 @@ export function MortgageIntakeChat(props: {
 
   const surfaceOpen = variant === "embed" || open;
 
-  /** Hydrate persisted session ids after mount without touching SSR */
   useEffect(() => {
     if (hasHydratedFsRef.current) return;
     hasHydratedFsRef.current = true;
@@ -83,8 +82,7 @@ export function MortgageIntakeChat(props: {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) {
         sessionIdRef.current = stored;
-        // Hydrate after SSR so server/client markup stay aligned until mount
-        setSessionIdState(stored); // eslint-disable-line react-hooks/set-state-in-effect
+        setSessionIdState(stored);
       }
     } catch {
       /** noop */
@@ -178,7 +176,6 @@ export function MortgageIntakeChat(props: {
       setStep(null);
       setCrm(snapshot.crmArtifacts);
       await hydrateSlots(snapshot.slotPreview, snapshot.crmArtifacts?.assignedOfficer?.id);
-
       setBooked(null);
     } else {
       setSlots([]);
@@ -234,7 +231,6 @@ export function MortgageIntakeChat(props: {
     await postTick();
   }
 
-  /** Embed: start intake once; guard against Strict Mode double-invoke. */
   useEffect(() => {
     if (variant !== "embed") return;
     if (embedBootedRef.current) return;
@@ -242,11 +238,9 @@ export function MortgageIntakeChat(props: {
     void (async () => {
       await postTick();
     })();
-    // Intentionally once per embed mount; postTick closes over latest state on first paint.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [variant]);
 
-  /** Notify iframe parents when the widget height changes (e.g. resize embed container). */
   useEffect(() => {
     if (variant !== "embed") return;
     const el = rootRef.current;
@@ -327,7 +321,10 @@ export function MortgageIntakeChat(props: {
     }
   }
 
-  const inputKind = step?.kind === "number" ? "number" : "text";
+  // Amounts are intentionally rendered as text so borrowers can enter natural
+  // values such as "$500,000" or "500k"; coercion normalizes them server-side.
+  const inputKind =
+    step?.kind === "email" ? "email" : step?.kind === "tel" ? "tel" : "text";
 
   const shellPanel =
     variant === "fab"
@@ -382,8 +379,8 @@ export function MortgageIntakeChat(props: {
         ? "Profile synced — team follow-up engaged"
         : "CRM + nurture automations engaged"
       : brand === "ypn"
-        ? "Adaptive qualification"
-        : "Adaptive LOS questioning";
+        ? "Quick conversational intake"
+        : "Quick conversational intake";
 
   const closedFooter =
     brand === "ypn"
@@ -754,8 +751,9 @@ function InnerChrome(props: {
                 }
               }}
               type={inputKind}
+              inputMode={step?.kind === "number" ? "decimal" : undefined}
               className={`flex-1 rounded-2xl border bg-white/90 px-3 py-2 text-sm ${ringFocus}`}
-              placeholder={step?.placeholder ?? "Answer the LOS AI"}
+              placeholder={step?.placeholder ?? "Answer the intake assistant"}
             />
             <button
               type="button"

@@ -42,27 +42,31 @@ describe("mergeStructuredAnswer — boolean steps", () => {
 });
 
 describe("mergeStructuredAnswer — number steps", () => {
-  const income = step({
-    id: "annual_income",
-    fieldPath: "annualIncomeUsd",
+  const amount = step({
+    id: "target_amount",
+    fieldPath: "targetLoanAmountUsd",
     kind: "number",
-    placeholder: "Annual income",
+    placeholder: "Target amount",
   });
 
-  it("accepts thousands separators and rounds to whole dollars", () => {
-    const formatted = mergeStructuredAnswer(base, income, " 120,500 ");
-    const fractional = mergeStructuredAnswer(base, income, "120500.62");
+  it("accepts currency formatting and common shorthand", () => {
+    const formatted = mergeStructuredAnswer(base, amount, " $500,000 ");
+    const thousands = mergeStructuredAnswer(base, amount, "500k");
+    const millions = mergeStructuredAnswer(base, amount, "1.25m");
 
-    assert.ok(formatted.ok && formatted.answers.annualIncomeUsd === 120_500);
-    assert.ok(fractional.ok && fractional.answers.annualIncomeUsd === 120_501);
+    assert.ok(formatted.ok && formatted.answers.targetLoanAmountUsd === 500_000);
+    assert.ok(thousands.ok && thousands.answers.targetLoanAmountUsd === 500_000);
+    assert.ok(millions.ok && millions.answers.targetLoanAmountUsd === 1_250_000);
   });
 
-  it("labels non-numeric and negative amounts with the step placeholder", () => {
-    const words = mergeStructuredAnswer(base, income, "about a hundred k");
-    const negative = mergeStructuredAnswer(base, income, "-5000");
+  it("rounds fractional values and rejects invalid or negative amounts", () => {
+    const fractional = mergeStructuredAnswer(base, amount, "120500.62");
+    const words = mergeStructuredAnswer(base, amount, "about a hundred k");
+    const negative = mergeStructuredAnswer(base, amount, "-5000");
 
-    assert.ok(!words.ok && words.error === "Annual income must be numeric");
-    assert.ok(!negative.ok && negative.error === "Annual income cannot be negative");
+    assert.ok(fractional.ok && fractional.answers.targetLoanAmountUsd === 120_501);
+    assert.ok(!words.ok && words.error === "Target amount must be numeric");
+    assert.ok(!negative.ok && negative.error === "Target amount cannot be negative");
   });
 
   it("falls back to the step id when no placeholder exists", () => {

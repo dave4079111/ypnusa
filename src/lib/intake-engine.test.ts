@@ -16,19 +16,13 @@ delete process.env.MLO_CALENDAR_CONFIG_JSON;
 /** Canned borrower replies keyed by the field the assistant asks for. */
 const replies: Partial<Record<keyof BorrowerAnswers, string>> = {
   purchaseRefiIntent: "refinance",
-  propertyType: "single_family",
+  targetLoanAmountUsd: "500000",
   estimatedCreditBand: "670-739",
-  employment: "w2",
-  annualIncomeUsd: "120,000",
   timeline: "1_3_months",
-  estimatedDownPaymentUsd: "25000",
   name: "Taylor Borrower",
   email: "taylor@example.com",
   phone: "+15555550123",
   contactConsent: "true",
-  firstTimeBuyer: "true",
-  veteranStatus: "no",
-  vaCertificateOfEligibility: "no",
 };
 
 describe("intake engine tick loop", async () => {
@@ -62,7 +56,7 @@ describe("intake engine tick loop", async () => {
     return { response, prompts };
   }
 
-  it("greets, walks every prompt, and syncs a completed borrower to the CRM", async () => {
+  it("greets, walks the short conversational flow, and syncs a completed borrower", async () => {
     const { response, prompts } = await runSession("conventional", "unit_test_funnel");
 
     assert.equal(response.ok, true);
@@ -72,14 +66,12 @@ describe("intake engine tick loop", async () => {
     assert.equal(response.progress.pct, 100);
     assert.deepEqual(prompts, [
       "borrower_goal",
-      "property_type",
-      "credit_band",
-      "employment",
-      "annual_income",
+      "target_amount",
       "timeline",
+      "credit_band",
       "borrower_full_name",
-      "borrower_email",
       "borrower_phone",
+      "borrower_email",
       "contact_consent",
     ]);
 
@@ -95,6 +87,7 @@ describe("intake engine tick loop", async () => {
     const session = db.sessions.find((entry) => entry.id === response.sessionId);
     assert.equal(session?.status, "crm_synced");
     assert.equal(session?.funnelSource, "unit_test_funnel");
+    assert.equal(session?.answers.targetLoanAmountUsd, 500000);
     assert.equal(db.borrowerLeads.at(-1)?.id, response.crmArtifacts?.borrowerLeadId);
     assert.equal(db.crmLeads.at(-1)?.id, response.crmArtifacts?.crmLeadId);
     assert.equal(db.loAlerts.at(-1)?.borrowerLeadId, response.crmArtifacts?.borrowerLeadId);
@@ -102,22 +95,22 @@ describe("intake engine tick loop", async () => {
     assert.ok(db.analyticsEvents.some((entry) => entry.type === "intake_completed"));
   });
 
-  it("greets on the opening tick only, using the program-specific copy", async () => {
+  it("uses the same short flow for every funded program", async () => {
     const opening = await intakeTick({ loanProgram: "VA" });
 
     assert.equal(opening.ok, true);
-    assert.match(opening.assistantMessage, /YPN USA VA intake assistant/);
-    assert.equal(opening.activeStep?.id, "va_eligibility");
-    assert.deepEqual(opening.progress, { pct: 0, completed: 0, totalApplicable: 12 });
+    assert.match(opening.assistantMessage, /YPN USA intake assistant/);
+    assert.equal(opening.activeStep?.id, "borrower_goal");
+    assert.deepEqual(opening.progress, { pct: 0, completed: 0, totalApplicable: 8 });
 
     const second = await intakeTick({
       sessionId: opening.sessionId,
       loanProgram: "VA",
-      incoming: { field: "veteranStatus", rawValue: "no" },
+      incoming: { field: "purchaseRefiIntent", rawValue: "purchase" },
     });
 
     assert.ok(!second.assistantMessage.includes("intake assistant"));
-    assert.equal(second.activeStep?.id, "va_coe");
+    assert.equal(second.activeStep?.id, "target_amount");
   });
 
   it("replays booking artifacts without duplicating the lead once synced", async () => {
@@ -193,37 +186,25 @@ describe("intake engine tick loop", async () => {
 
   it("re-asks the current step when the answer fails coercion", async () => {
     const opening = await intakeTick({ loanProgram: "CONVENTIONAL" });
-    await intakeTick({
+    const response = await intakeTick({
       sessionId: opening.sessionId,
       loanProgram: "CONVENTIONAL",
       incoming: { field: "purchaseRefiIntent", rawValue: "refinance" },
     });
-    await intakeTick({
+
+    assert.equal(response.ok, true);
+    assert.equal(response.activeStep?.id, "target_amount");
+
+    const invalid = await intakeTick({
       sessionId: opening.sessionId,
       loanProgram: "CONVENTIONAL",
-      incoming: { field: "propertyType", rawValue: "single_family" },
-    });
-    await intakeTick({
-      sessionId: opening.sessionId,
-      loanProgram: "CONVENTIONAL",
-      incoming: { field: "estimatedCreditBand", rawValue: "670-739" },
-    });
-    await intakeTick({
-      sessionId: opening.sessionId,
-      loanProgram: "CONVENTIONAL",
-      incoming: { field: "employment", rawValue: "w2" },
+      incoming: { field: "targetLoanAmountUsd", rawValue: "a lot" },
     });
 
-    const response = await intakeTick({
-      sessionId: opening.sessionId,
-      loanProgram: "CONVENTIONAL",
-      incoming: { field: "annualIncomeUsd", rawValue: "a lot" },
-    });
-
-    assert.equal(response.ok, false);
-    assert.equal(response.activeStep?.id, "annual_income");
-    assert.equal(response.assistantMessage, response.error);
-    assert.equal(response.answers.annualIncomeUsd, undefined);
+    assert.equal(invalid.ok, false);
+    assert.equal(invalid.activeStep?.id, "target_amount");
+    assert.equal(invalid.assistantMessage, invalid.error);
+    assert.equal(invalid.answers.targetLoanAmountUsd, undefined);
   });
 
   it("defaults the funnel source and echoes it back on every answer", async () => {

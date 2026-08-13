@@ -18,9 +18,13 @@ export const DEFAULT_AGENT_ACTION_POLICY: AgentActionPolicy = {
     "clarify_answer",
     "qualify_lead",
     "route_lead",
+    "send_email",
+    "send_sms",
     "create_followup",
     "cancel_followups",
+    "book_appointment",
     "add_crm_note",
+    "alert_mlo",
     "wait",
   ]),
   consentRequired: new Set(["send_email", "send_sms", "book_appointment"]),
@@ -31,8 +35,10 @@ export function validateAgentAction(
   context: AgentContext,
   policy: AgentActionPolicy = DEFAULT_AGENT_ACTION_POLICY,
 ): string | null {
-  if (!policy.autonomous.has(action.kind) && action.requiresHumanApproval) {
-    return "Human approval is required for this action.";
+  if (!policy.autonomous.has(action.kind)) {
+    return action.requiresHumanApproval
+      ? "Human approval is required for this action."
+      : "This agent action is not enabled by policy.";
   }
 
   if (policy.consentRequired.has(action.kind)) {

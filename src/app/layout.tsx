@@ -12,22 +12,17 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   metadataBase: new URL(APP_SITE_URL),
   title: {
-    default: "YPN USA App — Exclusive ZIP Territories & AI Borrower Intake",
+    default: "YPN USA App — Mortgage Growth Platform for Loan Officers",
     template: "%s · YPN USA App",
   },
   description:
-    "Claim exclusive mortgage ZIP territories, run AI borrower intake, and keep every lead you capture. Product app for YPN USA loan officers — Free, Starter $29.99, Pro $99.99, Elite $299.99.",
-  keywords: [
-    "mortgage leads",
-    "exclusive zip territory",
-    "loan officer leads",
-    "AI borrower intake",
-    "MLO marketing",
-    "YPN USA",
-  ],
+    "YPN USA is the mortgage growth platform for loan officers: claim exclusive ZIP territories, capture borrowers with AI intake, and turn local demand into owned leads.",
   applicationName: "YPN USA App",
   authors: [{ name: "David J. Moore, MBA" }],
-  alternates: { canonical: "/" },
+  creator: "YPN Inc.",
+  publisher: "YPN Inc.",
+  category: "Business",
+  referrer: "origin-when-cross-origin",
   robots: {
     index: true,
     follow: true,
@@ -42,15 +37,15 @@ export const metadata: Metadata = {
     type: "website",
     url: APP_SITE_URL,
     siteName: "YPN USA App",
-    title: "YPN USA App — Exclusive ZIP Territories & AI Intake",
+    title: "YPN USA App — Mortgage Growth Platform for Loan Officers",
     description:
-      "Own your ZIP codes. Capture, qualify, and nurture borrowers with an always-on AI agent. Start free.",
+      "Claim exclusive ZIP territories, capture borrowers with AI intake, and build an owned mortgage lead pipeline.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "YPN USA App — Exclusive Mortgage Lead Territories",
+    title: "YPN USA App — Mortgage Growth Platform for Loan Officers",
     description:
-      "Exclusive ZIP territories + AI borrower intake for licensed loan officers. Start free.",
+      "Exclusive ZIP territories and AI borrower intake for mortgage loan officers.",
   },
 };
 
@@ -85,7 +80,7 @@ const jsonLd = {
         { "@type": "Offer", name: "Elite", price: "299.99", priceCurrency: "USD" },
       ],
       description:
-        "Exclusive ZIP territory product for licensed mortgage loan officers with AI borrower intake, qualification, and nurture.",
+        "Mortgage growth platform for licensed loan officers with exclusive ZIP territories, AI borrower intake, qualification, and nurture.",
     },
   ],
 };

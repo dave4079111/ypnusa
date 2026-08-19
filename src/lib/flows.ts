@@ -132,7 +132,7 @@ export const programPrefaces: Record<LoanProgram, FlowStepDescriptor[]> = {
   JUMBO: [],
 };
 
-export function composeFlow(loan: LoanProgram): FlowStepDescriptor[] {
+export function composeFlow(_loan: LoanProgram): FlowStepDescriptor[] {
   return [...baseFlow];
 }
 
@@ -183,6 +183,6 @@ export function summarizeFlowProgress(loan: LoanProgram, answers: BorrowerAnswer
   };
 }
 
-export function greetingForProgram(program: LoanProgram): string {
+export function greetingForProgram(_program: LoanProgram): string {
   return `Hi there, I’m the YPN USA intake assistant. I’ll ask a few quick questions so we can understand what you’re looking for.`;
 }

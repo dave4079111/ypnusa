@@ -21,23 +21,33 @@ const ALL_PROGRAMS: LoanProgram[] = [
   "JUMBO",
 ];
 
+const STEP_IDS = [
+  "borrower_goal",
+  "target_amount",
+  "timeline",
+  "credit_band",
+  "borrower_full_name",
+  "borrower_phone",
+  "borrower_email",
+  "contact_consent",
+];
+
 function answersFor(program: LoanProgram, extra: Partial<BorrowerAnswers> = {}): BorrowerAnswers {
   return { loanProgram: program, ...extra };
 }
 
 describe("intake flow composition", () => {
-  it("puts the program preface ahead of the shared base and identity steps", () => {
-    const va = composeFlow("VA");
+  it("returns the same short conversational flow for every program", () => {
+    for (const program of ALL_PROGRAMS) {
+      const flow = composeFlow(program);
+      assert.deepEqual(flow.map((step) => step.id), STEP_IDS);
+    }
+  });
 
-    assert.deepEqual(
-      va.slice(0, 2).map((step) => step.id),
-      ["va_eligibility", "va_coe"],
-    );
-    assert.equal(va[2]?.id, "borrower_goal");
-    assert.deepEqual(
-      va.slice(-4).map((step) => step.id),
-      ["borrower_full_name", "borrower_email", "borrower_phone", "contact_consent"],
-    );
+  it("leaves program prefaces empty now that deeper qualification is deferred", () => {
+    for (const program of ALL_PROGRAMS) {
+      assert.deepEqual(programPrefaces[program], []);
+    }
   });
 
   it("keeps every program flow uniquely identified and consistently typed", () => {
@@ -46,7 +56,7 @@ describe("intake flow composition", () => {
       const ids = flow.map((step) => step.id);
 
       assert.equal(new Set(ids).size, ids.length, `${program} has duplicate step ids`);
-      assert.equal(flow.length, programPrefaces[program].length + 11);
+      assert.equal(flow.length, STEP_IDS.length);
 
       for (const step of flow) {
         assert.ok(step.prompt.length > 0, `${program}/${step.id} is missing a prompt`);
@@ -81,7 +91,7 @@ describe("isUnset", () => {
 });
 
 describe("flow progress and next-step resolution", () => {
-  it("counts the down-payment step only for purchase borrowers", () => {
+  it("has no conditional steps, so the total is constant across intents", () => {
     const purchase = estimateTotalSteps(
       "CONVENTIONAL",
       answersFor("CONVENTIONAL", { purchaseRefiIntent: "purchase" }),
@@ -91,79 +101,63 @@ describe("flow progress and next-step resolution", () => {
       answersFor("CONVENTIONAL", { purchaseRefiIntent: "refinance" }),
     );
 
-    assert.equal(purchase, 11);
-    assert.equal(refinance, 10);
+    assert.equal(purchase, STEP_IDS.length);
+    assert.equal(refinance, STEP_IDS.length);
   });
 
-  it("asks for the program preface first, then walks the remaining gaps", () => {
+  it("walks the flow in order starting from the borrower's goal", () => {
     const answers = answersFor("FHA");
 
-    assert.equal(findNextStep("FHA", answers)?.id, "fha_first_home");
-    assert.equal(findNextStep("FHA", { ...answers, firstTimeBuyer: false })?.id, "borrower_goal");
-  });
-
-  it("skips the conditional down-payment step for refinance borrowers", () => {
-    const refinance = answersFor("CONVENTIONAL", {
-      purchaseRefiIntent: "refinance",
-      propertyType: "single_family",
-      estimatedCreditBand: "670-739",
-      employment: "w2",
-      annualIncomeUsd: 120_000,
-      timeline: "1_3_months",
-    });
-
-    assert.equal(findNextStep("CONVENTIONAL", refinance)?.id, "borrower_full_name");
+    assert.equal(findNextStep("FHA", answers)?.id, "borrower_goal");
     assert.equal(
-      findNextStep("CONVENTIONAL", { ...refinance, purchaseRefiIntent: "purchase" })?.id,
-      "estimated_down_payment",
+      findNextStep("FHA", { ...answers, purchaseRefiIntent: "purchase" })?.id,
+      "target_amount",
     );
   });
 
-  it("returns null and 100% once every applicable step is answered", () => {
+  it("returns null and 100% once every step is answered", () => {
     const complete = answersFor("CONVENTIONAL", {
       purchaseRefiIntent: "refinance",
-      propertyType: "single_family",
-      estimatedCreditBand: "740-850",
-      employment: "w2",
-      annualIncomeUsd: 180_000,
+      targetLoanAmountUsd: 400_000,
       timeline: "lt_30",
+      estimatedCreditBand: "740-850",
       name: "Taylor Borrower",
-      email: "taylor@example.com",
       phone: "+15555550123",
+      email: "taylor@example.com",
       contactConsent: false,
     });
 
     assert.equal(findNextStep("CONVENTIONAL", complete), null);
     assert.deepEqual(summarizeFlowProgress("CONVENTIONAL", complete), {
       pct: 100,
-      completed: 10,
-      totalApplicable: 10,
+      completed: STEP_IDS.length,
+      totalApplicable: STEP_IDS.length,
     });
   });
 
-  it("reports rounded partial progress against applicable steps only", () => {
-    assert.deepEqual(
-      summarizeFlowProgress("CONVENTIONAL", answersFor("CONVENTIONAL")),
-      { pct: 0, completed: 0, totalApplicable: 10 },
-    );
+  it("reports rounded partial progress across the shared steps", () => {
+    assert.deepEqual(summarizeFlowProgress("CONVENTIONAL", answersFor("CONVENTIONAL")), {
+      pct: 0,
+      completed: 0,
+      totalApplicable: STEP_IDS.length,
+    });
     assert.deepEqual(
       summarizeFlowProgress(
         "CONVENTIONAL",
-        answersFor("CONVENTIONAL", { purchaseRefiIntent: "refinance", propertyType: "attached" }),
+        answersFor("CONVENTIONAL", { purchaseRefiIntent: "refinance", targetLoanAmountUsd: 400_000 }),
       ),
-      { pct: 20, completed: 2, totalApplicable: 10 },
+      { pct: 25, completed: 2, totalApplicable: STEP_IDS.length },
     );
   });
 });
 
 describe("greetingForProgram", () => {
-  it("names the requested program in a distinct greeting for every program", () => {
-    const greetings = ALL_PROGRAMS.map((program) => {
-      const greeting = greetingForProgram(program);
-      assert.match(greeting, new RegExp(`YPN USA ${program} intake assistant`));
-      return greeting;
-    });
+  it("returns the same generic greeting regardless of program", () => {
+    const greetings = ALL_PROGRAMS.map((program) => greetingForProgram(program));
 
-    assert.equal(new Set(greetings).size, ALL_PROGRAMS.length);
+    for (const greeting of greetings) {
+      assert.match(greeting, /YPN USA intake assistant/);
+    }
+    assert.equal(new Set(greetings).size, 1);
   });
 });

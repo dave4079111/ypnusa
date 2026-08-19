@@ -82,6 +82,7 @@ export function MortgageIntakeChat(props: {
       const stored = window.localStorage.getItem(STORAGE_KEY);
       if (stored) {
         sessionIdRef.current = stored;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time post-mount hydration from localStorage; the initial render must stay null to match SSR output.
         setSessionIdState(stored);
       }
     } catch {

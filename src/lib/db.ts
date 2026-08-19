@@ -207,8 +207,8 @@ let lastStorageError: string | undefined;
 
 function ensureDataDir(): boolean {
   try {
-    if (!fs.existsSync(dataDir())) {
-      fs.mkdirSync(dataDir(), { recursive: true });
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dataDir())) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ dataDir(), { recursive: true });
     }
     lastStorageError = undefined;
     return true;
@@ -229,8 +229,8 @@ function flushToDisk(db: DbShape): void {
   const target = dbPath();
   const tmp = `${target}.${process.pid}.tmp`;
   try {
-    fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
-    fs.renameSync(tmp, target);
+    fs.writeFileSync(/*turbopackIgnore: true*/ tmp, JSON.stringify(db, null, 2));
+    fs.renameSync(/*turbopackIgnore: true*/ tmp, target);
     lastStorageError = undefined;
   } catch (error) {
     // Read-only/serverless filesystem: keep serving from memory. Stop retrying
@@ -251,8 +251,8 @@ function hydrate(): DbShape {
 
   let snapshotUnreadable = false;
   try {
-    if (fs.existsSync(dbPath())) {
-      const parsed = JSON.parse(fs.readFileSync(dbPath(), "utf8")) as unknown;
+    if (fs.existsSync(/*turbopackIgnore: true*/ dbPath())) {
+      const parsed = JSON.parse(fs.readFileSync(/*turbopackIgnore: true*/ dbPath(), "utf8")) as unknown;
       memoryDb = normalize(parsed);
       return memoryDb;
     }

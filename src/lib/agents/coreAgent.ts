@@ -3,6 +3,8 @@ import { generateGmbContent, type GmbAgentInput } from "./gmbAgent";
 import { buildWebsitePage, type WebsiteBuilderInput } from "./websiteBuilderAgent";
 import { suggestTerritory, scoreZip, explainZip } from "./zipLogicAgent";
 import { scoreLead, type Lead, type ZipContext, type CountyEvents } from "./predictiveAgent";
+import { buildZipContext } from "./zipContext";
+import { buildCountyEvents } from "./countyEvents";
 
 /**
  * Central dispatcher ("brain shell") for the platform's task-oriented
@@ -58,4 +60,16 @@ export async function runAgent(task: AgentTask): Promise<AgentResult> {
   } catch (error) {
     return errorResult(task.type, error);
   }
+}
+
+/**
+ * Convenience entry point for "predict-lead": builds ZipContext and
+ * CountyEvents from live data sources (zipContext.ts, countyEvents.ts) so
+ * callers only need a Lead and a ZIP, then runs the task through the same
+ * runAgent() dispatcher above.
+ */
+export async function runPredictLeadForZip(lead: Lead, zip: string): Promise<AgentResult> {
+  const zipContext = await buildZipContext(zip);
+  const countyEvents = await buildCountyEvents(zipContext.county);
+  return runAgent({ type: "predict-lead", lead, zipContext, countyEvents });
 }

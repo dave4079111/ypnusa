@@ -64,6 +64,11 @@ const SECTIONS = [
     title: "Conversion Insights",
     description: "ZIP demand, life-event likelihood, and CTA performance sets.",
   },
+  {
+    href: "/dashboard/borrower-intelligence",
+    title: "Borrower Intelligence",
+    description: "Borrower persona, confidence, and signup/conversion outcome predictions.",
+  },
 ] as const;
 
 export default async function DashboardHubPage() {

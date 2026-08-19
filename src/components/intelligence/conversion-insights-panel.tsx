@@ -1,9 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePersonalization } from "@/lib/hooks/usePersonalization";
 import { useCTAEngine } from "@/lib/hooks/useCTAEngine";
 import { Card, ErrorNote, GenerateButton } from "./dashboard-shell";
+
+interface PreLeadFunnelCounts {
+  viewed: number;
+  clickedCta: number;
+  startedSignup: number;
+  completedSignup: number;
+  viewedDashboard: number;
+  requestedInsights: number;
+}
+
+const FUNNEL_LABELS: Array<{ key: keyof PreLeadFunnelCounts; label: string }> = [
+  { key: "viewed", label: "Viewed borrower page" },
+  { key: "clickedCta", label: "Clicked CTA" },
+  { key: "startedSignup", label: "Started signup" },
+  { key: "completedSignup", label: "Completed signup" },
+  { key: "viewedDashboard", label: "Viewed dashboard" },
+  { key: "requestedInsights", label: "Requested insights" },
+];
+
+/** Pulls preLeadFunnel from the existing /api/analytics/summary route — no new endpoint needed. */
+function PreLeadFunnelCard() {
+  const [counts, setCounts] = useState<PreLeadFunnelCounts | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/analytics/summary", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((payload: { ok?: boolean; analytics?: { preLeadFunnel?: PreLeadFunnelCounts } }) => {
+        if (!cancelled && payload.ok && payload.analytics?.preLeadFunnel) {
+          setCounts(payload.analytics.preLeadFunnel);
+        }
+      })
+      .catch(() => {
+        /** leave counts null — card just won't render */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!counts) return null;
+
+  return (
+    <Card title="Pre-lead funnel">
+      <p className="text-sm text-slate-600">
+        Anonymous funnel progress recorded via stageTracker before a borrower lead exists.
+      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {FUNNEL_LABELS.map(({ key, label }) => (
+          <div key={key} className="rounded-2xl bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-violet-700">{label}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950">{counts[key]}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 export function ConversionInsightsPanel() {
   const [zip, setZip] = useState("");
@@ -99,6 +157,8 @@ export function ConversionInsightsPanel() {
           </div>
         </Card>
       ) : null}
+
+      <PreLeadFunnelCard />
     </>
   );
 }

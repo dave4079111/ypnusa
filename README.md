@@ -70,6 +70,8 @@ All environment variables are optional — see `.env.example`.
 | `NEXT_PUBLIC_MARKETING_SITE_URL` | WordPress marketing host. Defaults to `https://ypnus.com`. |
 | `YPNUS_WP_API_BASE` | Live territory/signup REST base. Defaults to `https://ypnus.com/wp-json/ypnus/v1`. |
 | `LOANPILOT_DATA_DIR` | Directory for the JSON data snapshot. Defaults to `./data`. Point at a writable path (e.g. `/tmp/ypnus`) on read-only hosts. |
+| `SESSION_SECRET` | Signs the `ypnus_session` cookie. Falls back to a secret persisted at `<data dir>/session-secret.key` when unset — fine for local dev, but set this explicitly in production. |
+| `YPNUS_SSO_SHARED_SECRET` | Shared secret for the `ypnus.com` → `app.ypnus.com` SSO handoff. Required for `/api/auth/callback` to accept a handoff; see `docs/sso-handoff.md`. |
 | `INTAKE_EXTERNAL_WEBHOOK_URL` | If set, completed intakes are POSTed here (Zapier/CRM). |
 | `LOANPILOT_DEMO_MODE` / `LOANPILOT_DEMO_DAY_MINUTES` | Compress the multi-day nurture ladder for live demos. |
 | `LOCAL_SEO_PUBLIC_ORIGIN` | Public origin for local canonical URLs; defaults to `https://ypnus.com`. |

@@ -19,7 +19,7 @@ function context(overrides: Partial<AgentContext["state"]>): AgentContext {
 test("uses the deterministic intake flow as the first decision rail", () => {
   const action = decideNextAction(context({}));
   assert.equal(action.kind, "ask_question");
-  assert.equal(action.payload.field, "firstTimeBuyer");
+  assert.equal(action.payload.field, "purchaseRefiIntent");
 });
 
 test("routes a qualified lead", () => {

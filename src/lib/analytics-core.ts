@@ -12,6 +12,22 @@ export function summarizeAnalyticsPulse() {
   const completions = events.filter((event) => event.type === "intake_completed").length;
   const booked = events.filter((event) => event.type === "appointment_booked").length;
 
+  /** Pre-lead funnel (anonymous, upstream of intake) — see src/lib/funnel/stageTracker.ts. */
+  const stageCounts = events.reduce<Record<string, number>>((memo, evt) => {
+    if (evt.type !== "funnel_stage_viewed") return memo;
+    const stage = typeof evt.payload.stage === "string" ? evt.payload.stage : undefined;
+    if (stage) memo[stage] = (memo[stage] ?? 0) + 1;
+    return memo;
+  }, {});
+  const preLeadFunnel = {
+    viewed: stageCounts.viewed_borrower_page ?? 0,
+    clickedCta: events.filter((event) => event.type === "funnel_cta_clicked").length,
+    startedSignup: stageCounts.started_signup ?? 0,
+    completedSignup: stageCounts.completed_signup ?? 0,
+    viewedDashboard: stageCounts.viewed_dashboard ?? 0,
+    requestedInsights: stageCounts.requested_insights ?? 0,
+  };
+
   const completionRatePct =
     started === 0 ? 0 : Math.round((Math.min(completions, started) / started) * 100);
 
@@ -69,5 +85,6 @@ export function summarizeAnalyticsPulse() {
     qualificationMixPct: qualificationBands,
     bookingsCaptured: booked,
     averageLosCompositeScore: Number.isFinite(averageCompositeScore) ? averageCompositeScore : 0,
+    preLeadFunnel,
   };
 }

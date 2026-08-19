@@ -60,6 +60,14 @@ describe("analytics pulse", async () => {
       qualificationMixPct: { prime: 0, strong: 0, developing: 0, watch: 0 },
       bookingsCaptured: 0,
       averageLosCompositeScore: 0,
+      preLeadFunnel: {
+        viewed: 0,
+        clickedCta: 0,
+        startedSignup: 0,
+        completedSignup: 0,
+        viewedDashboard: 0,
+        requestedInsights: 0,
+      },
     });
   });
 

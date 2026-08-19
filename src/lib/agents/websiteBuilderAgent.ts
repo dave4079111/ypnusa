@@ -85,12 +85,16 @@ const SECTION_TEMPLATES: Record<string, SectionTemplate> = {
   }),
 };
 
+function humanize(name: string): string {
+  return titleCase(name.replace(/[_-]+/g, " "));
+}
+
 function buildSection(name: string, goal: string, audience: string): PageSection {
   const key = name.trim().toLowerCase();
   const template =
     SECTION_TEMPLATES[key] ??
     ((g: string, a: string) => ({
-      headline: titleCase(name),
+      headline: humanize(name),
       subheadline: `For ${a}.`,
       body: `${titleCase(g)} — tailored to what matters most.`,
       callToAction: ctaFor(g),

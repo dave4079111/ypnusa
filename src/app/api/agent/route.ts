@@ -13,6 +13,13 @@ const VALID_TASK_TYPES = new Set<AgentTaskType>([
   "zip-suggest-territory",
   "zip-score",
   "zip-explain",
+  "marketing-social-post",
+  "marketing-email",
+  "marketing-ad-copy",
+  "gmb-post",
+  "gmb-optimize-description",
+  "website-page-spec",
+  "website-landing-page",
 ]);
 
 export async function POST(request: Request) {

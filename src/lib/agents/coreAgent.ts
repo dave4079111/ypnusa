@@ -1,6 +1,25 @@
-import { generateMarketingContent, type MarketingAgentInput } from "./marketingAgent";
-import { generateGmbContent, type GmbAgentInput } from "./gmbAgent";
-import { buildWebsitePage, type WebsiteBuilderInput } from "./websiteBuilderAgent";
+import {
+  generateMarketingContent,
+  generateSocialPost,
+  generateEmail,
+  generateAdCopy,
+  type MarketingAgentInput,
+  type MarketingRequest,
+} from "./marketingAgent";
+import {
+  generateGmbContent,
+  generateGMBPost,
+  optimizeDescription,
+  type GmbAgentInput,
+  type GmbProfile,
+  type GmbGoal,
+} from "./gmbAgent";
+import {
+  buildWebsitePage,
+  buildPageSpec,
+  buildLandingPage,
+  type WebsiteBuilderInput,
+} from "./websiteBuilderAgent";
 import { suggestTerritory, scoreZip, explainZip } from "./zipLogicAgent";
 import { scoreLead, type Lead, type ZipContext, type CountyEvents } from "./predictiveAgent";
 import { buildZipContext } from "./zipContext";
@@ -20,7 +39,14 @@ export type AgentTask =
   | { type: "website-build-page"; input: WebsiteBuilderInput }
   | { type: "zip-suggest-territory"; zip: string }
   | { type: "zip-score"; zip: string }
-  | { type: "zip-explain"; zip: string };
+  | { type: "zip-explain"; zip: string }
+  | { type: "marketing-social-post"; request: MarketingRequest }
+  | { type: "marketing-email"; request: MarketingRequest }
+  | { type: "marketing-ad-copy"; request: MarketingRequest }
+  | { type: "gmb-post"; profile: GmbProfile; goal: GmbGoal }
+  | { type: "gmb-optimize-description"; profile: GmbProfile }
+  | { type: "website-page-spec"; goal: string; audience: string; sections: string[] }
+  | { type: "website-landing-page"; goal: string; offer: string };
 
 export type AgentTaskType = AgentTask["type"];
 
@@ -56,6 +82,20 @@ export async function runAgent(task: AgentTask): Promise<AgentResult> {
         return okResult(task.type, await scoreZip(task.zip));
       case "zip-explain":
         return okResult(task.type, await explainZip(task.zip));
+      case "marketing-social-post":
+        return okResult(task.type, generateSocialPost(task.request));
+      case "marketing-email":
+        return okResult(task.type, generateEmail(task.request));
+      case "marketing-ad-copy":
+        return okResult(task.type, generateAdCopy(task.request));
+      case "gmb-post":
+        return okResult(task.type, generateGMBPost(task.profile, task.goal));
+      case "gmb-optimize-description":
+        return okResult(task.type, optimizeDescription(task.profile));
+      case "website-page-spec":
+        return okResult(task.type, buildPageSpec(task.goal, task.audience, task.sections));
+      case "website-landing-page":
+        return okResult(task.type, buildLandingPage(task.goal, task.offer));
     }
   } catch (error) {
     return errorResult(task.type, error);

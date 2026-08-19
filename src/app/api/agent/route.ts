@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { runAgent, runPredictLeadForZip, type AgentTask, type AgentTaskType } from "@/lib/agents/coreAgent";
-import type { Lead } from "@/lib/agents/predictiveAgent";
+import { scoreLead, type Lead } from "@/lib/agents/predictiveAgent";
+import { buildZipContext } from "@/lib/agents/zipContext";
+import { buildCountyEvents } from "@/lib/agents/countyEvents";
+import type { BorrowerProfile, BorrowerProfileBasics } from "@/lib/borrower/profileEngine";
+import type { FunnelStageName } from "@/lib/predictive/outcomeEngine";
 import { isRecord, jsonError, logApiError, parseJsonBody } from "@/lib/http";
 import { requireSessionOrSecret } from "@/lib/auth";
 
@@ -22,6 +26,8 @@ const VALID_TASK_TYPES = new Set<AgentTaskType>([
   "gmb-optimize-description",
   "website-page-spec",
   "website-landing-page",
+  "borrower-profile",
+  "predict-outcome",
 ]);
 
 export async function POST(request: Request) {
@@ -44,6 +50,47 @@ export async function POST(request: Request) {
         return jsonError("predict-lead-by-zip requires { lead, zip }.", 400, "INVALID_TASK_TYPE");
       }
       const result = await runPredictLeadForZip(body.lead as unknown as Lead, body.zip);
+      return NextResponse.json(result, { status: result.ok ? 200 : 502 });
+    }
+
+    // Convenience path: client only has borrower basics; ZipContext/CountyEvents (and,
+    // when a lead is supplied, PredictiveResult) are built server-side.
+    if (body.type === "borrower-profile-by-zip") {
+      if (!isRecord(body.borrower) || typeof body.borrower.zip !== "string") {
+        return jsonError("borrower-profile-by-zip requires { borrower: { zip, ... } }.", 400, "INVALID_TASK_TYPE");
+      }
+      const zipContext = await buildZipContext(body.borrower.zip);
+      const countyEvents = await buildCountyEvents(zipContext.county);
+      const lead = isRecord(body.lead) ? (body.lead as unknown as Lead) : null;
+      const predictive = lead ? scoreLead(lead, zipContext, countyEvents) : undefined;
+      const result = await runAgent({
+        type: "borrower-profile",
+        input: { borrower: body.borrower as unknown as BorrowerProfileBasics, zipContext, countyEvents, predictive },
+      });
+      return NextResponse.json(result, { status: result.ok ? 200 : 502 });
+    }
+
+    // Convenience path: client only has {lead, zip} (+ optional borrowerProfile/funnelStage);
+    // ZipContext/CountyEvents/PredictiveResult are built server-side.
+    if (body.type === "predict-outcome-by-zip") {
+      if (!isRecord(body.lead) || typeof body.zip !== "string") {
+        return jsonError("predict-outcome-by-zip requires { lead, zip }.", 400, "INVALID_TASK_TYPE");
+      }
+      const zipContext = await buildZipContext(body.zip);
+      const countyEvents = await buildCountyEvents(zipContext.county);
+      const predictive = scoreLead(body.lead as unknown as Lead, zipContext, countyEvents);
+      const result = await runAgent({
+        type: "predict-outcome",
+        input: {
+          zipContext,
+          countyEvents,
+          predictive,
+          borrowerProfile: isRecord(body.borrowerProfile)
+            ? (body.borrowerProfile as unknown as BorrowerProfile)
+            : undefined,
+          funnelStage: typeof body.funnelStage === "string" ? (body.funnelStage as FunnelStageName) : undefined,
+        },
+      });
       return NextResponse.json(result, { status: result.ok ? 200 : 502 });
     }
 

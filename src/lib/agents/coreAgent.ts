@@ -24,6 +24,9 @@ import { suggestTerritory, scoreZip, explainZip } from "./zipLogicAgent";
 import { scoreLead, type Lead, type ZipContext, type CountyEvents } from "./predictiveAgent";
 import { buildZipContext } from "./zipContext";
 import { buildCountyEvents } from "./countyEvents";
+import { buildBorrowerProfile, type BorrowerProfileInput } from "@/lib/borrower/profileEngine";
+import { buildOutcomeSignals, type OutcomeSignalsInput } from "@/lib/predictive/outcomeEngine";
+import { recordStageEvent, recordCtaClick, type FunnelStage } from "@/lib/funnel/stageTracker";
 
 /**
  * Central dispatcher ("brain shell") for the platform's task-oriented
@@ -46,7 +49,10 @@ export type AgentTask =
   | { type: "gmb-post"; profile: GmbProfile; goal: GmbGoal }
   | { type: "gmb-optimize-description"; profile: GmbProfile }
   | { type: "website-page-spec"; goal: string; audience: string; sections: string[] }
-  | { type: "website-landing-page"; goal: string; offer: string };
+  | { type: "website-landing-page"; goal: string; offer: string }
+  | { type: "borrower-profile"; input: BorrowerProfileInput }
+  | { type: "predict-outcome"; input: OutcomeSignalsInput }
+  | { type: "track-stage"; id: string; stage?: FunnelStage; ctaLabel?: string };
 
 export type AgentTaskType = AgentTask["type"];
 
@@ -96,6 +102,21 @@ export async function runAgent(task: AgentTask): Promise<AgentResult> {
         return okResult(task.type, buildPageSpec(task.goal, task.audience, task.sections));
       case "website-landing-page":
         return okResult(task.type, buildLandingPage(task.goal, task.offer));
+      case "borrower-profile":
+        return okResult(task.type, buildBorrowerProfile(task.input));
+      case "predict-outcome":
+        return okResult(task.type, buildOutcomeSignals(task.input));
+      case "track-stage": {
+        if (task.stage) {
+          recordStageEvent(task.id, task.stage);
+          return okResult(task.type, { recorded: "stage" as const, id: task.id, stage: task.stage });
+        }
+        if (task.ctaLabel) {
+          recordCtaClick(task.id, task.ctaLabel);
+          return okResult(task.type, { recorded: "cta" as const, id: task.id, ctaLabel: task.ctaLabel });
+        }
+        throw new Error("track-stage requires either stage or ctaLabel.");
+      }
     }
   } catch (error) {
     return errorResult(task.type, error);

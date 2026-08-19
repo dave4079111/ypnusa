@@ -59,6 +59,11 @@ const SECTIONS = [
     title: "Funnel Builder",
     description: "Landing page, email sequence, and social posts from one pattern.",
   },
+  {
+    href: "/dashboard/conversion",
+    title: "Conversion Insights",
+    description: "ZIP demand, life-event likelihood, and CTA performance sets.",
+  },
 ] as const;
 
 export default async function DashboardHubPage() {

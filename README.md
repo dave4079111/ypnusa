@@ -34,7 +34,7 @@ Hostinger restore files for the currently-broken app homepage live in [`hostinge
 - `/dashboard/local-seo` — MLO NAP, Google Business Profile, review-feed, and review-link readiness
 
 **Backend (App Router route handlers):**
-- `POST /api/intake/tick` — conversational intake engine (adaptive FHA/VA/DSCR/HELOC/REFI/JUMBO flows, scoring, CRM mirroring, officer routing, nurture scheduling)
+- `POST /api/intake/tick` — conversational intake engine (short shared goal/amount/timeline/credit/contact flow across all loan programs, scoring, CRM mirroring, officer routing, nurture scheduling)
 - `GET  /api/territory/check?zip=NNNNN` — ZIP territory availability
 - `POST /api/demo-request` — officer territory reservation / waitlist capture
 - `POST /api/property/evaluate` — server-validated equity estimate and optional consented review request

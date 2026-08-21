@@ -13,6 +13,7 @@ interface RevenueBreakdownProps {
 interface RevenueSummaryResponse {
   ok: boolean;
   data?: RevenuePulseSummary;
+  error?: string;
 }
 
 const moneyFormatter = new Intl.NumberFormat("en-US", {
@@ -191,13 +192,23 @@ export function RevenueBreakdown({ initialData }: RevenueBreakdownProps) {
       setIsRefreshing(true);
       try {
         const response = await fetch("/api/revenue/summary", { cache: "no-store" });
-        const payload = (await response.json()) as RevenueSummaryResponse;
-        if (!cancelled && payload.ok && payload.data) {
-          setSummary(payload.data);
-          setActiveStage((current) => {
-            return payload.data?.flow.stages.find((stage) => stage.id === current.id) ?? payload.data!.flow.stages[0];
-          });
+        if (!response.ok) {
+          throw new Error(`Revenue summary request failed with HTTP ${response.status}.`);
         }
+        const payload = (await response.json()) as RevenueSummaryResponse;
+        if (!payload.ok || !payload.data) {
+          throw new Error(payload.error ?? "Revenue summary response was not usable.");
+        }
+        if (!cancelled) {
+          const data = payload.data;
+          setSummary(data);
+          setActiveStage(
+            (current) => data.flow.stages.find((stage) => stage.id === current.id) ?? data.flow.stages[0],
+          );
+        }
+      } catch (error) {
+        // Keep showing the last good snapshot; the next interval retries.
+        console.error("[revenue-breakdown] Refresh failed.", error);
       } finally {
         if (!cancelled) setIsRefreshing(false);
       }

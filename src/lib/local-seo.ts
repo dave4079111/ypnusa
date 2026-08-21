@@ -304,7 +304,11 @@ export async function loadGbpReviews(profile: PublicBusinessProfile): Promise<Re
             ? "Verified review data supplied by the configured provider."
             : "The configured provider returned no publishable reviews.",
       };
-    } catch {
+    } catch (error) {
+      console.warn(
+        "[local-seo] Verified review provider request failed.",
+        error instanceof Error ? error.message : error,
+      );
       return {
         status: "unavailable",
         reviews: [],
@@ -325,7 +329,11 @@ export async function loadGbpReviews(profile: PublicBusinessProfile): Promise<Re
             ? "Verified review data supplied by site configuration."
             : "No valid configured reviews are available.",
       };
-    } catch {
+    } catch (error) {
+      console.warn(
+        "[local-seo] GBP_VERIFIED_REVIEWS_JSON is not valid JSON.",
+        error instanceof Error ? error.message : error,
+      );
       return {
         status: "unavailable",
         reviews: [],

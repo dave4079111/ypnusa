@@ -1,3 +1,4 @@
+import { logApiError } from "@/lib/http";
 import { getPublicBusinessProfile } from "@/lib/local-seo";
 import {
   buildReviewRequestMessage,
@@ -66,6 +67,10 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
+      logApiError(
+        "/api/reviews/request",
+        new Error(`Review delivery provider returned HTTP ${response.status}.`),
+      );
       return Response.json(
         {
           accepted: true,
@@ -76,7 +81,8 @@ export async function POST(request: Request) {
         { status: 502 },
       );
     }
-  } catch {
+  } catch (error) {
+    logApiError("/api/reviews/request", error);
     return Response.json(
       {
         accepted: true,

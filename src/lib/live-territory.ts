@@ -49,9 +49,17 @@ export async function fetchLiveTerritory(
       cache: "no-store",
       signal: AbortSignal.timeout(8_000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[live-territory] zip-check for ${zip} returned HTTP ${res.status}; using local data.`);
+      return null;
+    }
     const data = (await res.json()) as LiveZipCheckResponse;
-    if (typeof data.available !== "boolean") return null;
+    if (typeof data.available !== "boolean") {
+      console.warn(
+        `[live-territory] zip-check for ${zip} returned an unusable payload; using local data.`,
+      );
+      return null;
+    }
 
     const place =
       data.city && data.state ? `${data.city}, ${data.state}` : `ZIP ${zip}`;
@@ -73,7 +81,11 @@ export async function fetchLiveTerritory(
           : `${place} is exclusively locked.${demand}`),
       live: data,
     };
-  } catch {
+  } catch (error) {
+    console.warn(
+      `[live-territory] zip-check for ${zip} failed; using local data.`,
+      error instanceof Error ? error.message : error,
+    );
     return null;
   }
 }

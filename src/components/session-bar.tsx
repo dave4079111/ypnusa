@@ -15,11 +15,17 @@ export function SessionBar({ tone = "light" }: { tone?: "light" | "dark" }) {
   useEffect(() => {
     let cancelled = false;
     fetch("/api/auth/session")
-      .then((response) => response.json())
-      .then((body: { session: SessionInfo | null }) => {
-        if (!cancelled) setSession(body.session);
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Session lookup failed with HTTP ${response.status}.`);
+        }
+        return (await response.json()) as { session: SessionInfo | null };
       })
-      .catch(() => {
+      .then((body) => {
+        if (!cancelled) setSession(body.session ?? null);
+      })
+      .catch((error: unknown) => {
+        console.error("[session-bar] Could not load the current session.", error);
         if (!cancelled) setSession(null);
       });
     return () => {
@@ -28,7 +34,16 @@ export function SessionBar({ tone = "light" }: { tone?: "light" | "dark" }) {
   }, []);
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        throw new Error(`Logout failed with HTTP ${response.status}.`);
+      }
+    } catch (error) {
+      // Still send the user to /login: the cookie may already be cleared, and the
+      // login page re-checks the session either way.
+      console.error("[session-bar] Logout request failed.", error);
+    }
     router.push("/login");
     router.refresh();
   }

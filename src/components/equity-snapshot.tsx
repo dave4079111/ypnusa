@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { usePersonalization } from "@/lib/hooks/usePersonalization";
+import { useCTAEngine } from "@/lib/hooks/useCTAEngine";
 
 interface Snapshot {
   estimatedHomeValueUsd: number;
@@ -39,6 +41,8 @@ export function EquitySnapshot() {
   const [consent, setConsent] = useState(false);
   const [reviewState, setReviewState] = useState<"idle" | "saving" | "saved">("idle");
   const [reviewError, setReviewError] = useState("");
+  const personalization = usePersonalization();
+  const cta = useCTAEngine();
 
   const requestBody = {
     zip,
@@ -64,12 +68,24 @@ export function EquitySnapshot() {
         throw new Error(data.error ?? "The estimate could not be calculated.");
       }
       setSnapshot(data.snapshot);
+      void enrichWithIntelligence(zip);
     } catch (error) {
       setSnapshot(null);
       setEstimateError(error instanceof Error ? error.message : "The estimate could not be calculated.");
     } finally {
       setEstimating(false);
     }
+  }
+
+  /** Best-effort personalization/CTA enrichment — never blocks the core calculator flow. */
+  async function enrichWithIntelligence(zipValue: string) {
+    const personalizeResult = await personalization.generate(zipValue);
+    if (!personalizeResult?.ok) return;
+    await cta.generate({
+      zip: zipValue,
+      county: personalizeResult.zipContext?.county,
+      personalization: personalizeResult.personalization,
+    });
   }
 
   async function requestReview(event: FormEvent<HTMLFormElement>) {
@@ -236,6 +252,14 @@ export function EquitySnapshot() {
               commitment to lend, or offer of loan terms. Actual limits vary by program,
               occupancy, credit, property, and lender requirements.
             </p>
+
+            {cta.data?.microNudges?.length ? (
+              <ul className="mt-4 space-y-1 text-[12px] leading-5 text-white/65">
+                {cta.data.microNudges.slice(0, 2).map((nudge) => (
+                  <li key={nudge}>{nudge}</li>
+                ))}
+              </ul>
+            ) : null}
 
             {reviewState === "saved" ? (
               <div className="mt-6 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">

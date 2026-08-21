@@ -180,7 +180,8 @@ export interface AnalyticsEventRecord {
     | "demo_requested"
     | "property_evaluation_saved"
     | "funnel_stage_viewed"
-    | "funnel_cta_clicked";
+    | "funnel_cta_clicked"
+    | "lead_intelligence_computed";
   createdAt: string;
   payload: Record<string, unknown>;
 }

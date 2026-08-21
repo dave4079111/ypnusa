@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { marketingUrl } from "@/lib/site";
+import { usePersonalization } from "@/lib/hooks/usePersonalization";
+import { useCTAEngine } from "@/lib/hooks/useCTAEngine";
 
 type CheckState =
   | { status: "idle" }
@@ -45,6 +47,8 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
   const [zip, setZip] = useState("");
   const [check, setCheck] = useState<CheckState>({ status: "idle" });
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
+  const personalization = usePersonalization();
+  const cta = useCTAEngine();
 
   const [form, setForm] = useState({
     name: "",
@@ -100,9 +104,23 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
         demandTotal: data.demand?.total ?? null,
         source: data.source,
       });
+      void enrichWithIntelligence(data.zip, data.available, data.demand?.total ?? undefined);
     } catch {
       setCheck({ status: "error", message: "Couldn't reach the territory service — try again." });
     }
+  }
+
+  /** Best-effort personalization/CTA enrichment — never blocks the core check/reserve flow. */
+  async function enrichWithIntelligence(zipValue: string, available: boolean, demandTotal?: number) {
+    const personalizeResult = await personalization.generate(zipValue);
+    if (!personalizeResult?.ok) return;
+    await cta.generate({
+      zip: zipValue,
+      county: personalizeResult.zipContext?.county,
+      available,
+      demandTotal,
+      personalization: personalizeResult.personalization,
+    });
   }
 
   async function submitReservation(e: React.FormEvent) {
@@ -254,6 +272,16 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
             >
               {check.available ? "Claim this ZIP free →" : "Start free on a nearby ZIP →"}
             </a>
+            {cta.data?.microNudges?.length ? (
+              <ul className="mt-3 space-y-1 text-[12px] leading-5 text-white/70">
+                {cta.data.microNudges
+                  .filter((nudge) => !nudge.startsWith("~"))
+                  .slice(0, 2)
+                  .map((nudge) => (
+                    <li key={nudge}>{nudge}</li>
+                  ))}
+              </ul>
+            ) : null}
           </div>
         ) : null}
       </div>

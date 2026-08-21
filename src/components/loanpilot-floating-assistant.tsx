@@ -3,6 +3,7 @@
 import type { BorrowerAnswers, LoanProgram } from "@/lib/types";
 import type { AssistantStep, IntakeTickResponse } from "@/lib/intake-contracts";
 import { PROGRAM_LIST } from "@/lib/programs";
+import { useStageTracking } from "@/lib/hooks/useStageTracking";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 type Bubble = { id: string; role: "assistant" | "user" | "system"; body: string };
@@ -19,6 +20,21 @@ function makeId(prefix: string) {
     return `${prefix}_${crypto.randomUUID()}`;
   }
   return `${prefix}_${Math.random().toString(36).slice(2, 11)}`;
+}
+
+const ANON_ID_KEY = "ypn_anon_id_v1";
+
+/** One stable per-browser id for pre-session funnel tracking (see useStageTracking). */
+function resolveAnonId(): string {
+  try {
+    const existing = window.localStorage.getItem(ANON_ID_KEY);
+    if (existing) return existing;
+    const created = makeId("anon");
+    window.localStorage.setItem(ANON_ID_KEY, created);
+    return created;
+  } catch {
+    return makeId("anon");
+  }
 }
 
 function slotPretty(iso: string) {
@@ -58,6 +74,11 @@ export function MortgageIntakeChat(props: {
   const hasHydratedFsRef = useRef(false);
   const embedBootedRef = useRef(false);
 
+  const [anonIdState, setAnonIdState] = useState<string | null>(null);
+  const viewedTrackedRef = useRef(false);
+  const startedTrackedRef = useRef(false);
+  const completedTrackedRef = useRef(false);
+
   const [msgs, setMsgs] = useState<Bubble[]>([]);
   const [pct, setPct] = useState(8);
   const [counts, setCounts] = useState({ done: 0, total: 1 });
@@ -74,6 +95,8 @@ export function MortgageIntakeChat(props: {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const surfaceOpen = variant === "embed" || open;
+  const trackingId = sessionIdState ?? anonIdState ?? "";
+  const { trackStage, trackCtaClick } = useStageTracking(trackingId);
 
   useEffect(() => {
     if (hasHydratedFsRef.current) return;
@@ -88,7 +111,15 @@ export function MortgageIntakeChat(props: {
     } catch {
       /** noop */
     }
+    setAnonIdState(resolveAnonId());
   }, [STORAGE_KEY]);
+
+  /** Pre-lead funnel stage: fires once the borrower actually sees the intake surface. */
+  useEffect(() => {
+    if (!surfaceOpen || !trackingId || viewedTrackedRef.current) return;
+    viewedTrackedRef.current = true;
+    void trackStage("viewed_borrower_page");
+  }, [surfaceOpen, trackingId, trackStage]);
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -178,6 +209,10 @@ export function MortgageIntakeChat(props: {
       setCrm(snapshot.crmArtifacts);
       await hydrateSlots(snapshot.slotPreview, snapshot.crmArtifacts?.assignedOfficer?.id);
       setBooked(null);
+      if (snapshot.ok && !completedTrackedRef.current) {
+        completedTrackedRef.current = true;
+        void trackStage("completed_signup");
+      }
     } else {
       setSlots([]);
       setCrm(undefined);
@@ -193,6 +228,10 @@ export function MortgageIntakeChat(props: {
   }
 
   async function postTick(payload?: IncomingPayload) {
+    if (payload && !startedTrackedRef.current) {
+      startedTrackedRef.current = true;
+      void trackStage("started_signup");
+    }
     setBusy(true);
     setLastError(null);
     try {
@@ -261,6 +300,7 @@ export function MortgageIntakeChat(props: {
 
   function handleOpen() {
     setOpen(true);
+    void trackCtaClick("start_intake");
     void bootConversation();
   }
 

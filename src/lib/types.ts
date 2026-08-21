@@ -134,7 +134,7 @@ export interface ScheduledFollowUpRecord {
   channel: FollowUpChannel;
   recipient: string;
   scheduledAt: string;
-  status: "pending" | "sending" | "sent" | "failed";
+  status: "pending" | "sending" | "sent" | "failed" | "cancelled";
   bodySummary: string;
   createdAt: string;
   sentAt?: string;

@@ -11,7 +11,8 @@ import { scoreLead, type Lead } from "./agents/predictiveAgent";
 import { buildBorrowerProfile, type BorrowerProfileBasics } from "./borrower/profileEngine";
 import { buildOutcomeSignals } from "./predictive/outcomeEngine";
 import { buildLeadState } from "./lead-lifecycle";
-import { decideNextAction } from "./next-best-action";
+import { runAgentTurn } from "./agent-runtime";
+import { defaultAgentExecutor } from "./agent-executor";
 
 function creditConfidenceFromBand(band?: string): BorrowerProfileBasics["creditConfidence"] {
   switch (band) {
@@ -48,10 +49,9 @@ async function connectLeadIntelligence(input: {
   answers: BorrowerAnswers;
   session: IntakeSessionRecord;
   borrowerLeadId: string;
-  loId: string;
   followUps: ReturnType<typeof scheduleBorrowerJourney>;
 }): Promise<void> {
-  const { answers, session, borrowerLeadId, loId, followUps } = input;
+  const { answers, session, borrowerLeadId, followUps } = input;
   if (!answers.zip) return;
 
   try {
@@ -97,8 +97,10 @@ async function connectLeadIntelligence(input: {
       currentObjective: "connect borrower with loan officer",
     });
 
-    const action = decideNextAction({
-      state: leadState,
+    const borrowerLead = readDb().borrowerLeads.find((item) => item.id === borrowerLeadId);
+
+    const { action, result } = await runAgentTurn(leadState, defaultAgentExecutor, {
+      borrowerLead,
       predictiveSignal: {
         leadScore: predictive.leadScore,
         lifeEventLikelihood: predictive.lifeEventLikelihood,
@@ -115,22 +117,9 @@ async function connectLeadIntelligence(input: {
         followUpNecessity: outcomeSignals.followUpNecessity,
         persona: borrowerProfile.persona,
         nextAction: action.kind,
+        nextActionOk: result?.ok,
       },
     });
-
-    if (action.kind === "alert_mlo") {
-      const db = readDb();
-      const borrowerLeadRecord = db.borrowerLeads.find((item) => item.id === borrowerLeadId);
-      if (borrowerLeadRecord) {
-        notifyAssignedOfficer({
-          loId,
-          borrowerLeadId,
-          loanProgram: session.loanProgram,
-          answers,
-          qualification: borrowerLeadRecord.qualification,
-        });
-      }
-    }
   } catch (error) {
     console.error("[intake-pipeline] lead intelligence connection failed", error);
   }
@@ -238,7 +227,6 @@ export async function finalizeIntakeArtifacts(
     answers,
     session: patched,
     borrowerLeadId: crm.borrowerLeadId,
-    loId: officerProfile.id,
     followUps,
   });
 

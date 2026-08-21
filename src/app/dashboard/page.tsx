@@ -29,6 +29,46 @@ const SECTIONS = [
     title: "Revenue Breakdown",
     description: "Subscription tiers and territory claims.",
   },
+  {
+    href: "/dashboard/territories",
+    title: "Territory Intelligence",
+    description: "ZIP-level availability, opportunity scoring, and explanations.",
+  },
+  {
+    href: "/dashboard/life-events",
+    title: "Life-Event Intelligence",
+    description: "Rule-based lead scoring across census and county life-event signals.",
+  },
+  {
+    href: "/dashboard/intelligence",
+    title: "Content Generators",
+    description: "Marketing copy, GMB posts, and website page specs.",
+  },
+  {
+    href: "/dashboard/content",
+    title: "Content Ingestion",
+    description: "Turn WordPress HTML/Markdown into normalized patterns.",
+  },
+  {
+    href: "/dashboard/silos",
+    title: "Content Silos",
+    description: "Patterns classified by silo with funnel recommendations.",
+  },
+  {
+    href: "/dashboard/funnels",
+    title: "Funnel Builder",
+    description: "Landing page, email sequence, and social posts from one pattern.",
+  },
+  {
+    href: "/dashboard/conversion",
+    title: "Conversion Insights",
+    description: "ZIP demand, life-event likelihood, and CTA performance sets.",
+  },
+  {
+    href: "/dashboard/borrower-intelligence",
+    title: "Borrower Intelligence",
+    description: "Borrower persona, confidence, and signup/conversion outcome predictions.",
+  },
 ] as const;
 
 export default async function DashboardHubPage() {

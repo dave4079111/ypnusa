@@ -5,6 +5,29 @@ function actionId(kind: AgentAction["kind"], seed: string): string {
   return `agent_${kind}_${seed}`;
 }
 
+const FOLLOWUP_NECESSITY_ESCALATION_THRESHOLD = 75;
+
+/**
+ * Narrow, additive hook for src/lib/predictive/outcomeEngine.ts: when a
+ * strong outcome signal says a lead badly needs a human touch, escalate to
+ * alert_mlo instead of whatever the lifecycle's default action would be.
+ * Returns null (no-op) whenever predictiveSignal is absent, so behavior is
+ * unchanged for every existing caller.
+ */
+function escalationFromPredictiveSignal(context: AgentContext, seed: string): AgentAction | null {
+  const followUpNecessity = context.predictiveSignal?.outcomeSignals?.followUpNecessity;
+  if (typeof followUpNecessity !== "number" || followUpNecessity < FOLLOWUP_NECESSITY_ESCALATION_THRESHOLD) {
+    return null;
+  }
+  return {
+    id: actionId("alert_mlo", seed),
+    kind: "alert_mlo",
+    reason: `Predictive outcome signal flags high follow-up necessity (${Math.round(followUpNecessity)}/100).`,
+    requiresHumanApproval: false,
+    payload: { urgency: "high", source: "predictiveSignal" },
+  };
+}
+
 /**
  * Deterministic first version of the agent decision layer.
  * An LLM can later supply richer intent/clarification decisions, but all
@@ -60,6 +83,8 @@ export function decideNextAction(context: AgentContext): AgentAction {
   }
 
   if (state.lifecycle === "contacting") {
+    const escalation = escalationFromPredictiveSignal(context, seed);
+    if (escalation) return escalation;
     return {
       id: actionId("create_followup", seed),
       kind: "create_followup",
@@ -80,6 +105,8 @@ export function decideNextAction(context: AgentContext): AgentAction {
   }
 
   if (state.lifecycle === "unresponsive" || state.lifecycle === "reengage") {
+    const escalation = escalationFromPredictiveSignal(context, seed);
+    if (escalation) return escalation;
     return {
       id: actionId("send_sms", seed),
       kind: "send_sms",
@@ -98,6 +125,9 @@ export function decideNextAction(context: AgentContext): AgentAction {
       payload: { urgency: "high" },
     };
   }
+
+  const escalation = escalationFromPredictiveSignal(context, seed);
+  if (escalation) return escalation;
 
   return {
     id: actionId("wait", seed),

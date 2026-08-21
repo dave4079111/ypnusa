@@ -4,12 +4,15 @@ import type {
   LoanOfficerRecord,
   ScheduledFollowUpRecord,
 } from "./types";
+import type { PersonalizationSummary } from "./personalization/personalizationEngine";
 
 const REQUEST_TIMEOUT_MS = 8_000;
 
 export interface OutreachContext {
   lead: BorrowerLeadRecord;
   officer: LoanOfficerRecord;
+  /** Optional ZIP-derived personalization (src/lib/personalization/personalizationEngine.ts). */
+  personalization?: PersonalizationSummary;
 }
 
 export interface OutreachDeliveryResult {
@@ -40,13 +43,21 @@ function firstName(name?: string): string {
   return name?.trim().split(/\s+/)[0] || "there";
 }
 
+/** One extra line appended when ZIP-derived personalization is available. */
+function formatPersonalizationLine(personalization: PersonalizationSummary): string {
+  return `\n\n${personalization.whyThisMattersForYou}`;
+}
+
 export function composeOutreach(
   plan: FollowUpPlan,
   context: OutreachContext,
 ): { subject: string; body: string } {
+  const base = outreachCopy[plan](firstName(context.lead.answers.name), context.officer.name);
+  const body = context.personalization ? `${base}${formatPersonalizationLine(context.personalization)}` : base;
+
   return {
     subject: `Your mortgage next steps with ${context.officer.name}`,
-    body: outreachCopy[plan](firstName(context.lead.answers.name), context.officer.name),
+    body,
   };
 }
 

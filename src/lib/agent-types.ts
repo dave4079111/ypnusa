@@ -8,6 +8,7 @@ import type {
   QualificationSummary,
   ScheduledFollowUpRecord,
 } from "./types";
+import type { OutcomeSignals } from "./predictive/outcomeEngine";
 
 /**
  * Persistent state the agent uses to manage a lead after intake.
@@ -80,6 +81,12 @@ export interface AgentContext {
   state: LeadState;
   borrowerLead?: BorrowerLeadRecord;
   now?: Date;
+  /** Optional ZIP/county predictive signal (src/lib/agents/predictiveAgent.ts + predictive/outcomeEngine.ts). */
+  predictiveSignal?: {
+    leadScore: number;
+    lifeEventLikelihood: number;
+    outcomeSignals?: OutcomeSignals;
+  };
 }
 
 export type AgentActionExecutor = (

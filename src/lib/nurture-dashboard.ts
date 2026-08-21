@@ -17,6 +17,14 @@ export interface NurtureDashboardRow {
   nextChannel?: FollowUpChannel;
   appointmentStart?: string;
   meetingUrl?: string;
+  /** Populated only when the lead's ZIP is resolvable and the caller supplies a matching predictiveByZip entry. */
+  lifeEventLikelihood?: number;
+  zipDemandNote?: string;
+}
+
+export interface PredictiveZipSignal {
+  lifeEventLikelihood: number;
+  zipDemandNote?: string;
 }
 
 export interface EquityReviewRow {
@@ -43,7 +51,14 @@ function safeDisplayName(name?: string): string {
   return `${parts[0]} ${parts[parts.length - 1][0]}.`;
 }
 
-export function buildNurtureDashboard(loId?: string) {
+/**
+ * predictiveByZip is an optional, caller-supplied lookup (e.g. pre-fetched via
+ * src/lib/agents/zipContext.ts + predictiveAgent.ts for the ZIPs present among
+ * the leads) so this function itself stays synchronous — buildNurtureDashboard
+ * is called without `await` by two existing tests and the /portal/nurture
+ * page, and ZIP-context resolution requires async I/O.
+ */
+export function buildNurtureDashboard(loId?: string, predictiveByZip?: Record<string, PredictiveZipSignal>) {
   const db = readDb();
   const officers = loId
     ? db.loanOfficers.filter((officer) => officer.id === loId)
@@ -69,6 +84,9 @@ export function buildNurtureDashboard(loId?: string) {
       else if (failed && !nextFollowUp) state = "Outreach failed";
       else if (nextFollowUp) state = "Nurture active";
 
+      const zip = lead.answers.zip;
+      const predictive = zip ? predictiveByZip?.[zip] : undefined;
+
       return {
         leadId: lead.id,
         borrowerName: safeDisplayName(lead.answers.name),
@@ -84,6 +102,8 @@ export function buildNurtureDashboard(loId?: string) {
         nextChannel: nextFollowUp?.channel,
         appointmentStart: appointment?.start,
         meetingUrl: appointment?.meetingUrl ?? appointment?.externalBookingUrl,
+        lifeEventLikelihood: predictive?.lifeEventLikelihood,
+        zipDemandNote: predictive?.zipDemandNote,
       };
     })
     .sort((a, b) => {

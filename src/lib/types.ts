@@ -32,6 +32,8 @@ export interface BorrowerAnswers {
   email?: string;
   phone?: string;
   contactConsent?: boolean;
+  /** ZIP the borrower is transacting in — not currently collected by the intake flow; optional until it is. */
+  zip?: string;
   /** e.g. 620-679, prefer numeric midpoint for scoring when possible */
   estimatedCreditBand?: string;
   annualIncomeUsd?: number;
@@ -176,7 +178,10 @@ export interface AnalyticsEventRecord {
     | "appointment_booked"
     | "followup_processed"
     | "demo_requested"
-    | "property_evaluation_saved";
+    | "property_evaluation_saved"
+    | "funnel_stage_viewed"
+    | "funnel_cta_clicked"
+    | "lead_intelligence_computed";
   createdAt: string;
   payload: Record<string, unknown>;
 }

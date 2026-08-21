@@ -326,6 +326,32 @@ export function appendAppointment(record: AppointmentRecord): void {
   writeDb((db) => db.appointments.push(record));
 }
 
+/** Appends one note to a CRM lead's mirrored notes. Returns false if no CRM lead exists for that borrower. */
+export function appendCrmNote(borrowerLeadId: string, note: string): boolean {
+  let found = false;
+  writeDb((db) => {
+    const crm = db.crmLeads.find((item) => item.borrowerLeadId === borrowerLeadId);
+    if (!crm) return;
+    crm.notes.push(note);
+    found = true;
+  });
+  return found;
+}
+
+/** Marks every still-pending follow-up for a lead as cancelled. Returns the number cancelled. */
+export function cancelPendingFollowUps(borrowerLeadId: string): number {
+  let cancelled = 0;
+  writeDb((db) => {
+    db.followUps.forEach((job) => {
+      if (job.borrowerLeadId === borrowerLeadId && job.status === "pending") {
+        job.status = "cancelled";
+        cancelled += 1;
+      }
+    });
+  });
+  return cancelled;
+}
+
 export function appendDemoRequest(record: DemoRequestRecord): void {
   writeDb((db) => db.demoRequests.push(record));
 }

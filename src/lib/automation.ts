@@ -1,11 +1,48 @@
 import { appendAnalytics, persistFollowUpsBatch, readDb, writeDb } from "./db";
 import { generateId } from "./id";
 import { deliverOutreach } from "./outreach";
+import { buildZipContext } from "./agents/zipContext";
+import { buildCountyEvents } from "./agents/countyEvents";
+import { scoreLead, type Lead } from "./agents/predictiveAgent";
+import { buildPersonalization, type PersonalizationSummary } from "./personalization/personalizationEngine";
 import type {
   BorrowerAnswers,
+  BorrowerLeadRecord,
   FollowUpPlan,
   ScheduledFollowUpRecord,
 } from "./types";
+
+/**
+ * Best-effort ZIP-derived personalization for outreach copy — same
+ * computation /api/personalize already performs. Never throws and never
+ * blocks delivery: returns undefined when the lead has no ZIP (not
+ * currently collected by intake) or a provider call fails.
+ */
+async function resolveOutreachPersonalization(
+  lead: BorrowerLeadRecord,
+): Promise<PersonalizationSummary | undefined> {
+  const zip = lead.answers.zip;
+  if (!zip) return undefined;
+
+  try {
+    const zipContext = await buildZipContext(zip);
+    const countyEvents = await buildCountyEvents(zipContext.county);
+    const leadForScoring: Lead = {
+      id: lead.id,
+      name: lead.answers.name ?? "Borrower",
+      email: lead.answers.email,
+      phone: lead.answers.phone,
+      zip,
+      tags: [lead.answers.loanProgram],
+      createdAt: lead.createdAt,
+    };
+    const predictive = scoreLead(leadForScoring, zipContext, countyEvents);
+    return buildPersonalization({ zipContext, countyEvents, predictive });
+  } catch (error) {
+    console.error("[automation] outreach personalization lookup failed", error);
+    return undefined;
+  }
+}
 
 export function demoDayMilliseconds(): number {
   if (process.env.LOANPILOT_DEMO_MODE === "1") {
@@ -147,7 +184,8 @@ export async function processDueFollowUps(options?: {
     }
 
     try {
-      const delivery = await deliverOutreach(job, { lead, officer });
+      const personalization = await resolveOutreachPersonalization(lead);
+      const delivery = await deliverOutreach(job, { lead, officer, personalization });
       writeDb((db) => {
         const current = db.followUps.find((item) => item.id === jobId);
         if (!current) return;

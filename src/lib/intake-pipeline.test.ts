@@ -64,6 +64,10 @@ describe("finalizeIntakeArtifacts lead intelligence connection", async () => {
     assert.equal(typeof event?.payload.lifeEventLikelihood, "number");
     assert.equal(typeof event?.payload.followUpNecessity, "number");
     assert.ok(event?.payload.nextAction);
+    // The decided action must actually have run through the policy-gated executor
+    // (agent-runtime.ts + agent-executor.ts) and reported an outcome — not just been
+    // computed and discarded. This is the borrower → agent → real-effect chain end to end.
+    assert.equal(typeof event?.payload.nextActionOk, "boolean");
   });
 
   it("skips intelligence computation when the borrower ZIP is unknown (not currently collected by intake)", async () => {

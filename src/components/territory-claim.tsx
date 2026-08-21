@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { marketingUrl } from "@/lib/site";
 import { usePersonalization } from "@/lib/hooks/usePersonalization";
 import { useCTAEngine } from "@/lib/hooks/useCTAEngine";
@@ -44,6 +44,7 @@ function signupHrefFor(zip?: string, plan = "free") {
 }
 
 export function TerritoryClaim({ source = "territory_section" }: { source?: string }) {
+  const zipInputId = useId();
   const [zip, setZip] = useState("");
   const [check, setCheck] = useState<CheckState>({ status: "idle" });
   const [submit, setSubmit] = useState<SubmitState>({ status: "idle" });
@@ -173,12 +174,12 @@ export function TerritoryClaim({ source = "territory_section" }: { source?: stri
 
   return (
     <div className="w-full rounded-[28px] border border-white/15 bg-white/[0.06] p-6 shadow-2xl shadow-slate-950/40 backdrop-blur md:p-8">
-      <label htmlFor="territory-zip" className="text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-200">
+      <label htmlFor={zipInputId} className="text-[11px] font-semibold uppercase tracking-[0.28em] text-violet-200">
         Check your territory
       </label>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
         <input
-          id="territory-zip"
+          id={zipInputId}
           inputMode="numeric"
           autoComplete="postal-code"
           placeholder="Enter ZIP code (e.g. 92672)"

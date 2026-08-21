@@ -181,6 +181,7 @@ export function NurturePipeline({ rows }: NurturePipelineProps) {
                 <th className="px-5 py-3 font-medium">Score</th>
                 <th className="px-5 py-3 font-medium">Conversation</th>
                 <th className="px-5 py-3 font-medium">Next action</th>
+                <th className="px-5 py-3 font-medium">AI activity</th>
                 <th className="px-5 py-3 font-medium">Assigned MLO</th>
               </tr>
             </thead>
@@ -238,6 +239,22 @@ export function NurturePipeline({ rows }: NurturePipelineProps) {
                           {row.nextChannel ?? "Offer appointment"}
                         </p>
                       </div>
+                    )}
+                  </td>
+                  <td className="px-5 py-4">
+                    {row.aiEscalation ? (
+                      <div>
+                        <span className="inline-flex rounded-full border border-rose-400/40 bg-rose-400/15 px-2.5 py-1 text-xs font-semibold text-rose-200">
+                          Escalated
+                        </span>
+                        <p className="mt-1 max-w-[16rem] text-xs text-white/60">{row.aiEscalation.reason}</p>
+                      </div>
+                    ) : row.latestAgentNote ? (
+                      <p className="max-w-[16rem] text-xs text-white/50">
+                        {row.latestAgentNote.replace(/^Agent ▸ /, "")}
+                      </p>
+                    ) : (
+                      <span className="text-xs text-white/30">—</span>
                     )}
                   </td>
                   <td className="px-5 py-4 text-white/70">{row.officerName}</td>

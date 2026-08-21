@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import type { SessionRole } from "@/lib/session";
 
 /**
@@ -35,6 +35,22 @@ function ssoSecret(): string | null {
 
 export function ssoHandoffConfigured(): boolean {
   return ssoSecret() !== null;
+}
+
+export interface SsoSecretDiagnostics {
+  configured: boolean;
+  /** First 8 hex chars of sha256(secret) — enough to compare against an independently computed
+   *  fingerprint elsewhere (e.g. the WordPress side), never enough to recover the secret itself. */
+  fingerprint: string | null;
+}
+
+/** Never returns or logs the raw secret. */
+export function ssoSecretDiagnostics(): SsoSecretDiagnostics {
+  const secret = ssoSecret();
+  return {
+    configured: secret !== null,
+    fingerprint: secret ? createHash("sha256").update(secret).digest("hex").slice(0, 8) : null,
+  };
 }
 
 function canonicalMessage(email: string, sub: string, role: string, iat: string, next: string): string {

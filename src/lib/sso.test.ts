@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { describe, it } from "node:test";
-import { verifySsoHandoff } from "./sso";
+import { ssoSecretDiagnostics, verifySsoHandoff } from "./sso";
 
 const TEST_SECRET = "test-sso-shared-secret";
 
@@ -81,5 +81,21 @@ describe("SSO handoff verification", () => {
       buildUrl({ next: "//evil.example.com", sig: sign("jordan@example.com", "wp_42", "mlo", iat, "//evil.example.com") }),
     );
     assert.ok("error" in result);
+  });
+});
+
+describe("ssoSecretDiagnostics", () => {
+  it("reports unconfigured with a null fingerprint when unset", () => {
+    delete process.env.YPNUS_SSO_SHARED_SECRET;
+    const diagnostics = ssoSecretDiagnostics();
+    assert.equal(diagnostics.configured, false);
+    assert.equal(diagnostics.fingerprint, null);
+  });
+
+  it("reports configured with a matching fingerprint, never the raw secret", () => {
+    process.env.YPNUS_SSO_SHARED_SECRET = TEST_SECRET;
+    const diagnostics = ssoSecretDiagnostics();
+    assert.equal(diagnostics.configured, true);
+    assert.equal(diagnostics.fingerprint, createHash("sha256").update(TEST_SECRET).digest("hex").slice(0, 8));
   });
 });

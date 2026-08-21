@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 
 /**
  * Signed, stateless session tokens for app.ypnus.com.
@@ -123,6 +123,25 @@ export function verifySessionToken(token: string | undefined | null): SessionPay
   } catch {
     return null;
   }
+}
+
+export interface SessionSecretDiagnostics {
+  /** Whether SESSION_SECRET is set in the environment (vs. falling back to the persisted key file). */
+  configured: boolean;
+  source: "env" | "persisted-fallback";
+  /** First 8 hex chars of sha256(secret) — enough to compare against an independently computed
+   *  fingerprint elsewhere, never enough to recover the secret itself. */
+  fingerprint: string;
+}
+
+/** Never returns or logs the raw secret — see docs/sso-handoff.md for how to use this safely. */
+export function sessionSecretDiagnostics(): SessionSecretDiagnostics {
+  const configured = Boolean(process.env.SESSION_SECRET?.trim());
+  return {
+    configured,
+    source: configured ? "env" : "persisted-fallback",
+    fingerprint: createHash("sha256").update(sessionSecret()).digest("hex").slice(0, 8),
+  };
 }
 
 export const SESSION_COOKIE_OPTIONS = {

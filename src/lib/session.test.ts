@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { describe, it } from "node:test";
-import { createSessionToken, verifySessionToken } from "./session";
+import { createSessionToken, sessionSecretDiagnostics, verifySessionToken } from "./session";
 
 const TEST_SECRET = "test-session-secret-do-not-use-in-prod";
 process.env.SESSION_SECRET = TEST_SECRET;
@@ -58,5 +58,16 @@ describe("session tokens", () => {
       JSON.stringify({ sub: "wp_1", email: "x@example.com", role: "mlo", iat: now - 7200, exp: now - 3600 }),
     ).toString("base64url");
     assert.equal(verifySessionToken(`${payloadB64}.${sign(payloadB64)}`), null);
+  });
+});
+
+describe("sessionSecretDiagnostics", () => {
+  it("reports env-configured with a matching fingerprint, never the raw secret", () => {
+    process.env.SESSION_SECRET = TEST_SECRET;
+    const diagnostics = sessionSecretDiagnostics();
+    assert.equal(diagnostics.configured, true);
+    assert.equal(diagnostics.source, "env");
+    assert.equal(diagnostics.fingerprint, createHash("sha256").update(TEST_SECRET).digest("hex").slice(0, 8));
+    assert.equal(diagnostics.fingerprint.length, 8);
   });
 });

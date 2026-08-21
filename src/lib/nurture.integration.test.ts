@@ -39,7 +39,7 @@ const lead: BorrowerLeadRecord = {
 };
 
 describe("borrower nurture and booking integration", async () => {
-  const { readDb, writeDb } = await import("./db");
+  const { readDb, writeDb, appendLoAlert, appendCrmLead } = await import("./db");
   const { processDueFollowUps, scheduleBorrowerJourney } = await import("./automation");
   const { bookAppointment, listSyncedAvailableSlots } = await import("./calendar");
   const { buildNurtureDashboard } = await import("./nurture-dashboard");
@@ -144,5 +144,81 @@ describe("borrower nurture and booking integration", async () => {
         "lead_low_score_99",
       ],
     );
+  });
+
+  it("surfaces an agent escalation only past the initial routing alert, ranked ahead of urgency/score", () => {
+    const rankedLeads: BorrowerLeadRecord[] = [
+      { ...lead, id: "lead_no_escalation", qualification: { ...lead.qualification, urgency: "critical" } },
+      { ...lead, id: "lead_escalated", qualification: { ...lead.qualification, urgency: "low" } },
+    ];
+    writeDb((db) => {
+      db.borrowerLeads = rankedLeads;
+      db.loAlerts = [];
+    });
+
+    // Every lead gets one routing alert on intake — that alone should not count as an escalation.
+    appendLoAlert({
+      id: "alert_routing_no_escalation",
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
+      loId: lead.assignedLoId,
+      borrowerLeadId: "lead_no_escalation",
+      loanProgram: answers.loanProgram,
+      summary: "routing",
+      qualificationSummary: lead.qualification,
+      suggestedAction: "Initial routing",
+    });
+    // This lead gets a second, later alert — a real agent escalation.
+    appendLoAlert({
+      id: "alert_routing_escalated",
+      createdAt: new Date(Date.now() - 60_000).toISOString(),
+      loId: lead.assignedLoId,
+      borrowerLeadId: "lead_escalated",
+      loanProgram: answers.loanProgram,
+      summary: "routing",
+      qualificationSummary: lead.qualification,
+      suggestedAction: "Initial routing",
+    });
+    appendLoAlert({
+      id: "alert_agent_escalation",
+      createdAt: new Date().toISOString(),
+      loId: lead.assignedLoId,
+      borrowerLeadId: "lead_escalated",
+      loanProgram: answers.loanProgram,
+      summary: "escalation",
+      qualificationSummary: lead.qualification,
+      suggestedAction: "Predictive outcome signal flags high follow-up necessity (88/100).",
+    });
+
+    const dashboard = buildNurtureDashboard(lead.assignedLoId);
+    const noEscalationRow = dashboard.rows.find((row) => row.leadId === "lead_no_escalation");
+    const escalatedRow = dashboard.rows.find((row) => row.leadId === "lead_escalated");
+
+    assert.equal(noEscalationRow?.aiEscalation, undefined);
+    assert.equal(
+      escalatedRow?.aiEscalation?.reason,
+      "Predictive outcome signal flags high follow-up necessity (88/100).",
+    );
+    // Escalated (low urgency) still ranks ahead of the critical-urgency, non-escalated lead.
+    assert.deepEqual(dashboard.rows.map((row) => row.leadId), ["lead_escalated", "lead_no_escalation"]);
+  });
+
+  it("surfaces the latest agent-authored CRM note, ignoring the static intake notes", () => {
+    writeDb((db) => {
+      db.borrowerLeads = [lead];
+      db.crmLeads = [];
+    });
+    appendCrmLead({
+      id: "crm_agent_note_test",
+      createdAt: new Date().toISOString(),
+      borrowerLeadId: lead.id,
+      assignedLoId: lead.assignedLoId,
+      status: "new_ai_routed",
+      notes: ["Funnel cohort: unit_test", "Agent ▸ Called, left voicemail."],
+      qualificationSnapshot: lead.qualification,
+    });
+
+    const dashboard = buildNurtureDashboard(lead.assignedLoId);
+    const row = dashboard.rows.find((item) => item.leadId === lead.id);
+    assert.equal(row?.latestAgentNote, "Agent ▸ Called, left voicemail.");
   });
 });

@@ -20,6 +20,11 @@ export interface NurtureDashboardRow {
   /** Populated only when the lead's ZIP is resolvable and the caller supplies a matching predictiveByZip entry. */
   lifeEventLikelihood?: number;
   zipDemandNote?: string;
+  /** Set only when the agent pipeline (agent-executor.ts) escalated this lead beyond its
+   *  initial routing alert — i.e. something changed and it flagged the MLO again. */
+  aiEscalation?: { reason: string; createdAt: string };
+  /** Most recent agent-authored CRM note (agent-executor.ts's add_crm_note), if any. */
+  latestAgentNote?: string;
 }
 
 export interface PredictiveZipSignal {
@@ -87,6 +92,16 @@ export function buildNurtureDashboard(loId?: string, predictiveByZip?: Record<st
       const zip = lead.answers.zip;
       const predictive = zip ? predictiveByZip?.[zip] : undefined;
 
+      const alerts = db.loAlerts
+        .filter((item) => item.borrowerLeadId === lead.id)
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+      // The first alert is always the initial routing notification every lead gets;
+      // a second one means the agent pipeline flagged this lead again after that.
+      const escalation = alerts.length > 1 ? alerts[0] : undefined;
+
+      const crmLead = db.crmLeads.find((item) => item.borrowerLeadId === lead.id);
+      const latestAgentNote = crmLead?.notes.filter((note) => note.startsWith("Agent ▸")).at(-1);
+
       return {
         leadId: lead.id,
         borrowerName: safeDisplayName(lead.answers.name),
@@ -104,9 +119,18 @@ export function buildNurtureDashboard(loId?: string, predictiveByZip?: Record<st
         meetingUrl: appointment?.meetingUrl ?? appointment?.externalBookingUrl,
         lifeEventLikelihood: predictive?.lifeEventLikelihood,
         zipDemandNote: predictive?.zipDemandNote,
+        aiEscalation: escalation
+          ? { reason: escalation.suggestedAction, createdAt: escalation.createdAt }
+          : undefined,
+        latestAgentNote,
       };
     })
     .sort((a, b) => {
+      // A fresh agent escalation means something changed after intake — surface it
+      // ahead of static urgency/score, which only reflect the original qualification.
+      const escalationDifference = Number(Boolean(b.aiEscalation)) - Number(Boolean(a.aiEscalation));
+      if (escalationDifference !== 0) return escalationDifference;
+
       const urgencyDifference = urgencyRank[a.urgency] - urgencyRank[b.urgency];
       if (urgencyDifference !== 0) return urgencyDifference;
       if (a.score !== b.score) return b.score - a.score;
